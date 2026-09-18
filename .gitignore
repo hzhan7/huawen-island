@@ -1,0 +1,8 @@
+.venv/
+vendor/
+dist/
+build/report.txt
+build/_*/
+content/_parts/
+.DS_Store
+__pycache__/

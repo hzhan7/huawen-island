@@ -2517,6 +2517,7 @@ p{margin:0}
     flower: flowerSvg,
     stamp: function (t, o) { return stampEl({ t: t, shape: (o && o.shape) || null }, o); },
     start: function (id) { if (booted) startGame(id); },
+    setGrade: function (gr) { if (booted && /^p[2-6]$/.test(gr)) setGrade(gr); },
     get games() { return orderedGames().map(function (g) { return { id: g.id, skill: g.skill, name: g.name }; }); },
     get stamps() { return STAMPS.map(function (s) { return { id: s.id, t: s.t, need: s.need }; }); }
   };

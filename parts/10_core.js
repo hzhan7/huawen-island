@@ -140,14 +140,19 @@
   var COLS = ['words', 'chars', 'quiz', 'pick', 'stories', 'readaloud', 'twisters', 'talk', 'order', 'passages', 'build', 'typo', 'compose'];
   var GAME_DATA = {
     pick: ['pick'], story: ['stories'], dictation: ['words'], readaloud: ['readaloud'], twister: ['twisters'], talk: ['talk'],
-    quiz: ['quiz'], match: ['words'], order: ['order'], passage: ['passages'], stroke: ['chars'], build: ['build'], typo: ['typo'], compose: ['compose']
+    quiz: ['quiz'], match: ['words'], order: ['order'], passage: ['passages'], stroke: ['chars'], build: ['build'], typo: ['typo'], compose: ['compose'],
+    // 2.0 街机游戏（游戏注册时给了 cols 就以 cols 为准，这里只是兜底）
+    balloon: ['pick'], catcher: ['words'], frog: ['stories'], rocket: ['readaloud'], beat: ['twisters'],
+    racer: ['quiz'], snake: ['order'], memory: ['words'], mole: ['typo'], fishing: ['build'], monster: ['chars']
   };
-  var GAME_ORDER = ['pick', 'story', 'dictation', 'readaloud', 'twister', 'talk', 'quiz', 'match', 'order', 'passage', 'stroke', 'build', 'typo', 'compose'];
+  var ARCADE_ORDER = ['balloon', 'catcher', 'frog', 'rocket', 'beat', 'racer', 'snake', 'memory', 'mole', 'fishing', 'monster'];
+  var GAME_ORDER = ARCADE_ORDER.concat(['pick', 'story', 'dictation', 'readaloud', 'twister', 'talk', 'quiz', 'match', 'order', 'passage', 'stroke', 'build', 'typo', 'compose']);
   var AVATARS = ['🐯', '🐰', '🐼', '🦁', '🐨', '🐧', '🦊', '🐱', '🐶', '🐸', '🦄', '🐬', '🐢', '🦉'];
   var RATE = { 2: 0.8, 3: 0.84, 4: 0.88, 5: 0.91, 6: 0.95 };
   var WRONG_MAX = 120, SEEN_MAX = 120, LOG_MAX = 80, REVIEW_MAX = 10;
   // 错题重练每轮交给游戏的题数 = 该游戏一轮最多出的题数（与 20/30 游戏里的 slice 上限一致或更小；游戏可用 def.reviewN 覆盖）
-  var REVIEW_N = { pick: 10, story: 1, dictation: 5, readaloud: 3, twister: 2, talk: 1, quiz: 10, match: 10, order: 6, passage: 2, stroke: 4, build: 8, typo: 8, compose: 1 };
+  var REVIEW_N = { pick: 10, story: 1, dictation: 5, readaloud: 3, twister: 2, talk: 1, quiz: 10, match: 10, order: 6, passage: 2, stroke: 4, build: 8, typo: 8, compose: 1,
+    balloon: 8, catcher: 6, frog: 1, rocket: 4, beat: 2, racer: 10, snake: 5, memory: 10, mole: 6, fishing: 8, monster: 5 };
 
   /* 印章：约 24 枚（CSS 画的红色方章/圆章） */
   function F(id, t, n, shape) {
@@ -724,6 +729,7 @@
       },
       flip: function () { tone(420, 0, 0.14, { vol: 0.1, to: 900 }); },
       stamp: function () { tone(150, 0, 0.18, { vol: 0.35, to: 55 }); noise(0, 0.09, 0.14); },
+      star: function (i) { var f = [784, 988, 1175][i] || 1175; tone(f, 0, 0.16, { type: 'triangle', vol: 0.18 }); tone(f * 1.5, 0.08, 0.26, { type: 'sine', vol: 0.1 }); },
       combo: function (n) { var b = 700 + Math.min(n, 12) * 40; tone(b, 0, 0.08, { type: 'triangle', vol: 0.14 }); tone(b * 1.5, 0.07, 0.16, { type: 'triangle', vol: 0.14 }); },
       unlock: function () { ac(); }
     };
@@ -1059,7 +1065,12 @@
     if (SKILL_IDS.indexOf(def.skill) < 0) { try { console.warn('[HW] register: bad skill', def.id, def.skill); } catch (e) { /* ignore */ } return; }
     var id = String(def.id);
     if (!games[id]) gameSeq.push(id);
-    games[id] = Object.assign({}, def, { id: id, needs: Array.isArray(def.needs) ? def.needs.slice() : [] });
+    var cols = Array.isArray(def.cols) ? def.cols.filter(function (c) { return typeof c === 'string' && c; }) : (typeof def.cols === 'string' ? [def.cols] : null);
+    games[id] = Object.assign({}, def, {
+      id: id, needs: Array.isArray(def.needs) ? def.needs.slice() : [],
+      kind: def.kind === 'arcade' ? 'arcade' : 'practice',   // kind 缺省 / 'practice' = 1.0 练习游戏（收进练习本）
+      cols: cols && cols.length ? cols : null
+    });
     if (booted && ui.view === 'map') keepPlace(renderMap);
   }
   function css(text) {
@@ -1083,8 +1094,10 @@
     COLS.forEach(function (c) { o[c] = Array.isArray(src[c]) ? src[c].slice() : []; });
     return o;
   }
+  function isArcade(g) { return !!g && g.kind === 'arcade'; }
   function availability(g, G) {
-    var cols = g.data ? [].concat(g.data) : (GAME_DATA[g.id] || []);
+    // 有 cols 按 cols 判断题库是否为空；没有 cols 沿用旧逻辑（g.data → GAME_DATA）
+    var cols = g.cols ? g.cols : (g.data ? [].concat(g.data) : (GAME_DATA[g.id] || []));
     for (var i = 0; i < cols.length; i++) if (!(G[cols[i]] && G[cols[i]].length)) return { ok: false, why: '题目准备中' };
     var needs = g.needs || [];
     if (needs.indexOf('tts') >= 0 && !TTS.ok) return { ok: false, why: TTS.supported ? '需要中文朗读声音' : '这个浏览器不能朗读' };
@@ -1226,8 +1239,11 @@
       },
       sfx: {
         good: function () { SFX.good(); }, bad: function () { SFX.bad(); }, tap: function () { SFX.tap(); },
-        win: function () { SFX.win(); }, flip: function () { SFX.flip(); }
+        win: function () { SFX.win(); }, flip: function () { SFX.flip(); },
+        get on() { return !!settings.sound; }   // 音效开关（街机引擎的合成音效/音乐也要看它）
       },
+      kind: g.kind,
+      levelHint: sess.levelHint || null,       // 街机：结算页“下一关/再玩一次”带来的建议关卡（选关界面默认选它）
       asr: {
         get ok() { return ASR.ok; },
         listen: function (o) { if (!sess.alive) return Promise.resolve(''); return ASR.listen(o); },
@@ -1258,14 +1274,12 @@
           sess.correct++; sess.combo++;
           if (sess.combo > sess.maxCombo) sess.maxCombo = sess.combo;
           if (item != null) sess.rightKeys.add(keyOf(item));
-          SFX.good();
-          comboFx(sess);
+          if (!sess.arcade) { SFX.good(); comboFx(sess); }
         },
         wrong: function (item, note) {
           if (!sess.alive) return;
           sess.wrongN++; sess.combo = 0;
-          SFX.bad();
-          comboFx(sess);
+          if (!sess.arcade) { SFX.bad(); comboFx(sess); }
           if (item != null) addWrong(sess, item, note);
         },
         stats: function () { return { correct: sess.correct, wrong: sess.wrongN, combo: sess.combo, maxCombo: sess.maxCombo }; }
@@ -1298,7 +1312,7 @@
     return ctx;
   }
 
-  function startGame(id, reviewEntries) {
+  function startGame(id, reviewEntries, opt) {
     var g = games[id];
     if (!g) return;
     if (S && S.alive) endSession(S);
@@ -1307,18 +1321,26 @@
     var review = null;
     if (reviewEntries && reviewEntries.length) review = reviewEntries.filter(function (e) { return e.it != null; });
     if (review && !review.length) review = null;
-    var el = h('div', { class: 'hw-playbody', id: 'hw-play' });
+    var arcade = isArcade(g);
+    var el = h('div', { class: arcade ? 'hw-arcbody' : 'hw-playbody', id: 'hw-play' });
     var fill = h('span');
     var meter = h('div', { class: 'hw-meter hw-playmeter', role: 'progressbar', 'aria-label': '进度', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, fill);
     var countEl = h('span', { class: 'hw-playcount' });
     var comboEl = h('span', { class: 'hw-combo', 'aria-live': 'polite' });
-    var exitBtn = h('button', { class: 'hw-btn ghost hw-exit', id: 'hw-exit', type: 'button' }, '✕ 退出');
-    var bar = h('div', { class: 'hw-playbar', style: '--zc:var(--' + g.skill + ')' },
+    var exitBtn = h('button', { class: 'hw-btn ghost hw-exit', id: 'hw-exit', type: 'button' }, EXIT_LABEL);
+    var bar = arcade
+      ? h('div', { class: 'hw-arcbar', 'data-s': g.skill },
+          exitBtn,
+          h('div', { class: 'hw-arcname' }, h('span', { 'aria-hidden': 'true' }, g.icon || ''), h('span', null, g.name), review ? h('span', { class: 'hw-tag' }, '错题重练') : null))
+      : h('div', { class: 'hw-playbar', style: '--zc:var(--' + g.skill + ')' },
       exitBtn,
       h('div', { class: 'hw-playname' }, h('span', { 'aria-hidden': 'true' }, g.icon || ''), h('span', null, g.name), review ? h('span', { class: 'hw-tag accent' }, '错题重练') : null),
       meter, countEl, comboEl);
     var sess = {
-      id: ++sessSeq, game: g, pid: p.id, grade: p.grade, el: el, meter: meter, meterFill: fill, countEl: countEl, comboEl: comboEl,
+      id: ++sessSeq, game: g, pid: p.id, grade: p.grade, el: el,
+      meter: arcade ? null : meter, meterFill: arcade ? null : fill, countEl: arcade ? null : countEl, comboEl: arcade ? null : comboEl,
+      arcade: arcade, arc0: arcade ? (function (a) { return a.raw ? a : null; })(arcOf(p, g.id)) : null,
+      levelHint: opt && Number(opt.level) >= 1 ? Math.floor(Number(opt.level)) : null,
       alive: true, timers: new Set(), cleanup: null, correct: 0, wrongN: 0, combo: 0, maxCombo: 0,
       presented: new Set(), picked: false, rightKeys: new Set(), wrongKeys: new Set(), itemAware: false, hzBag: [],
       review: review ? review.map(function (e) { return clone(e.it); }) : null,
@@ -1327,8 +1349,9 @@
     };
     S = sess;
     ui.view = 'game';
+    setView(arcade ? 'arcade' : 'game');
     exitBtn.addEventListener('click', function () { requestExit(sess, exitBtn); });
-    main.replaceChildren(h('div', { class: 'hw-shell hw-play' }, bar, el));
+    main.replaceChildren(arcade ? h('div', { class: 'hw-arcshell hw-play' }, bar, el) : h('div', { class: 'hw-shell hw-play' }, bar, el));
     try { W.scrollTo(0, 0); } catch (e) { /* ignore */ }
     var ctx = makeCtx(g, sess);
     var r;
@@ -1373,12 +1396,13 @@
     var bag = sess.hzBag || [];
     while (bag.length) { var f = bag.pop(); try { f(); } catch (e) { /* ignore */ } }
   }
+  var EXIT_LABEL = '← 退出';
   function requestExit(sess, btn) {
     if (!sess.alive) { goMap(); return; }
     if (sess.correct + sess.wrongN === 0 || btn.classList.contains('is-armed')) { endSession(sess); goMap(); return; }
     btn.classList.add('is-armed');
     btn.textContent = '再点一次退出';
-    setTimeout(function () { if (btn.isConnected) { btn.classList.remove('is-armed'); btn.textContent = '✕ 退出'; } }, 2600);
+    setTimeout(function () { if (btn.isConnected) { btn.classList.remove('is-armed'); btn.textContent = EXIT_LABEL; } }, 2600);
   }
   function reportGameError(sess, e) {
     try { console.error('[HW] game error', sess && sess.game && sess.game.id, e); } catch (x) { /* ignore */ }
@@ -1388,6 +1412,7 @@
       h('p', { class: 'hw-q' }, '这个游戏出了点小问题。'),
       h('p', { class: 'hw-muted' }, '先玩别的游戏吧，这一轮不会扣分。'),
       h('button', { class: 'hw-btn primary', type: 'button', id: 'hw-err-home', on: { click: goMap } }, '回到地图')));
+    if (sess.arcade) sess.el.style.height = 'auto';
   }
 
   function recordRound(sess, result) {
@@ -1404,7 +1429,13 @@
     }
     if (correct == null && sess.correct + sess.wrongN > 0) { correct = sess.correct; total = sess.correct + sess.wrongN; }
     if (stars == null) stars = total ? starsFor(correct / total) : 1;
-    var out = { stars: stars, correct: correct, total: total, maxCombo: sess.maxCombo, newStamps: [], dayBonus: false, cleared: 0, daily: null };
+    var out = { stars: stars, correct: correct, total: total, maxCombo: sess.maxCombo, newStamps: [], dayBonus: false, cleared: 0, daily: null, level: null, score: null, win: null };
+    if (isObj(result)) {
+      var lvR = num(result.level != null ? result.level : result.lv, 0);
+      if (lvR >= 1) out.level = Math.floor(lvR);
+      if (result.score != null && Number.isFinite(Number(result.score))) out.score = Math.max(0, Math.round(Number(result.score)));
+      if (typeof result.win === 'boolean') out.win = result.win;
+    }
     if (!p) return out;
     var today = todayStr();
     var daily = ensureDaily(p);
@@ -1457,17 +1488,71 @@
     renderResult(sess, out);
   }
 
-  /* ================= 视图：结算页 ================= */
+  /* ================= 视图：结算页（游戏化） ================= */
+  function rollNum(el, from, to, delay, dur) {
+    from = Math.round(num(from)); to = Math.round(num(to));
+    el.textContent = String(reduceMotion() ? to : from);
+    if (reduceMotion() || from === to) { el.textContent = String(to); return; }
+    setTimeout(function () {
+      var t0 = 0;
+      function step(t) {
+        if (!el.isConnected) return;
+        if (!t0) t0 = t;
+        var k = clamp((t - t0) / dur, 0, 1), e = 1 - Math.pow(1 - k, 3);
+        el.textContent = String(Math.round(from + (to - from) * e));
+        if (k < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }, delay);
+  }
   function renderResult(sess, out) {
     ui.view = 'result';
+    setView('result');
     var p = profOf(sess) || curProf();
     var g = sess.game;
+    var arc = !!sess.arcade;
+    var titles = ['再接再厉', '有进步！', '真不错！', '太棒了！'];
     var cheer = ['别灰心，再来一次！', '有进步，继续加油！', '真不错！', '太棒了！'][out.stars];
-    var starRow = h('div', { class: 'hw-stars', role: 'img', 'aria-label': '得到 ' + out.stars + ' 颗星' }, [0, 1, 2].map(function (i) { return starSvg(i < out.stars); }));
-    var flowerRow = out.stars
-      ? h('div', { class: 'hw-flowers' }, h('span', null, '+' + out.stars + ' 朵小红花'), Array.from({ length: out.stars }, function () { return flowerSvg(30); }),
-          h('span', { class: 'hw-muted' }, '（一共 ' + p.flowers + ' 朵）'))
+    var stars = h('div', { class: 'hw-bigstars', role: 'img', 'aria-label': '得到 ' + out.stars + ' 颗星' }, [0, 1, 2].map(function (i) {
+      var on = i < out.stars;
+      return h('span', { class: 'hw-bstar' + (on ? ' on' : ''), style: '--d:' + (0.35 + i * 0.35).toFixed(2) + 's' },
+        starSvg(false), on ? h('span', { class: 'on-l' }, starSvg(true)) : null);
+    }));
+    // 街机：第 N 关 · 得分 · 最高分 · 解锁（读 result 与 profile.mem[gid].arc 的前后对比）
+    var arcBlock = null, unlockEl = null, nextLv = null, lost = false;
+    if (arc) {
+      var a0 = sess.arc0, a1 = arcOf(p, g.id);
+      // 引擎每局结束会重写 mem.arc（新对象）并带 last = {lv, score, stars, win, unlocked}；对象没换 = 本局没存档，last 是旧的不能用
+      var fresh = !!a1.raw && (!a0 || a1.raw !== a0.raw);
+      var last = fresh && isObj(a1.raw.last) ? a1.raw.last : null;
+      var lv0 = a0 ? a0.lv : 1, hi0 = a0 ? a0.hi : 0;
+      var unlocked = last && num(last.unlocked) >= 2 ? Math.floor(num(last.unlocked)) : (fresh && a1.lv > lv0 ? a1.lv : 0);
+      var level = out.level || (last && num(last.lv) >= 1 ? Math.floor(num(last.lv)) : (unlocked ? unlocked - 1 : null));
+      var newHi = a1.hi > hi0 && a1.hi > 0;
+      var score = out.score != null ? out.score : (last && last.score != null && Number.isFinite(Number(last.score)) ? Math.max(0, Math.round(Number(last.score))) : (newHi ? a1.hi : null));
+      lost = out.win === false || (!!last && last.win === false);
+      var hi = Math.max(a1.hi, score || 0);
+      nextLv = unlocked || level || null;
+      var tile = function (k, v, extra) { return h('div', { class: 'hw-rstat' }, h('span', { class: 'k' }, k), v, extra || null); };
+      var scoreV = h('span', { class: 'v' }, '0');
+      var hiV = h('span', { class: 'v' }, String(hi0 && newHi ? hi0 : hi));
+      arcBlock = h('div', { class: 'hw-rstats' },
+        tile('关卡', h('span', { class: 'v' }, level ? '第' + level + '关' : '–')),
+        tile('得分', score != null ? scoreV : h('span', { class: 'v' }, '–')),
+        tile('最高分', hiV, newHi ? h('span', { class: 'rec' }, '新纪录') : null));
+      if (score != null) rollNum(scoreV, 0, score, 700, 900);
+      if (newHi && hi0) rollNum(hiV, hi0, hi, 1500, 600);
+      if (unlocked) unlockEl = h('p', { class: 'hw-unlock' }, h('span', { class: 'ic', 'aria-hidden': 'true' }, '🔓'), '第 ' + unlocked + ' 关已解锁！');
+    }
+    var gained = out.stars + (out.dayBonus ? 2 : 0);
+    var totEl = h('b', { class: 'tot' }, String(p.flowers));
+    var coinRow = out.stars
+      ? h('div', { class: 'hw-coinrow', role: 'img', 'aria-label': '得到 ' + out.stars + ' 朵小红花，一共 ' + p.flowers + ' 朵' },
+          h('span', { class: 'hw-coin', 'aria-hidden': 'true' }, flowerSvg(26)),
+          h('span', { class: 'plus', 'aria-hidden': 'true' }, '+' + out.stars),
+          h('span', { 'aria-hidden': 'true' }, '小红花 共'), totEl, h('span', { 'aria-hidden': 'true' }, '朵'))
       : h('p', { class: 'hw-muted' }, '这一轮没有拿到小红花，下一轮一定行！');
+    if (out.stars) rollNum(totEl, p.flowers - gained, p.flowers, 1250, 800);
     var dailyLine = null;
     if (out.dayBonus) {
       dailyLine = h('div', { class: 'hw-result-bonus hw-row hw-center' }, dateSeal(todayStr()), h('span', null, '今日四件事全部完成！再奖 2 朵小红花。'));
@@ -1476,20 +1561,24 @@
       var left = SKILLS.filter(function (s) { return !out.daily.done[s.id]; }).map(function (s) { return s.ch; });
       if (left.length) dailyLine = h('p', { class: 'hw-muted' }, '今日四件事：' + doneS.join('、') + ' 已完成，还差 ' + left.join('、') + '。');
     }
-    var again = h('button', { class: 'hw-btn primary big', type: 'button', id: 'hw-again' }, sess.review ? '再练错题' : '再来一轮');
+    var againText = sess.review ? '再练错题' : (arc ? (unlockEl ? '下一关 ▶' : (lost ? '再试一次' : '再玩一次')) : '再来一轮');
+    var again = h('button', { class: 'hw-btn primary big', type: 'button', id: 'hw-again' }, againText);
     again.addEventListener('click', function () {
       if (sess.review) {
         var pr = curProf();
         if (pr.wrong.some(function (w) { return w.g === g.id && w.it != null; })) { startReview(g.id); return; }
       }
-      startGame(g.id);
+      startGame(g.id, null, arc ? { level: nextLv } : null);
     });
-    var card = h('section', { class: 'hw-card hw-result', 'aria-labelledby': 'hw-result-h' },
-      h('p', { class: 'hw-result-k' }, g.name + ' · ' + sess.grade.toUpperCase() + (sess.review ? ' · 错题重练' : '')),
-      h('h2', { id: 'hw-result-h' }, p.name + '，' + cheer),
-      starRow,
+    var card = h('section', { class: 'hw-result', 'aria-labelledby': 'hw-result-h' },
+      h('div', { class: 'hw-ribbon' + (out.stars && !lost ? '' : ' lose') }, h('h2', { id: 'hw-result-h' }, lost ? '差一点点！' : titles[out.stars])),
+      h('p', { class: 'hw-result-k' }, (g.icon ? g.icon + ' ' : '') + g.name + ' · ' + sess.grade.toUpperCase() + (sess.review ? ' · 错题重练' : '')),
+      h('p', { class: 'hw-result-who' }, p.name + '，' + cheer),
+      stars,
+      arcBlock,
+      unlockEl,
       out.total != null ? h('p', { class: 'hw-result-line' }, '答对 ' + out.correct + ' / ' + out.total + (out.maxCombo >= 3 ? ' · 最多连对 ' + out.maxCombo + ' 题' : '')) : null,
-      flowerRow,
+      coinRow,
       dailyLine,
       out.cleared ? h('p', { class: 'hw-result-line' }, '错题本里消灭了 ' + out.cleared + ' 道题！') : null,
       out.newStamps.length ? h('div', { class: 'hw-stack hw-center' },
@@ -1497,17 +1586,83 @@
         h('div', { class: 'hw-newstamps' }, out.newStamps.map(function (s) {
           return h('div', { class: 'hw-newstamp' }, stampEl(s, { size: 84, fresh: true }), h('span', null, s.need));
         }))) : null,
-      h('div', { class: 'hw-row hw-center' }, again,
+      h('div', { class: 'hw-result-btns' }, again,
         h('button', { class: 'hw-btn big', type: 'button', id: 'hw-home', on: { click: goMap } }, '回到地图')));
-    main.replaceChildren(h('div', { class: 'hw-shell' }, card));
+    main.replaceChildren(h('div', { class: 'hw-resview' }, card));
     try { W.scrollTo(0, 0); } catch (e) { /* ignore */ }
     try { again.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
-    if (out.stars >= 1) SFX.win(); else SFX.flip();
-    if (out.stars >= 2 || out.dayBonus) confetti();
-    if (out.newStamps.length || out.dayBonus) setTimeout(function () { SFX.stamp(); }, 420);
+    var mine = sess;
+    [0, 1, 2].forEach(function (i) {
+      if (i >= out.stars) return;
+      setTimeout(function () { if (ui.view === 'result' && card.isConnected) SFX.star(i); }, (0.35 + i * 0.35) * 1000 + 120);
+    });
+    setTimeout(function () {
+      if (!card.isConnected || S !== mine) return;
+      if (out.stars >= 1) SFX.win(); else SFX.flip();
+      if (out.stars >= 2 || out.dayBonus || unlockEl) confetti();
+    }, out.stars ? 1250 : 300);
+    if (out.newStamps.length || out.dayBonus) setTimeout(function () { if (card.isConnected) SFX.stamp(); }, 1700);
   }
 
-  /* ================= 视图：首页地图 ================= */
+  /* ================= 岛上的画（装饰用 SVG，aria-hidden；颜色全走 CSS token） ================= */
+  var ART = {
+    lighthouse: '<svg viewBox="0 0 120 150"><g class="a-beam"><path class="k-beam nk" d="M60 34L126 12L126 56Z"/></g>' +
+      '<ellipse class="k-rock" cx="60" cy="140" rx="38" ry="9"/><path class="k-rock" d="M30 140Q34 126 46 128H74Q86 126 90 140Z"/>' +
+      '<path class="k-tower" d="M44 136L50 52H70L76 136Z"/><path class="k-stripe" d="M45.4 116H74.6L73.2 96H46.8Z"/><path class="k-stripe" d="M48.3 76H71.7L70.8 63H49.2Z"/>' +
+      '<rect class="k-door" x="55" y="120" width="10" height="16" rx="5"/><rect class="k-edge" x="44" y="46" width="32" height="7" rx="2"/>' +
+      '<rect class="k-glass" x="51" y="27" width="18" height="19" rx="2"/><path class="k-line" d="M60 27V46"/>' +
+      '<path class="k-roof" d="M46 28Q60 8 74 28Z"/><circle class="k-roof" cx="60" cy="12" r="3.5"/></svg>',
+    stage: '<svg viewBox="0 0 130 150"><rect class="k-backdrop" x="16" y="40" width="98" height="80" rx="3"/>' +
+      '<path class="k-spot nk a-spotL" d="M40 46L26 118H62Z"/><path class="k-spot nk a-spotR" d="M90 46L68 118H104Z"/>' +
+      '<path class="k-curtain" d="M16 40H44Q36 80 42 120H16Z"/><path class="k-curtain" d="M114 40H86Q94 80 88 120H114Z"/>' +
+      '<path class="k-curtain2" d="M12 32H118V44Q111.4 52 104.75 44Q98.1 52 91.5 44Q84.9 52 78.25 44Q71.6 52 65 44Q58.4 52 51.75 44Q45.1 52 38.5 44Q31.9 52 25.25 44Q18.6 52 12 44Z"/>' +
+      '<path class="k-wood" d="M4 118H126L120 134H10Z"/><rect class="k-wood2" x="10" y="134" width="110" height="10" rx="2"/>' +
+      '<path class="k-line" d="M65 118V90"/><rect class="k-edge" x="58" y="115" width="14" height="4" rx="2"/><circle class="k-mic" cx="65" cy="84" r="7"/>' +
+      '<circle class="k-glass" cx="40" cy="47" r="5"/><circle class="k-glass" cx="90" cy="47" r="5"/><text class="k-note a-note" x="96" y="30">♪</text><text class="k-note a-note n2" x="20" y="34">♫</text></svg>',
+    booktree: '<svg viewBox="0 0 130 150"><path class="k-trunk" d="M56 146C58 124 56 106 48 94L56 90C62 100 64 96 70 84L78 88C72 100 70 120 74 146Z"/>' +
+      '<circle class="k-leaf2" cx="36" cy="64" r="26"/><circle class="k-leaf2" cx="94" cy="62" r="26"/><circle class="k-leaf1" cx="64" cy="46" r="34"/>' +
+      '<circle class="k-leaf1" cx="40" cy="46" r="18"/><circle class="k-leaf1" cx="90" cy="44" r="18"/>' +
+      '<g transform="translate(34 70) rotate(-14)"><rect class="k-b1" x="-7" y="-9" width="14" height="18" rx="2"/><path class="k-line" d="M-3 -9V9"/></g>' +
+      '<g transform="translate(94 70) rotate(12)"><rect class="k-b2" x="-7" y="-9" width="14" height="18" rx="2"/><path class="k-line" d="M-3 -9V9"/></g>' +
+      '<g transform="translate(64 66) rotate(4)"><rect class="k-b3" x="-7" y="-9" width="14" height="18" rx="2"/><path class="k-line" d="M-3 -9V9"/></g>' +
+      '<path class="k-page" d="M48 22Q56 16 64 22Q72 16 80 22V36Q72 30 64 36Q56 30 48 36Z"/><path class="k-line" d="M64 22V36"/>' +
+      '<g class="a-page"><rect class="k-page" x="96" y="22" width="10" height="12" rx="1"/></g></svg>',
+    brushmount: '<svg viewBox="0 0 140 150"><path class="k-m2" d="M2 146L40 62L60 90L86 36L138 146Z"/><path class="k-snow" d="M86 36L75 58L82 55L88 63L94 54L99 58Z"/>' +
+      '<path class="k-m1" d="M8 146Q36 98 68 112Q100 98 132 146Z"/>' +
+      '<g transform="rotate(-8 39 118)"><rect class="k-seal" x="28" y="106" width="22" height="22" rx="3"/><text class="k-sealt" x="39" y="123" text-anchor="middle">写</text></g>' +
+      '<g transform="rotate(22 112 96)"><rect class="k-bamboo" x="106" y="14" width="11" height="80" rx="4"/><path class="k-line" d="M106 40H117M106 66H117"/>' +
+      '<rect class="k-edge" x="104" y="92" width="15" height="8" rx="2"/><path class="k-bristle" d="M104 100Q104 124 111.5 138Q119 124 119 100Z"/></g>' +
+      '<g class="a-cloud"><path class="k-cloud" d="M40 40Q40 30 50 32Q54 24 62 30Q70 28 70 36Q76 38 72 44H42Q36 44 40 40Z"/></g></svg>',
+    palm: '<svg viewBox="0 0 80 110"><path class="k-trunk" d="M36 108C34 82 38 58 47 34L54 36C47 60 44 84 47 108Z"/>' +
+      '<path class="k-line" d="M36 96H46M37 82H46M39 68H48M42 54H50"/><g class="a-sway">' +
+      '<path class="k-leaf2" d="M51 33C36 18 15 20 3 34C17 28 34 30 51 37Z"/><path class="k-leaf2" d="M51 33C64 28 77 38 79 53C70 43 60 39 52 37Z"/>' +
+      '<path class="k-leaf1" d="M51 33C58 14 75 11 80 21C70 19 61 25 52 37Z"/><path class="k-leaf1" d="M51 33C40 27 26 37 22 53C32 41 42 37 52 37Z"/>' +
+      '<path class="k-leaf1" d="M51 33C46 18 50 6 60 2C56 12 56 22 53 35Z"/><circle class="k-coco" cx="47" cy="39" r="4.5"/><circle class="k-coco" cx="55" cy="40" r="4.5"/></g></svg>',
+    junk: '<svg viewBox="0 0 90 72"><path class="k-line" d="M44 50V6"/><path class="k-sail" d="M46 8C62 12 70 24 72 46H46Z"/><path class="k-line" d="M46 18H62M46 27H67M46 36H70"/>' +
+      '<path class="k-sail2" d="M42 14C30 18 24 30 22 46H42Z"/><path class="k-line" d="M42 24H30M42 34H25"/><path class="k-flag" d="M44 5L56 8L44 12Z"/>' +
+      '<path class="k-hull" d="M2 46Q8 48 16 50H76Q84 48 88 44L80 64H14Z"/><path class="k-line" d="M12 56H82"/></svg>',
+    fish: '<svg viewBox="0 0 44 30"><path class="k-fin" d="M8 15L0 5V25Z"/><ellipse class="k-fish" cx="24" cy="15" rx="16" ry="10"/><path class="k-fin" d="M22 6Q26 0 32 6Z"/><circle class="k-eye" cx="32" cy="12" r="2.2"/></svg>',
+    gull: '<svg viewBox="0 0 40 22"><path d="M2 14Q11 2 20 14Q29 2 38 14"/></svg>',
+    skyline: '<svg viewBox="0 0 400 84" preserveAspectRatio="xMidYMax meet">' +
+      '<rect class="k-sil" x="8" y="34" width="30" height="50"/><path class="k-win" d="M13 42H34M13 50H34M13 58H34M13 66H34M13 74H34"/>' +
+      '<rect class="k-sil2" x="42" y="46" width="26" height="38"/><path class="k-win" d="M46 54H64M46 62H64M46 70H64"/>' +
+      '<rect class="k-sil" x="72" y="26" width="28" height="58"/><path class="k-win" d="M77 34H96M77 42H96M77 50H96M77 58H96M77 66H96M77 74H96"/>' +
+      '<path class="k-sil2" d="M114 84V66H110L118 60H112L122 52H116L125 44L134 52H128L138 60H132L140 66H136V84Z"/>' +
+      '<g class="a-wheel"><circle class="k-silring" cx="170" cy="44" r="24"/><path class="k-silring" d="M170 20V68M146 44H194M153 27L187 61M187 27L153 61"/></g>' +
+      '<path class="k-sil" d="M160 84L170 44L180 84Z"/>' +
+      '<path class="k-sil" d="M232 84L234 34H246L248 84Z"/><path class="k-sil" d="M258 84L260 34H272L274 84Z"/><path class="k-sil" d="M284 84L286 34H298L300 84Z"/>' +
+      '<path class="k-sil2" d="M226 30L312 28L322 32L226 35Z"/><path class="k-win" d="M240 42V80M266 42V80M292 42V80"/>' +
+      '<path class="k-sil2" d="M338 84L341 56L330 48H356L345 56L348 84Z"/><path class="k-sil" d="M362 84L365 46L352 36H384L371 46L374 84Z"/>' +
+      '<path class="k-sil2" d="M388 84L390 60L381 54H401L394 60L396 84Z"/><rect class="k-sil" x="0" y="80" width="400" height="4"/></svg>'
+  };
+  function artEl(name, cls, style) {
+    var s = h('span', { class: 'hw-art ' + (cls || ''), 'aria-hidden': 'true', style: style || null });
+    s.innerHTML = ART[name] || '';
+    return s;
+  }
+
+  /* ================= 视图：首页游戏岛地图 ================= */
+  function setView(v) { try { D.documentElement.setAttribute('data-hw-view', v); } catch (e) { /* ignore */ } }
   function goMap() {
     if (S && S.alive) endSession(S);
     var back = ui.view !== 'map';
@@ -1540,54 +1695,78 @@
     var z = D.getElementById('hw-zone-' + id);
     if (!z) return;
     try { z.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start' }); } catch (e) { z.scrollIntoView(); }
-    var c = z.querySelector('.hw-gcard:not([aria-disabled])');
+    var c = z.querySelector('.hw-lv:not([aria-disabled]), .hw-gcard:not([aria-disabled])');
     if (c) try { c.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
   }
-  function coverEl(p) {
-    return h('header', { class: 'hw-cover' },
-      h('div', { class: 'hw-cover-top' },
-        h('h1', { class: 'hw-title' }, '华文小岛', h('small', null, '听 · 说 · 读 · 写')),
-        h('span', { class: 'hw-flowercount', title: '小红花', role: 'img', 'aria-label': '小红花 ' + p.flowers + ' 朵' }, flowerSvg(26), h('b', { 'aria-hidden': 'true' }, String(p.flowers))),
-        h('button', { class: 'hw-icon-btn sm', id: 'hw-sound', type: 'button', title: settings.sound ? '关掉音效' : '打开音效', 'aria-label': settings.sound ? '关掉音效' : '打开音效', on: { click: toggleSound } }, settings.sound ? '🔊' : '🔈')),
-      h('div', { class: 'hw-label' },
-        h('span', { class: 'hw-label-k' }, '科目'),
-        h('span', { class: 'hw-label-v' }, h('span', { class: 'hw-kai' }, '华文')),
-        h('span', { class: 'hw-label-k' }, '姓名'),
-        h('span', { class: 'hw-label-v' }, h('button', { class: 'hw-who', id: 'hw-who', type: 'button', on: { click: function () { leaveMap(); renderProfiles(); } } },
-          h('span', { 'aria-hidden': 'true' }, p.avatar), h('span', null, p.name), h('small', null, '换人 / 改名'))),
-        h('span', { class: 'hw-label-k', id: 'hw-grade-l' }, '年级'),
-        h('span', { class: 'hw-label-v' }, h('div', { class: 'hw-grades', role: 'radiogroup', 'aria-labelledby': 'hw-grade-l' },
+  var ISLE = {
+    listen: { name: '灯塔岛', mark: 'lighthouse' },
+    speak: { name: '舞台岛', mark: 'stage' },
+    read: { name: '书树岛', mark: 'booktree' },
+    write: { name: '毛笔山岛', mark: 'brushmount' }
+  };
+  var SHORT_WHY = { '题目准备中': '准备中', '需要中文朗读声音': '要朗读声音', '这个浏览器不能朗读': '不能朗读', '笔顺数据没有加载': '缺笔顺' };
+  function stampCount(p) { return STAMPS.filter(function (s) { return p.stamps[s.id]; }).length; }
+  function hudEl(p) {
+    var got = stampCount(p);
+    return h('header', { class: 'hw-hud' },
+      h('button', { class: 'hw-me', id: 'hw-who', type: 'button', 'aria-label': '现在是' + p.name + '，点这里换人或改名', on: { click: function () { leaveMap(); renderProfiles(); } } },
+        h('span', { class: 'hw-me-av', 'aria-hidden': 'true' }, p.avatar),
+        h('span', { class: 'hw-me-nm', 'aria-hidden': 'true' }, h('b', null, p.name), h('small', null, '换人 / 改名'))),
+      h('span', { class: 'hw-pill', id: 'hw-coins', role: 'img', title: '小红花', 'aria-label': '小红花 ' + p.flowers + ' 朵' },
+        h('span', { class: 'hw-coin', 'aria-hidden': 'true' }, flowerSvg(19)), h('b', { 'aria-hidden': 'true' }, String(p.flowers))),
+      h('button', { class: 'hw-pill', id: 'hw-seals', type: 'button', title: '印章册', 'aria-label': '印章 ' + got + ' 枚，打开印章册', on: { click: function () { leaveMap(); renderStamps(); } } },
+        stampEl({ t: '印', shape: 'square' }, { size: 26, tiny: true, rot: -8 }), h('b', { 'aria-hidden': 'true' }, String(got))),
+      h('button', { class: 'hw-hudbtn', id: 'hw-sound', type: 'button', title: settings.sound ? '关掉音效' : '打开音效', 'aria-label': settings.sound ? '关掉音效' : '打开音效', on: { click: toggleSound } }, settings.sound ? '🔊' : '🔈'));
+  }
+  function skyEl() {
+    var clouds = [[14, 0.62, 70, -8, '30vw'], [52, 0.9, 54, -30, '62vw'], [30, 0.5, 84, -52, '8vw'], [66, 0.7, 64, -44, '78vw']];
+    var gulls = [[26, 22, -3, '40vw'], [38, 30, -16, '70vw'], [18, 26, -11, '18vw']];
+    var lans = [[8, 4, 0], [26, 14, -0.8], [74, 14, -0.4], [92, 4, -1.2]];
+    return h('div', { class: 'hw-sky', 'aria-hidden': 'true' },
+      h('div', { class: 'hw-starfield' }),
+      [[8, 22, 0], [24, 58, -0.8], [62, 18, -1.5], [80, 50, -0.4], [44, 40, -1.9]].map(function (t) {
+        return h('span', { class: 'hw-twinkle', style: 'left:' + t[0] + '%;top:' + t[1] + '%;animation-delay:' + t[2] + 's' });
+      }),
+      h('span', { class: 'hw-sun' }), h('span', { class: 'hw-moon' }),
+      clouds.map(function (c) {
+        return h('span', { class: 'hw-cloud', style: 'top:' + c[0] + '%;--dur:' + c[2] + 's;--d:' + c[3] + 's;--rx:' + c[4] + ';transform-origin:0 0;scale:' + c[1] });
+      }),
+      gulls.map(function (g) {
+        return h('span', { class: 'hw-gull', style: 'top:' + g[0] + '%;--dur:' + g[1] + 's;--d:' + g[2] + 's;--rx:' + g[3] }, artEl('gull', '', 'display:contents'));
+      }),
+      h('div', { class: 'hw-lanterns' }, lans.map(function (l) {
+        return h('span', { class: 'hw-lan', style: '--x:' + l[0] + '%;--y:' + l[1] + 'px;--d:' + l[2] + 's' });
+      })));
+  }
+  function heroEl(p) {
+    return h('div', { class: 'hw-hero' },
+      skyEl(),
+      h('h1', { class: 'hw-logo', 'aria-label': '华文小岛' }, Array.from('华文小岛').map(function (ch, i) { return h('span', { style: '--i:' + i, 'aria-hidden': 'true' }, ch); })),
+      h('div', null, h('p', { class: 'hw-tagline' }, '听 · 说 · 读 · 写 大冒险')),
+      h('div', { class: 'hw-hero-row' },
+        h('div', { class: 'hw-grades', role: 'radiogroup', 'aria-label': '年级' },
           GRADES.map(function (gr) {
             return h('button', { type: 'button', role: 'radio', class: 'hw-gradebtn', id: 'hw-grade-' + gr, 'aria-checked': String(gr === p.grade), on: { click: function () { setGrade(gr); } } }, gr.toUpperCase());
-          })))),
-      h('p', { class: 'hw-gradenote' }, GRADE_NOTE[p.grade]));
+          })),
+        h('p', { class: 'hw-gradenote' }, GRADE_NOTE[p.grade])),
+      artEl('skyline', 'hw-skyline'),
+      h('div', { class: 'hw-shore', 'aria-hidden': 'true' }));
   }
-  function todayEl(p) {
+  function questEl(p) {
     var d = ensureDaily(p).done;
     var n = SKILLS.filter(function (s) { return d[s.id]; }).length;
-    return h('section', { class: 'hw-today', 'aria-labelledby': 'hw-today-h' },
-      h('div', { class: 'hw-sechead' }, h('h2', { id: 'hw-today-h' }, '今日四件事'), h('span', { class: 'n' }, n + '/4')),
-      h('div', { class: 'hw-cells' },
+    return h('section', { class: 'hw-quest', 'aria-labelledby': 'hw-today-h' },
+      h('div', { class: 'hw-quest-plate' }, h('h2', { id: 'hw-today-h' }, '今日四件事'), h('span', { class: 'n' }, n + '/4')),
+      h('div', { class: 'hw-quest-row' },
         SKILLS.map(function (s) {
-          return h('button', { type: 'button', class: 'hw-tcell', id: 'hw-today-' + s.id, 'aria-label': s.name + (d[s.id] ? '，今天已完成' : '，今天还没玩'), on: { click: function () { scrollToZone(s.id); } } },
-            h('span', { class: 'hw-tianzige', style: 'color:var(--' + s.id + ')', 'aria-hidden': 'true' }, s.ch),
-            h('span', { class: 'hw-tcell-l', 'aria-hidden': 'true' }, s.name),
-            d[s.id] ? stampEl({ t: '阅', shape: 'round' }, { size: 34, tiny: true, rot: -12 }) : null);
+          return h('button', { type: 'button', class: 'hw-qslot' + (d[s.id] ? ' is-done' : ''), 'data-s': s.id, id: 'hw-today-' + s.id, 'aria-label': s.name + (d[s.id] ? '，今天已完成' : '，今天还没玩') + '，去' + ISLE[s.id].name, on: { click: function () { scrollToZone(s.id); } } },
+            h('span', { class: 'hw-qslot-ch', 'aria-hidden': 'true' }, s.ch),
+            h('span', { class: 'hw-qslot-l', 'aria-hidden': 'true' }, s.name),
+            d[s.id] ? stampEl({ t: '完成', shape: 'round' }, { size: 38, tiny: true, rot: -14 }) : null);
         }),
-        n === 4 ? dateSeal(todayStr()) : null),
-      h('p', { class: 'hw-todaynote' }, n === 4 ? '今天的四件事都做完了，章已经盖好！明天再来。' : '听、说、读、写各玩一轮，就能盖今天的章，还奖 2 朵小红花。'));
-  }
-  function shelfBtn(id, title, sub, fn) {
-    return h('button', { type: 'button', class: 'hw-shelfbtn', id: id, on: { click: function () { leaveMap(); fn(); } } }, h('b', null, title), h('span', null, sub));
-  }
-  function shelfEl(p) {
-    var got = STAMPS.filter(function (s) { return p.stamps[s.id]; }).length;
-    var rounds = SKILL_IDS.reduce(function (a, s) { return a + p.skills[s].rounds; }, 0);
-    return h('nav', { class: 'hw-shelf', 'aria-label': '我的本子' },
-      shelfBtn('hw-open-wrong', '错题本', p.wrong.length ? h('span', { class: 'hot' }, p.wrong.length + ' 道待重练') : '还没有错题', renderWrong),
-      shelfBtn('hw-open-stamps', '印章册', got + ' / ' + STAMPS.length + ' 枚', renderStamps),
-      shelfBtn('hw-open-records', '学习记录', rounds ? '一共 ' + rounds + ' 轮' : '还没有记录', renderRecords),
-      shelfBtn('hw-open-profiles', '档案', Object.keys(profiles).length + ' 个小朋友', function () { renderProfiles(); }));
+        h('span', { class: 'hw-chest' + (n === 3 ? ' is-near' : ''), 'aria-hidden': 'true' }, n === 4 ? dateSeal(todayStr()) : '🎁')),
+      h('div', { class: 'hw-quest-bar', 'aria-hidden': 'true' }, h('span', { style: 'width:' + (n * 25) + '%' })),
+      h('p', { class: 'hw-todaynote' }, n === 4 ? '四件事都做完了，章已经盖好！明天再来。' : '听说读写各玩一轮，就能盖章，再奖 2 朵小红花！'));
   }
   function hintEl() {
     var st = TTS.status();
@@ -1596,6 +1775,54 @@
       ? '这个浏览器不能朗读中文，听力游戏暂时玩不了。可以换用 Safari 或 Chrome。'
       : '这台设备还没有中文朗读声音，听力游戏会受影响。iPhone / iPad：设置 → 辅助功能 → 朗读内容 → 声音 → 中文（普通话）。';
     return h('p', { class: 'hw-hint', id: 'hw-tts-hint', role: 'note' }, msg);
+  }
+  /* arcade 游戏的关卡进度：引擎存在 profile.mem[gid].arc = {lv, best:{关号:星}, hi} */
+  function arcOf(p, gid) {
+    var m = p && isObj(p.mem[gid]) ? p.mem[gid].arc : null;
+    if (!isObj(m)) return { lv: 1, best: 0, hi: 0, played: false, raw: null };
+    var best = 0, nb = 0;
+    if (isObj(m.best)) for (var k in m.best) { nb++; best = Math.max(best, clamp(Math.round(num(m.best[k])), 0, 3)); }
+    var hi = Math.max(0, Math.round(num(m.hi)));
+    return { lv: Math.max(1, Math.floor(num(m.lv, 1))), best: best, hi: hi, played: nb > 0 || hi > 0, raw: m };
+  }
+  function recommend(p, G) {
+    var d = ensureDaily(p).done;
+    var order = SKILLS.filter(function (s) { return !d[s.id]; }).concat(SKILLS.filter(function (s) { return d[s.id]; }));
+    for (var i = 0; i < order.length; i++) {
+      var sid = order[i].id;
+      var c = orderedGames().filter(function (g) { return g.skill === sid && isArcade(g) && availability(g, G).ok; });
+      if (!c.length) continue;
+      var r = function (g) { return p.games[g.id] ? p.games[g.id].rounds : 0; };
+      c.sort(function (a, b) { return r(a) - r(b); });
+      return c[0].id;
+    }
+    return null;
+  }
+  function lvStars(n) {
+    return h('span', { class: 'hw-lv-stars', 'aria-hidden': 'true' }, [0, 1, 2].map(function (i) {
+      var s = starSvg(i < n); s.setAttribute('class', i < n ? 'on' : ''); return s;
+    }));
+  }
+  function levelBtn(g, p, G, isNext, idx) {
+    var av = availability(g, G);
+    var a = arcOf(p, g.id);
+    var gs = p.games[g.id];
+    var played = a.played || !!(gs && gs.rounds);
+    var best = Math.max(a.best, a.played ? 0 : (gs ? gs.best : 0));
+    var wn = p.wrong.filter(function (w) { return w.g === g.id; }).length;
+    var label = g.name + (av.ok ? '，第 ' + a.lv + ' 关' + (best ? '，最好 ' + best + ' 颗星' : '') + (a.hi ? '，最高分 ' + a.hi : '') + (played ? '' : '，新游戏') : '，' + av.why) + (wn ? '，错题 ' + wn + ' 道' : '');
+    return h('button', {
+      type: 'button', class: 'hw-lv' + (av.ok ? '' : ' is-off') + (isNext ? ' is-next' : ''), id: 'hw-g-' + g.id, 'data-s': g.skill,
+      'aria-disabled': av.ok ? null : 'true', 'aria-label': label, title: g.blurb || g.name, style: '--d:' + (-idx * 0.7) + 's',
+      on: { click: function () { if (!av.ok) { toast(g.name + '：' + av.why); return; } SFX.tap(); startGame(g.id); } }
+    },
+      lvStars(best),
+      h('span', { class: 'hw-lv-orb', 'aria-hidden': 'true' }, h('span', { class: 'hw-lv-ic' }, av.ok ? (g.icon || '🎮') : '🔒')),
+      h('span', { class: 'hw-lv-lv', 'aria-hidden': 'true' }, av.ok ? '第' + a.lv + '关' : (SHORT_WHY[av.why] || av.why)),
+      h('span', { class: 'hw-lv-nm', 'aria-hidden': 'true' }, g.name),
+      av.ok && !played ? h('span', { class: 'hw-lv-new', 'aria-hidden': 'true' }, '新！') : null,
+      wn ? h('span', { class: 'hw-lv-wn', 'aria-hidden': 'true', title: '错题' }, String(wn)) : null,
+      isNext ? h('span', { class: 'hw-pin', 'aria-hidden': 'true' }, p.avatar) : null);
   }
   function gameCard(g, p, G) {
     var av = availability(g, G);
@@ -1619,31 +1846,94 @@
       h('span', { class: 'hw-gcard-b' }, g.blurb || ''),
       h('span', { class: 'hw-gcard-m' }, meta));
   }
-  function zoneEl(s, p, G) {
-    var list = orderedGames().filter(function (g) { return g.skill === s.id; });
+  function bookPref(sid, v) {
+    var o = LS.get('pbook', {});
+    if (!isObj(o)) o = {};
+    if (v === undefined) return o[sid];
+    o[sid] = !!v; LS.set('pbook', o);
+    return o[sid];
+  }
+  function isleEl(s, i, p, G, rec) {
+    var all = orderedGames().filter(function (g) { return g.skill === s.id; });
+    var arcs = all.filter(isArcade), prac = all.filter(function (g) { return !isArcade(g); });
     var st = p.skills[s.id];
-    return h('section', { class: 'hw-zone', id: 'hw-zone-' + s.id, style: '--zc:var(--' + s.id + ')', 'aria-labelledby': 'hw-zh-' + s.id },
-      h('header', { class: 'hw-zonehead' },
-        h('span', { class: 'hw-tianzige', 'aria-hidden': 'true' }, s.ch),
-        h('div', null, h('h2', { id: 'hw-zh-' + s.id }, s.name), h('p', null, s.desc)),
+    var info = ISLE[s.id];
+    var book = null;
+    if (prac.length) {
+      var played = prac.reduce(function (a, g) { return a + (p.games[g.id] ? p.games[g.id].rounds : 0); }, 0);
+      book = h('details', { class: 'hw-pbook', id: 'hw-pbook-' + s.id },
+        h('summary', null,
+          h('span', { class: 'hw-pbook-ic', 'aria-hidden': 'true' }, '📒'),
+          h('span', { class: 'hw-pbook-t' }, '练习本'),
+          h('small', null, prac.length + ' 个练习' + (played ? ' · 玩过 ' + played + ' 轮' : ''))),
+        h('div', { class: 'hw-pbook-body' }, h('div', { class: 'hw-gcards' }, prac.map(function (g) { return gameCard(g, p, G); }))));
+      var pref = bookPref(s.id);
+      if (pref === true || (pref === undefined && !arcs.length)) book.open = true;
+      book.addEventListener('toggle', function () { bookPref(s.id, book.open); });
+    }
+    return h('section', { class: 'hw-isle hw-isle-' + s.id, id: 'hw-zone-' + s.id, style: '--zc:var(--' + s.id + ')', 'aria-labelledby': 'hw-zh-' + s.id },
+      h('header', { class: 'hw-isle-head' },
+        h('span', { class: 'hw-isle-ch', 'aria-hidden': 'true' }, s.ch),
+        h('div', { class: 'hw-isle-t' }, h('h2', { id: 'hw-zh-' + s.id }, info.name), h('p', null, s.name + ' · ' + s.desc)),
         h('span', { class: 'hw-zonestat' }, st.rounds ? st.rounds + ' 轮 · 平均 ' + (st.stars / st.rounds).toFixed(1) + ' 星' : '还没开始')),
-      list.length ? h('div', { class: 'hw-gcards' }, list.map(function (g) { return gameCard(g, p, G); }))
-        : h('p', { class: 'hw-muted' }, '游戏准备中……'));
+      h('div', { class: 'hw-land' },
+        h('div', { class: 'hw-ground', 'aria-hidden': 'true' }),
+        artEl(info.mark, 'hw-mark'),
+        artEl('palm', 'hw-palm'),
+        arcs.length ? h('div', { class: 'hw-lvs' }, arcs.map(function (g, k) { return levelBtn(g, p, G, rec === g.id, k + i); }))
+          : h('p', { class: 'hw-land-empty' }, '小游戏正在建造中……先翻开下面的练习本吧！')),
+      book);
+  }
+  function seaDecor() {
+    var out = [];
+    [[23, 46, -6, '30vw', ''], [52, 58, -30, '60vw', ' rev'], [79, 40, -20, '20vw', '']].forEach(function (b) {
+      out.push(h('span', { class: 'hw-boat' + b[4], style: 'top:' + b[0] + '%;--dur:' + b[1] + 's;--d:' + b[2] + 's;--rx:' + b[3], 'aria-hidden': 'true' }, artEl('junk')));
+    });
+    [[6, 36, 0], [84, 64, -2.6], [10, 88, -4]].forEach(function (f) {
+      out.push(h('span', { class: 'hw-fish', style: 'left:' + f[0] + '%;top:' + f[1] + '%;--d:' + f[2] + 's', 'aria-hidden': 'true' }, artEl('fish')));
+    });
+    [[4, 12, 0], [92, 20, -0.7], [48, 34, -1.4], [8, 62, -0.3], [94, 46, -1.1], [50, 70, -1.8], [90, 90, -0.5], [30, 96, -1.2]].forEach(function (k) {
+      out.push(h('span', { class: 'hw-spk', style: 'left:' + k[0] + '%;top:' + k[1] + '%;--d:' + k[2] + 's', 'aria-hidden': 'true' }));
+    });
+    return out;
+  }
+  function dockEl(p) {
+    var got = stampCount(p);
+    var rounds = SKILL_IDS.reduce(function (a, s) { return a + p.skills[s].rounds; }, 0);
+    function btn(id, title, sub, ic, fn, badge) {
+      return h('button', { type: 'button', class: 'hw-dockbtn', id: id, 'aria-label': title + '，' + sub, on: { click: function () { leaveMap(); fn(); } } },
+        h('span', { class: 'ic ' + ic[0], 'aria-hidden': 'true' }, ic[1]),
+        h('span', { 'aria-hidden': 'true' }, title),
+        badge ? h('span', { class: 'badge', 'aria-hidden': 'true' }, badge > 99 ? '99+' : String(badge)) : null);
+    }
+    return h('nav', { class: 'hw-dock', 'aria-label': '我的本子' },
+      btn('hw-open-wrong', '错题本', p.wrong.length ? p.wrong.length + ' 道待重练' : '还没有错题', ['ic-wrong', '错'], renderWrong, p.wrong.length),
+      btn('hw-open-stamps', '印章册', got + ' / ' + STAMPS.length + ' 枚', ['ic-seal', stampEl({ t: '印', shape: 'square' }, { size: 28, tiny: true, rot: -8 })], renderStamps),
+      btn('hw-open-records', '学习记录', rounds ? '一共 ' + rounds + ' 轮' : '还没有记录', ['ic-chart', [h('i'), h('i'), h('i')]], renderRecords),
+      btn('hw-open-profiles', '档案', Object.keys(profiles).length + ' 个小朋友', ['ic-me', p.avatar], function () { renderProfiles(); }));
   }
   function renderMap() {
     ui.view = 'map';
+    setView('map');
     var p = curProf();
     var G = gradeData(p.grade);
-    main.replaceChildren(h('div', { class: 'hw-shell hw-mapview' },
-      coverEl(p),
-      h('div', { class: 'hw-top2' }, todayEl(p), shelfEl(p)),
+    var rec = recommend(p, G);
+    // --t：装饰动画按“墙上时钟”对齐相位，重画地图（云端同步、换年级）时云和船不会跳回起点
+    main.replaceChildren(h('div', { class: 'hw-world hw-mapview', style: '--t:' + (-(now() % 3600000) / 1000).toFixed(2) + 's' },
+      hudEl(p),
+      heroEl(p),
+      questEl(p),
       hintEl(),
-      h('div', { class: 'hw-zones' }, SKILLS.map(function (s) { return zoneEl(s, p, G); })),
-      h('p', { class: 'hw-foot', id: 'hw-sync' }, syncText())));
+      h('div', { class: 'hw-sea' },
+        seaDecor(),
+        h('div', { class: 'hw-isles' }, SKILLS.map(function (s, i) { return isleEl(s, i, p, G, rec); }))),
+      h('p', { class: 'hw-foot', id: 'hw-sync' }, syncText()),
+      dockEl(p)));
   }
 
   /* ================= 视图：子页面 ================= */
   function page(title, sub, content) {
+    setView('page');
     main.replaceChildren(h('div', { class: 'hw-shell' }, h('div', { class: 'hw-page' },
       h('div', { class: 'hw-pagehead' },
         h('button', { class: 'hw-btn', type: 'button', id: 'hw-back', on: { click: goMap } }, '‹ 地图'),
@@ -1727,7 +2017,8 @@
         h('td', null, SKILL_NAME[g.skill]),
         h('td', { class: 'num' }, String(gs ? gs.rounds : 0)),
         h('td', { class: 'num' }, gs && gs.rounds ? (gs.stars / gs.rounds).toFixed(1) : '–'),
-        h('td', { class: 'num hw-mini-stars' }, gs && gs.rounds ? stars3(gs.best) : '–'));
+        h('td', { class: 'num hw-mini-stars' }, gs && gs.rounds ? stars3(gs.best) : '–'),
+        h('td', { class: 'num' }, isArcade(g) ? (function (a) { return a.played ? '第' + a.lv + '关 · ' + a.hi + '分' : '–'; })(arcOf(p, g.id)) : ''));
     });
     var logs = p.log.slice(-20).reverse().map(function (l) {
       return h('tr', null,
@@ -1745,7 +2036,7 @@
       h('section', { class: 'hw-card hw-stack', 'aria-labelledby': 'hw-rg-h' },
         h('h2', { class: 'hw-kai', id: 'hw-rg-h' }, '每个游戏'),
         rows.length ? h('div', { class: 'hw-table-wrap' }, h('table', { class: 'hw-table' },
-          h('thead', null, h('tr', null, th('游戏'), th('技能'), th('轮数', 'num'), th('平均星', 'num'), th('最好', 'num'))),
+          h('thead', null, h('tr', null, th('游戏'), th('技能'), th('轮数', 'num'), th('平均星', 'num'), th('最好', 'num'), th('关卡 · 最高分', 'num'))),
           h('tbody', null, rows))) : h('p', { class: 'hw-empty' }, '游戏还没准备好。')),
       h('section', { class: 'hw-card hw-stack', 'aria-labelledby': 'hw-rl-h' },
         h('h2', { class: 'hw-kai', id: 'hw-rl-h' }, '最近 20 轮'),
@@ -1839,7 +2130,7 @@
     var t = e.target;
     var typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || ''));
     if (ui.view === 'game' && S && S.alive) {
-      if (e.key === 'Escape') { var b = D.getElementById('hw-exit'); if (b) requestExit(S, b); return; }
+      if (e.key === 'Escape') { if (S.arcade) return; var b = D.getElementById('hw-exit'); if (b) requestExit(S, b); return; }
       if (typing) return;
       var k = String(e.key || '').toLowerCase(), idx = -1;
       if (/^[1-6]$/.test(k)) idx = Number(k) - 1;
@@ -1893,7 +2184,7 @@
   /* ================= 对外 ================= */
   W.HW = {
     __core: true,
-    version: '1.0.0',
+    version: '2.0.0',
     register: register,
     css: css,
     boot: boot,
@@ -1913,7 +2204,9 @@
     flower: flowerSvg,
     stamp: function (t, o) { return stampEl({ t: t, shape: (o && o.shape) || null }, o); },
     start: function (id) { if (booted) startGame(id); },
-    get games() { return orderedGames().map(function (g) { return { id: g.id, skill: g.skill, name: g.name }; }); },
+    setGrade: function (gr) { if (booted && /^p[2-6]$/.test(gr)) setGrade(gr); },
+    get sound() { return !!settings.sound; },
+    get games() { return orderedGames().map(function (g) { return { id: g.id, skill: g.skill, name: g.name, kind: g.kind }; }); },
     get stamps() { return STAMPS.map(function (s) { return { id: s.id, t: s.t, need: s.need }; }); }
   };
 })();

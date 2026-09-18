@@ -1346,6 +1346,8 @@ def main(argv=None) -> int:
     # 拼装
     head = read_part(parts_dir, "00_head.html", rep)
     check_head(head, rep)
+    global JS_PARTS
+    JS_PARTS = sorted(q.name for q in parts_dir.glob("*.js")) or JS_PARTS  # 自动包含 parts/*.js（按文件名排序）
     js = {}
     for n in JS_PARTS:
         js[n] = check_js_part(n, read_part(parts_dir, n, rep), rep)

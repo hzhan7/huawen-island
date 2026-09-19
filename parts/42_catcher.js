@@ -71,6 +71,9 @@
     /* ---------------- 布局 ---------------- */
     function layout(g) {
       const w = g.w, h = g.h, top = g.hudTop || 58;
+      // 试玩修订：横竖屏切换时旧坐标直接夹进新出字带，右半边的字全挤到右边缘叠成一摞（要的字被压在底下看不见）。
+      // 现在按比例把天上的字、篮子一起搬到新布局里，下落时间不变。
+      const old = S.bandW && S.rimY > S.top ? { L: S.bandL, W: S.bandW, top: S.top, rim: S.rimY, gy: S.groundY } : null;
       const s = clamp(Math.min(w / 390, (h - top) / 580), 0.8, 1.35);
       S.s = s;
       S.bandW = Math.min(w - 20, Math.max(340 * s, Math.min(w, (h - top) * 1.15)));
@@ -80,13 +83,28 @@
       S.tileR = Math.round(29 * s);
       S.bw = 132 * s * (S.P ? S.P.basket : 1);
       S.rimY = S.groundY - 148 * s;
-      S.grad = {};
+      S.grad = {}; S.hb = null;
       layoutBoard(g);
+      if (old) remap(old);
       S.bx = clamp(S.bx == null ? w / 2 : S.bx, S.bandL + S.bw / 2, S.bandR - S.bw / 2);
       if (S.tx != null) S.tx = clamp(S.tx, S.bandL + S.bw / 2, S.bandR - S.bw / 2);
       if (!S.streaks) {
         S.streaks = []; for (let i = 0; i < 9; i++) S.streaks.push({ x: Math.random(), y: Math.random(), len: rnd(40, 110), ph: rnd(0, TAU) });
         S.leaves = []; for (let i = 0; i < 4; i++) S.leaves.push({ x: Math.random(), y: Math.random(), ph: rnd(0, TAU), r: rnd(0, TAU) });
+      }
+    }
+    function remap(o) {
+      const fx = (x) => S.bandL + (x - o.L) / o.W * S.bandW;
+      const span0 = Math.max(1, o.rim - o.top), span1 = Math.max(1, S.rimY - S.top), ky = span1 / span0;
+      const fy = (y) => S.top + (y - o.top) * ky;
+      if (S.bx != null) S.bx = fx(S.bx);
+      if (S.tx != null) S.tx = fx(S.tx);
+      for (const it of S.items || []) {
+        it.x = fx(it.x);
+        if (it.mode === 'fall') { it.bx = fx(it.bx); it.y = fy(it.y); it.vy *= ky; }
+        else if (it.mode === 'land') it.y = S.groundY - S.tileR * 0.5;
+        else if (it.mode === 'fly') { it.sx = fx(it.sx); it.sy = fy(it.sy); }
+        else it.y = fy(it.y);
       }
     }
     function layoutBoard(g) {
@@ -133,7 +151,7 @@
       S.idx = 0;
       S.fill = S.chars.map(() => false);
       S.pop = S.chars.map(() => 0);
-      S.sayN = 0; S.hintT = 0; S.doneT = -1; S.slotHint = 0; S.needWait = false; S.needT = 0.4;
+      S.sayN = 0; S.hintT = 0; S.doneT = -1; S.slotHint = 0; S.needWait = false; S.needT = 0.4; S.fixT = 0; S.fixK = -1;
       S.spawnT = 1.0;
       S.decoy = buildDecoys(g, S.chars);
       S.easy = g.level === 1 && i === 0;
@@ -191,7 +209,7 @@
           const dT = Math.abs((catchY - o.y) / Math.max(1, o.vy) - eta);
           let want = 0;
           if (dT < 0.9) want = sep * (dT < 0.45 ? 1 : 1 - (dT - 0.45) / 0.9);
-          if (o.y < S.top + 170 * S.s) want = Math.max(want, near);
+          if (o.y < spawnTop(g) + 170 * S.s) want = Math.max(want, near);
           sc = Math.min(sc, dx - want);
         }
         if (sc > bestSc) { bestSc = sc; best = x; }
@@ -201,7 +219,7 @@
     }
     function spawn(g, kind, ch) {
       const s = S.s;
-      const y = S.top + 30 * s;
+      const y = spawnTop(g) + 30 * s;
       const dist = Math.max(120, S.rimY - y);
       let vy = dist / S.P.fall * rnd(0.9, 1.12);
       if (S.easy) vy *= 0.85;
@@ -275,7 +293,10 @@
         tumble(g, it, 0);
         S.slotHint = 1.2;
         g.sfx('jump');
-        if (!(S.orderT > 0)) { g.float('先接第' + (S.idx + 1) + '个字！', clamp(it.x, 90, g.w - 90), S.rimY - 60 * S.s, { color: '#FFE45C', size: 26 }); S.orderT = 1.6; }
+        // 试玩修订：原来一律提示“先接第 N 个字”。可“实事求是”接第 4 个字时接到“事”（第 2 个字，早接过了），
+        // 这不是顺序问题——提示改成“接过啦”，免得孩子以为“事”还要再接一次
+        const later = S.chars.indexOf(it.ch, S.idx + 1) >= 0;
+        if (!(S.orderT > 0)) { g.float(later ? '先接第' + (S.idx + 1) + '个字！' : '“' + it.ch + '”接过啦！', clamp(it.x, 90, g.w - 90), S.rimY - 60 * S.s, { color: '#FFE45C', size: 26 }); S.orderT = 1.6; }
         return;
       }
       bad(g, it, need);
@@ -291,7 +312,19 @@
       g.addScore(5, it.sx, it.sy - 44 * s);
       S.face = 'happy'; S.faceT = 0.8; S.glowT = 0.5; S.hopT = 0;
       if (S.idx >= S.chars.length) S.busy = true;
-      else { S.needWait = true; S.needT = 0.15; }
+      else {
+        S.needWait = true; S.needT = 0.15;
+        // 这个字后面不再需要了（如“高高兴兴”两个“高”都接到了）：天上剩下的同一个字“噗”地化成金币，免得孩子接着追
+        if (S.chars.indexOf(it.ch, S.idx) < 0) {
+          let n = 0;
+          for (const o of S.items) {
+            if (o === it || o.mode !== 'fall' || o.passed || o.kind !== 'ch' || o.ch !== it.ch) continue;
+            o.mode = 'pop'; o.t = 0;
+            const x = o.x, y = o.y;
+            g.after(0.05 * n++, () => { g.burst(x, y, { kind: 'coin', n: 3 }); g.burst(x, y, { kind: 'dot', color: '#FFFFFF', n: 5 }); g.sfx('bubble'); });
+          }
+        }
+      }
       g.after(0.12, () => g.sfx('whoosh'));
       g.tween(it, { fp: 1 }, 0.6, 'inOutQuad', () => arrive(g, it));
     }
@@ -307,7 +340,7 @@
       g.burst(sl.x, sl.y, { kind: 'spark', n: 10 });
       g.ring(sl.x, sl.y, '#FFFFFF', 56 * S.s);
       S.boardBump = 1;
-      if (S.fill.every(Boolean)) wordDone(g);
+      if (S.fill.every(Boolean) && g.state === 'play') wordDone(g);   // 输了之后才落进格子的字：不再夸“太棒了”
     }
     function wordDone(g) {
       const B = S.board, s = S.s;
@@ -335,6 +368,8 @@
       S.face = 'dizzy'; S.faceT = 1.1;
       const w = S.item.w, py = S.item.py ? '（' + S.item.py + '）' : '';
       const note = w + py + '：第' + (S.idx + 1) + '个字是“' + need + '”，接成了“' + it.ch + '”';
+      // 红笔订正：当前格子里浮出正确的字（和它的拼音）1.8 秒——接错了要马上看到对的是哪个（珍 ≠ 身）
+      S.fixK = S.idx; S.fixT = 1.8;
       g.wrong(S.item, note, it.x, S.rimY - 30 * s);
     }
     function boom(g, it) {
@@ -383,6 +418,12 @@
         S.overInit = true;
         S.won = g.done >= g.rounds && g.lives > 0;
         S.face = S.won ? 'happy' : 'dizzy'; S.faceT = 99;
+        // 没过关：词语牌上把没接到的字用红笔补出来，再读一遍这个词——输了也知道正确答案是什么
+        if (!S.won && S.item && S.fill && !S.fill.every(Boolean)) {
+          S.reveal = true; S.fixT = 0;
+          const w = S.item.w;
+          g.after(0.7, () => { try { g.say(w, { caption: S.item && S.item.py || '' }); } catch (e) { /* ignore */ } });
+        }
         S.tx = null; S.bv = 0; S.run = 0;
         for (const it of S.items) {
           if (it.mode !== 'fall') continue;
@@ -398,7 +439,13 @@
       const night = g.sky === 'night';
       g.burst(it.x, S.groundY - 6 * s, { kind: 'dot', color: night ? '#B08A66' : '#F3C66E', n: 9 });
       if (it.kind === 'bomb') { g.burst(it.x, S.groundY - 10 * s, { kind: 'dot', color: '#FF8A3D', n: 10 }); g.shake(4); g.sfx('hit'); return; }
-      if (it.kind === 'ch' && !S.busy && it.ch === S.chars[S.idx]) g.miss(it.x, S.groundY - 70 * s);
+      // 试玩修订：天上常同时掉着两三个“要的字”，孩子正去接另一个，这个落地就喊“溜走啦”并断连击，不公平。
+      // 只有最后一个要的字也掉了（天上再没有它）才算溜走。
+      if (it.kind === 'ch' && !S.busy && it.ch === S.chars[S.idx]) {
+        let more = false;
+        for (const o of S.items) if (o !== it && o.mode === 'fall' && !o.passed && o.kind === 'ch' && o.ch === it.ch) { more = true; break; }
+        if (!more) g.miss(it.x, S.groundY - 70 * s);
+      }
     }
 
     /* ---------------- 小熊猫 + 篮子移动 ---------------- */
@@ -414,7 +461,7 @@
         const want = clamp((S.tx - S.bx) * 13, -1600 * s, 1600 * s);
         S.bv += (want - S.bv) * Math.min(1, dt * 22);
         if (Math.abs(S.tx - S.bx) < 0.8 && !S.drag) S.tx = null;
-      } else S.bv *= Math.exp(-dt * 14);
+      } else S.bv *= Math.exp(-dt * 26);   // 试玩修订：原 14 松键后还要滑出半个篮子（键盘接字总是冲过头），改成利落刹车
       const lo = S.bandL + S.bw / 2, hi = S.bandR - S.bw / 2;
       const nx = clamp(S.bx + S.bv * dt, lo, hi);
       if ((nx === lo && S.bv < 0) || (nx === hi && S.bv > 0)) S.bv = 0;
@@ -444,6 +491,7 @@
       return out;
     }
     const FP = { x: 0, y: 0, k: 1 };
+    const ENTRY = 0.9;   // 开场跑进场的秒数
 
     /* ---------------- 画：物件 ---------------- */
     function glowGrad(c, key, r, stops) {
@@ -595,10 +643,14 @@
       c.lineWidth = w; c.strokeStyle = '#4A2616'; c.stroke();
     }
     function drawPanda(g, c, clk) {
-      const s = S.s, x = S.bx, y = S.groundY;
-      const run = S.run, legA = Math.sin(S.leg) * 0.75 * run;
+      const s = S.s, y = S.groundY;
+      // 开场仪式：3·2·1 一开始，小熊猫举着篮子从左边跑进场，站定后跟着拍子蹦
+      let ex = 0, runIn = 0;
+      if (g.state === 'intro' && clk < ENTRY) { const k = clk / ENTRY; ex = -(S.bx + 90 * s) * Math.pow(1 - k, 3); runIn = 1 - 0.7 * k; }
+      const x = S.bx + ex;
+      const run = Math.max(S.run, runIn), legA = (runIn ? Math.sin(clk * 19) : Math.sin(S.leg)) * 0.75 * run;
       let hop = S.hopT < 0.34 ? -Math.sin(S.hopT / 0.34 * Math.PI) * 12 : 0;
-      if (g.state === 'intro') hop = -Math.abs(Math.sin(clk * Math.PI / 0.62)) * 9;       // 3·2·1 跟着拍子蹦
+      if (g.state === 'intro') hop = runIn ? -Math.abs(Math.sin(clk * 19)) * 5 : -Math.abs(Math.sin(clk * Math.PI / 0.62)) * 9;   // 3·2·1 跟着拍子蹦
       else if (g.state === 'over' && S.won) hop = -Math.abs(Math.sin(clk * 6.5)) * 20;    // 过关：蹦蹦跳跳欢呼
       const bob = (run > 0.1 ? -Math.abs(Math.sin(S.leg)) * 4 * run : Math.sin(clk * 3) * 1.5) + hop;
       const face = S.faceT > 0 ? S.face : 'idle';
@@ -608,7 +660,7 @@
       c.save();
       c.translate(x, y);
       c.scale(s, s);
-      c.rotate(S.tilt * 0.6);
+      c.rotate(S.tilt * 0.6 + runIn * 0.16);
       c.translate(0, bob);
       c.lineCap = 'round'; c.lineJoin = 'round';
       // 尾巴（一圈一圈的环纹，摇来摇去）
@@ -788,7 +840,7 @@
       g.rrect(B.x, B.y, B.w, B.h, 16 * s, done ? '#FFF1B8' : '#FFF6DC', NAVY, 3.5 * s);
       for (let i = 0; i < S.slots.length; i++) {
         const sl = S.slots[i], half = sl.size / 2;
-        const cur = !done && i === S.idx && !S.fill[i];
+        const cur = !done && !S.reveal && i === S.idx && !S.fill[i];
         let ox = 0;
         if (cur && S.slotHint > 0) ox = Math.sin(clk * 40) * 3 * s * Math.min(1, S.slotHint);
         const x0 = sl.x - half + ox, y0 = sl.y - half;
@@ -805,7 +857,8 @@
         c.restore();
         // 拼音
         // 6 关起纯听力不给拼音；接到的字 / 整词完成后再揭晓拼音（写对了顺便把音认一遍）
-        if ((showPinyin() || S.fill[i] || done) && S.py[i]) g.text(S.py[i], sl.x, sl.pyY, { size: Math.round(17 * s), font: 'py', color: cur ? '#E0463C' : NAVY, maxW: sl.size + 6 * s });
+        const fixing = !S.fill[i] && S.fixT > 0 && i === S.fixK;
+        if ((showPinyin() || S.fill[i] || done || S.reveal || fixing) && S.py[i]) g.text(S.py[i], sl.x, sl.pyY, { size: Math.round(17 * s), font: 'py', color: cur ? '#E0463C' : NAVY, maxW: sl.size + 6 * s });
         else g.text('?', sl.x, sl.pyY, { size: Math.round(17 * s), font: 'num', color: 'rgba(29,43,83,.45)' });
         if (S.fill[i]) {
           const k = S.pop[i] || 0;
@@ -817,6 +870,14 @@
           }
           g.text(S.chars[i], 0, 1.5 * s, { size: Math.round(sl.size * 0.8), font: 'kai', color: done ? '#C0392B' : NAVY, weight: 700 });
           c.restore();
+        } else if (S.reveal || fixing) {
+          // 订正：浅红底 + 红色楷体（输了 = 补全整词；接错 = 当前格闪 1.8 秒）
+          const a = S.reveal ? 1 : Math.min(1, S.fixT / 0.3, (1.8 - S.fixT) / 0.15);
+          c.globalAlpha = clamp(a, 0, 1);
+          g.rrect(sl.x - half + 3 * s, y0 + 3 * s, sl.size - 6 * s, sl.size - 6 * s, 5 * s, 'rgba(255,90,80,.16)');
+          const k = S.reveal ? 1 : 1 + 0.06 * Math.sin(clk * 12);
+          g.text(S.chars[i], sl.x + ox, sl.y + 1.5 * s, { size: Math.round(sl.size * 0.8 * k), font: 'kai', color: '#E0463C', weight: 700 });
+          c.globalAlpha = 1;
         } else if (cur) {
           const a = 0.5 + 0.5 * Math.sin(clk * 5);
           g.text('?', sl.x, sl.y + 2 * s, { size: Math.round(sl.size * 0.5), font: 'num', color: 'rgba(255,159,28,' + (0.35 + 0.4 * a).toFixed(3) + ')' });
@@ -824,10 +885,13 @@
       }
       c.restore();
     }
-    function drawHint(g, c) {
-      if (!(S.hintT > 0) || !S.item || !S.item.s) return;
+    /* 例句挖空条的位置（缓存）。试玩修订：原先画在字卡“后面”，可新字正好从它下面冒出来、降落伞盖住的恰恰是挖空处，
+       句子根本读不全。现在条子画在字卡上面，显示期间新字改从条子下沿出发（下落时间不变），两不相挡。 */
+    function hintBox(g) {
+      if (!S.item || !S.item.s || !S.board) return null;
+      const key = S.item.w + '|' + S.item.s + '|' + g.w + '|' + S.s + '|' + S.board.y + '|' + S.board.h;
+      if (S.hb && S.hb.key === key) return S.hb;
       const s = S.s, B = S.board;
-      const a = Math.min(1, S.hintT / 0.3, (5 - S.hintT) / 0.2);
       const blank = '＿'.repeat(S.chars.length);
       const txt = String(S.item.s).split(S.item.w).join(blank);
       let fs = Math.round(20 * s);
@@ -836,12 +900,25 @@
       if (lines.length > 2) { fs = Math.round(17 * s); lines = g.wrapText(txt, maxW, fs, 'kai'); }
       let tw = 0; for (const ln of lines) tw = Math.max(tw, g.measure(ln, fs, 'kai'));
       const lh = fs * 1.35, bw = Math.min(g.w - 16, tw + 32 * s), bh = lines.length * lh + 16 * s;
-      const bx = g.w / 2 - bw / 2, by = B.y + B.h + 12 * s;
-      c.globalAlpha = clamp(a, 0, 1) * 0.92;
-      g.rrect(bx, by, bw, bh, 14 * s, 'rgba(29,43,83,.74)', 'rgba(255,255,255,.85)', 2.5 * s);
-      c.fillStyle = 'rgba(29,43,83,.74)';
+      S.hb = { key, lines, fs, lh, x: g.w / 2 - bw / 2, y: B.y + B.h + 12 * s, w: bw, h: bh };
+      return S.hb;
+    }
+    function spawnTop(g) {
+      if (S.hintT > 0.4) { const hb = hintBox(g); if (hb) return Math.max(S.top, hb.y + hb.h - 4 * S.s); }
+      return S.top;
+    }
+    function drawHint(g, c) {
+      if (!(S.hintT > 0)) return;
+      const hb = hintBox(g);
+      if (!hb) return;
+      const s = S.s, B = S.board;
+      const a = Math.min(1, S.hintT / 0.3, (5 - S.hintT) / 0.2);
+      const bx = hb.x, by = hb.y, bw = hb.w, bh = hb.h;
+      c.globalAlpha = clamp(a, 0, 1) * 0.94;
+      g.rrect(bx, by, bw, bh, 14 * s, 'rgba(29,43,83,.82)', 'rgba(255,255,255,.85)', 2.5 * s);
+      c.fillStyle = 'rgba(29,43,83,.82)';
       c.beginPath(); c.moveTo(B.x + B.w / 2 - 10 * s, by + 1); c.lineTo(B.x + B.w / 2, by - 10 * s); c.lineTo(B.x + B.w / 2 + 10 * s, by + 1); c.closePath(); c.fill();
-      for (let i = 0; i < lines.length; i++) g.text(lines[i], g.w / 2, by + 8 * s + lh * (i + 0.5), { size: fs, font: 'kai', color: '#FFFFFF', weight: 700, maxW: bw - 20 * s });
+      for (let i = 0; i < hb.lines.length; i++) g.text(hb.lines[i], g.w / 2, by + 8 * s + hb.lh * (i + 0.5), { size: hb.fs, font: 'kai', color: '#FFFFFF', weight: 700, maxW: bw - 20 * s });
       c.globalAlpha = 1;
     }
 
@@ -849,7 +926,7 @@
     function drawGround(g, c, clk) {
       if (g.sky === 'day' && g.level >= 4) {   // 4–5 关：傍晚的暖色天光
         let gr = S.grad.dusk;
-        if (!gr) { gr = c.createLinearGradient(0, 0, 0, g.h); gr.addColorStop(0, 'rgba(255,120,70,.34)'); gr.addColorStop(0.55, 'rgba(255,170,90,.22)'); gr.addColorStop(1, 'rgba(255,190,120,.05)'); S.grad.dusk = gr; }
+        if (!gr) { gr = c.createLinearGradient(0, 0, 0, g.h); gr.addColorStop(0, 'rgba(120,70,190,.30)'); gr.addColorStop(0.42, 'rgba(255,110,120,.24)'); gr.addColorStop(0.72, 'rgba(255,165,70,.34)'); gr.addColorStop(1, 'rgba(255,190,120,.10)'); S.grad.dusk = gr; }   // 晚霞：上紫下橙（原来整片橙红压在蓝天上发灰）
         c.fillStyle = gr; c.fillRect(-30, -30, g.w + 60, g.h + 60);
       }
       if (g.sky !== 'night') return;
@@ -902,6 +979,18 @@
       c.beginPath(); c.moveTo(fx, fy - 20 * s); c.lineTo(fx, fy + 30 * s); c.stroke();
       g.emoji('🎏', fx + dir * 18 * s, fy - 8 * s + Math.sin(S.clk * 6) * 2 * s, 34 * s, { flip: dir < 0, rot: Math.sin(S.clk * 5) * 0.08 });
     }
+    /* 关卡提示：新花样出现的那一关，3·2·1 下面的说明换成这一关的新规则（引擎每次倒计时都会重读 spec.intro）
+       ——第一次遇到炸弹 / 爱心 / 没拼音不会懵。试过画在画布上，电脑屏上会和倒计时大字叠在一起，改用引擎的说明框。 */
+    const INTRO = '听词语，按顺序接住它的字！';
+    function levelTip(g) {
+      const lv = g.level;
+      if (lv === 3) return '💣 别接！⭐ 接住加分！';
+      if (lv === 4) return '新花样：接住 💖 能回血！';
+      if (lv === 6) return showPinyin() ? '🌙 天黑了，还起风了！' : '🌙 拼音藏起来了，用耳朵听！';
+      if (lv === 8) return '🍃 字会左右飘，看准再接！';
+      if (lv === 2 || lv === 5 || lv === 7 || lv >= 9) return '⚡ 字掉得更快啦，按顺序接！';
+      return '';
+    }
     function drawFinger(g, c, clk) {
       if (S.moved || !(g.state === 'play' || g.state === 'intro')) return;
       const s = S.s;
@@ -916,11 +1005,12 @@
     /* ---------------- spec ---------------- */
     const spec = {
       maxLevel: 10, lives: 3, rounds: 6, music: 'bright', sky: 'day', name: '天降汉字', icon: '🧺',
-      intro: '听词语，按顺序接住它的字！',
+      intro: '听词语，按顺序接住它的字！',   // 每关 init 会按 levelTip 换成这一关的新规则
       controls: '拖动小熊猫 / ← → 移动 / 空格重听',
       init(g) {
         S.P = params(g.level);
         g.sky = g.level >= 6 ? 'night' : 'day';
+        spec.intro = levelTip(g) || INTRO;
         let list = (g.items('words', 6) || []).filter((it) => it && typeof it.w === 'string' && Array.from(it.w).filter(isHan).length >= 1 && Array.from(it.w).filter(isHan).length <= 6);
         if (g.level <= 2) list = list.slice().sort((a, b) => Array.from(a.w).length - Array.from(b.w).length);
         S.list = list;
@@ -931,7 +1021,7 @@
         S.face = 'idle'; S.faceT = 0; S.soot = 0; S.sqT = 9; S.hopT = 9; S.glowT = 0; S.nextT = 0.2;
         S.wind = 0; S.windPh = Math.random() * 10;
         S.moved = g.level > 2; S.heard = false; S.orderT = 0; S.boardBump = 0; S.spkBump = 0;
-        S.clk = 0; S.lastMs = 0; S.overInit = false; S.won = false;
+        S.clk = 0; S.lastMs = 0; S.overInit = false; S.won = false; S.dustT = 0; S.reveal = false; S.fixT = 0; S.fixK = -1;
         S.chars = list.length ? Array.from(list[0].w).filter(isHan) : ['字'];
         layout(g);
         if (list.length) startWord(g, 0);
@@ -944,6 +1034,10 @@
         if (!S.item) return;
         const s = S.s, P = S.P;
         moveBasket(g, dt);
+        if (S.run > 0.55) {   // 跑起来脚下扬沙（手感：一看就知道在“跑”）
+          S.dustT -= dt;
+          if (S.dustT <= 0) { S.dustT = 0.09; g.burst(S.bx - Math.sign(S.bv) * 24 * s, S.groundY - 4 * s, { kind: 'dot', color: g.sky === 'night' ? '#B08A66' : '#F3D9A0', n: 2 }); }
+        }
         if (P.wind) {
           S.windPh += dt;
           S.wind = P.wind * s * Math.sin(S.windPh * 0.42) * (0.65 + 0.35 * Math.sin(S.windPh * 1.3));
@@ -951,6 +1045,7 @@
         if (S.orderT > 0) S.orderT -= dt;
         if (S.slotHint > 0) S.slotHint = Math.max(0, S.slotHint - dt);
         if (S.hintT > 0) S.hintT = Math.max(0, S.hintT - dt);
+        if (S.fixT > 0) S.fixT = Math.max(0, S.fixT - dt);
         if (S.doneT >= 0) S.doneT += dt;
         // 出字：要接的字始终保证天上有一个
         if (!S.busy) {
@@ -1034,7 +1129,6 @@
         if (g.state === 'over') overDrift(g, cdt);
         drawGround(g, c, clk);
         drawWind(g, c, cdt);
-        drawHint(g, c);   // 例句挖空条画在字卡后面：手机上它横跨出字区，盖在上面会把刚出现的字挡住 5 秒
         for (const it of S.items) {
           if (it.mode !== 'fall' && it.mode !== 'land') continue;
           if (it.kind === 'ch') drawChar(g, c, it, clk); else drawThing(g, c, it, clk);
@@ -1050,6 +1144,7 @@
           drawTile(g, c, it, false);
           c.restore();
         }
+        drawHint(g, c);   // 例句挖空条盖在字卡上面（显示期间新字从条子下沿出发，见 spawnTop）
         drawBoard(g, c, clk);
         for (const it of S.items) if (it.mode === 'fly') drawFly(g, c, it);
         drawFinger(g, c, clk);

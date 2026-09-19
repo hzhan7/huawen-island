@@ -1,0 +1,8346 @@
+{
+ "p2": {
+  "menu": [
+   {
+    "id": "ice_kacang",
+    "name": "红豆冰",
+    "py": "hóng dòu bīng",
+    "emoji": "🍧",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "dessert",
+    "base": [
+     {
+      "id": "ice",
+      "name": "冰",
+      "py": "bīng",
+      "emoji": "🧊"
+     },
+     {
+      "id": "red_bean",
+      "name": "红豆",
+      "py": "hóng dòu",
+      "emoji": "🔴",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ],
+      "color": "红色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "corn",
+      "name": "玉米",
+      "py": "yù mǐ",
+      "emoji": "🌽",
+      "mw": "份",
+      "also": [
+       "粒",
+       "根"
+      ],
+      "color": "黄色"
+     },
+     {
+      "id": "peanut",
+      "name": "花生",
+      "py": "huā shēng",
+      "emoji": "🥜",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "milk_tea",
+    "name": "奶茶",
+    "py": "nǎi chá",
+    "emoji": "🥤",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "black_tea",
+      "name": "红茶",
+      "py": "hóng chá",
+      "emoji": "🍵"
+     },
+     {
+      "id": "milk",
+      "name": "牛奶",
+      "py": "niú nǎi",
+      "emoji": "🥛"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     },
+     {
+      "id": "nata",
+      "name": "椰果",
+      "py": "yē guǒ",
+      "emoji": "🥥",
+      "mw": "份",
+      "also": [
+       "块"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tau_huay",
+    "name": "豆花",
+    "py": "dòu huā",
+    "emoji": "🍮",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "dessert",
+    "base": [
+     {
+      "id": "beancurd",
+      "name": "豆花",
+      "py": "dòu huā",
+      "emoji": "🍮",
+      "color": "白色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "red_bean",
+      "name": "红豆",
+      "py": "hóng dòu",
+      "emoji": "🔴",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ],
+      "color": "红色"
+     },
+     {
+      "id": "peanut",
+      "name": "花生",
+      "py": "huā shēng",
+      "emoji": "🥜",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "bean_bun",
+    "name": "豆沙包",
+    "py": "dòu shā bāo",
+    "emoji": "🥟",
+    "mw": "个",
+    "kind": "snack",
+    "base": [
+     {
+      "id": "bun_bean",
+      "name": "豆沙包",
+      "py": "dòu shā bāo",
+      "emoji": "🥟",
+      "mw": "个"
+     }
+    ],
+    "extra": []
+   },
+   {
+    "id": "sugarcane",
+    "name": "甘蔗水",
+    "py": "gān zhè shuǐ",
+    "emoji": "🧃",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "cane_juice",
+      "name": "甘蔗水",
+      "py": "gān zhè shuǐ",
+      "emoji": "🧃"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     }
+    ]
+   },
+   {
+    "id": "coconut",
+    "name": "椰子",
+    "py": "yē zi",
+    "emoji": "🥥",
+    "mw": "个",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "coconut",
+      "name": "椰子",
+      "py": "yē zi",
+      "emoji": "🥥",
+      "mw": "个"
+     }
+    ],
+    "extra": []
+   },
+   {
+    "id": "popiah",
+    "name": "薄饼",
+    "py": "báo bǐng",
+    "emoji": "🌯",
+    "mw": "条",
+    "also": [
+     "个",
+     "张"
+    ],
+    "kind": "snack",
+    "base": [
+     {
+      "id": "popiah_skin",
+      "name": "饼皮",
+      "py": "bǐng pí",
+      "emoji": "🫓",
+      "mw": "张"
+     }
+    ],
+    "extra": [
+     {
+      "id": "lettuce",
+      "name": "生菜",
+      "py": "shēng cài",
+      "emoji": "🥬",
+      "mw": "片",
+      "also": [
+       "棵"
+      ],
+      "color": "绿色"
+     },
+     {
+      "id": "beansprout",
+      "name": "豆芽",
+      "py": "dòu yá",
+      "emoji": "🌱",
+      "mw": "份",
+      "also": [
+       "根"
+      ]
+     },
+     {
+      "id": "peanut",
+      "name": "花生",
+      "py": "huā shēng",
+      "emoji": "🥜",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "fishball_noodle",
+    "name": "鱼圆面",
+    "py": "yú yuán miàn",
+    "emoji": "🍜",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "noodle",
+      "name": "面条",
+      "py": "miàn tiáo",
+      "emoji": "🍜"
+     },
+     {
+      "id": "fishball",
+      "name": "鱼圆",
+      "py": "yú yuán",
+      "emoji": "⚪",
+      "mw": "个",
+      "also": [
+       "颗",
+       "粒"
+      ],
+      "color": "白色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "fishcake",
+      "name": "鱼饼",
+      "py": "yú bǐng",
+      "emoji": "🍥",
+      "mw": "片",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     }
+    ]
+   },
+   {
+    "id": "fish_soup",
+    "name": "鱼片米粉",
+    "py": "yú piàn mǐ fěn",
+    "emoji": "🍲",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "bee_hoon",
+      "name": "米粉",
+      "py": "mǐ fěn",
+      "emoji": "🍝"
+     },
+     {
+      "id": "fish_slice",
+      "name": "鱼片",
+      "py": "yú piàn",
+      "emoji": "🐟"
+     }
+    ],
+    "extra": [
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     }
+    ]
+   },
+   {
+    "id": "ice_cream",
+    "name": "冰淇淋",
+    "py": "bīng qí lín",
+    "emoji": "🍨",
+    "mw": "杯",
+    "also": [
+     "个",
+     "份"
+    ],
+    "kind": "dessert",
+    "base": [],
+    "extra": [],
+    "stack": true,
+    "layers": [
+     {
+      "id": "l_mango",
+      "name": "芒果",
+      "py": "máng guǒ",
+      "emoji": "🥭",
+      "color": "黄色"
+     },
+     {
+      "id": "l_greentea",
+      "name": "绿茶",
+      "py": "lǜ chá",
+      "emoji": "🍵",
+      "color": "绿色"
+     },
+     {
+      "id": "l_vanilla",
+      "name": "香草",
+      "py": "xiāng cǎo",
+      "emoji": "🍦",
+      "color": "白色"
+     }
+    ]
+   }
+  ],
+  "menuwords": [
+   {
+    "k": "color",
+    "w": "红色",
+    "py": "hóng sè",
+    "hex": "#E53935"
+   },
+   {
+    "k": "color",
+    "w": "黄色",
+    "py": "huáng sè",
+    "hex": "#FDD835"
+   },
+   {
+    "k": "color",
+    "w": "绿色",
+    "py": "lǜ sè",
+    "hex": "#43A047"
+   },
+   {
+    "k": "color",
+    "w": "白色",
+    "py": "bái sè",
+    "hex": "#FAFAFA"
+   },
+   {
+    "k": "pos",
+    "w": "最上面",
+    "py": "zuì shàng mian",
+    "i": 0
+   },
+   {
+    "k": "pos",
+    "w": "中间",
+    "py": "zhōng jiān",
+    "i": 1
+   },
+   {
+    "k": "pos",
+    "w": "最下面",
+    "py": "zuì xià mian",
+    "i": 2
+   },
+   {
+    "k": "num",
+    "w": "一",
+    "py": "yī",
+    "n": 1
+   },
+   {
+    "k": "num",
+    "w": "两",
+    "py": "liǎng",
+    "n": 2
+   },
+   {
+    "k": "num",
+    "w": "三",
+    "py": "sān",
+    "n": 3
+   },
+   {
+    "k": "num",
+    "w": "四",
+    "py": "sì",
+    "n": 4
+   },
+   {
+    "k": "num",
+    "w": "五",
+    "py": "wǔ",
+    "n": 5
+   },
+   {
+    "k": "num",
+    "w": "六",
+    "py": "liù",
+    "n": 6
+   },
+   {
+    "k": "num",
+    "w": "七",
+    "py": "qī",
+    "n": 7
+   },
+   {
+    "k": "num",
+    "w": "八",
+    "py": "bā",
+    "n": 8
+   },
+   {
+    "k": "num",
+    "w": "九",
+    "py": "jiǔ",
+    "n": 9
+   },
+   {
+    "k": "num",
+    "w": "十",
+    "py": "shí",
+    "n": 10
+   },
+   {
+    "k": "mw",
+    "n": "红豆冰",
+    "py": "hóng dòu bīng",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "奶茶",
+    "py": "nǎi chá",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "豆花",
+    "py": "dòu huā",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "豆沙包",
+    "py": "dòu shā bāo",
+    "mw": "个",
+    "mwpy": "gè"
+   },
+   {
+    "k": "mw",
+    "n": "甘蔗水",
+    "py": "gān zhè shuǐ",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "椰子",
+    "py": "yē zi",
+    "mw": "个",
+    "mwpy": "gè"
+   },
+   {
+    "k": "mw",
+    "n": "薄饼",
+    "py": "báo bǐng",
+    "mw": "条",
+    "mwpy": "tiáo",
+    "also": [
+     "个",
+     "张"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鱼圆面",
+    "py": "yú yuán miàn",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鱼片米粉",
+    "py": "yú piàn mǐ fěn",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "冰淇淋",
+    "py": "bīng qí lín",
+    "mw": "杯",
+    "mwpy": "bēi",
+    "also": [
+     "个",
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "冰块",
+    "py": "bīng kuài",
+    "mw": "块",
+    "mwpy": "kuài"
+   },
+   {
+    "k": "mw",
+    "n": "红豆",
+    "py": "hóng dòu",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "颗",
+     "粒"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "玉米",
+    "py": "yù mǐ",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "粒",
+     "根"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "花生",
+    "py": "huā shēng",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "颗",
+     "粒"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "椰果",
+    "py": "yē guǒ",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "饼皮",
+    "py": "bǐng pí",
+    "mw": "张",
+    "mwpy": "zhāng"
+   },
+   {
+    "k": "mw",
+    "n": "生菜",
+    "py": "shēng cài",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "棵"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "豆芽",
+    "py": "dòu yá",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "根"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鱼圆",
+    "py": "yú yuán",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "颗",
+     "粒"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鱼饼",
+    "py": "yú bǐng",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "青菜",
+    "py": "qīng cài",
+    "mw": "棵",
+    "mwpy": "kē",
+    "also": [
+     "份"
+    ]
+   }
+  ]
+ },
+ "p3": {
+  "menu": [
+   {
+    "id": "chicken_rice",
+    "name": "鸡饭",
+    "py": "jī fàn",
+    "emoji": "🍗",
+    "mw": "盘",
+    "also": [
+     "碟",
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "rice",
+      "name": "米饭",
+      "py": "mǐ fàn",
+      "emoji": "🍚"
+     },
+     {
+      "id": "chicken",
+      "name": "鸡肉",
+      "py": "jī ròu",
+      "emoji": "🍗",
+      "mw": "块",
+      "also": [
+       "片"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "fried_egg",
+      "name": "荷包蛋",
+      "py": "hé bāo dàn",
+      "emoji": "🍳",
+      "mw": "个"
+     },
+     {
+      "id": "cucumber",
+      "name": "黄瓜",
+      "py": "huáng guā",
+      "emoji": "🥒",
+      "mw": "片",
+      "also": [
+       "根",
+       "条"
+      ],
+      "color": "绿色"
+     }
+    ]
+   },
+   {
+    "id": "satay",
+    "name": "沙爹",
+    "py": "shā diē",
+    "emoji": "🍢",
+    "mw": "串",
+    "kind": "snack",
+    "base": [
+     {
+      "id": "satay",
+      "name": "沙爹",
+      "py": "shā diē",
+      "emoji": "🍢",
+      "mw": "串"
+     }
+    ],
+    "extra": [
+     {
+      "id": "cucumber",
+      "name": "黄瓜",
+      "py": "huáng guā",
+      "emoji": "🥒",
+      "mw": "片",
+      "also": [
+       "根",
+       "条"
+      ],
+      "color": "绿色"
+     }
+    ]
+   },
+   {
+    "id": "nasi_lemak",
+    "name": "椰浆饭",
+    "py": "yē jiāng fàn",
+    "emoji": "🍛",
+    "mw": "份",
+    "also": [
+     "盘",
+     "包",
+     "碟"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "rice",
+      "name": "米饭",
+      "py": "mǐ fàn",
+      "emoji": "🍚"
+     },
+     {
+      "id": "ikan_bilis",
+      "name": "江鱼仔",
+      "py": "jiāng yú zǎi",
+      "emoji": "🐟"
+     },
+     {
+      "id": "peanut",
+      "name": "花生",
+      "py": "huā shēng",
+      "emoji": "🥜",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "wing",
+      "name": "鸡翅",
+      "py": "jī chì",
+      "emoji": "🍗",
+      "mw": "只",
+      "also": [
+       "个"
+      ]
+     },
+     {
+      "id": "fried_egg",
+      "name": "荷包蛋",
+      "py": "hé bāo dàn",
+      "emoji": "🍳",
+      "mw": "个"
+     },
+     {
+      "id": "cucumber",
+      "name": "黄瓜",
+      "py": "huáng guā",
+      "emoji": "🥒",
+      "mw": "片",
+      "also": [
+       "根",
+       "条"
+      ],
+      "color": "绿色"
+     }
+    ]
+   },
+   {
+    "id": "kaya_toast",
+    "name": "咖椰吐司",
+    "py": "kā yē tǔ sī",
+    "emoji": "🍞",
+    "mw": "份",
+    "also": [
+     "片"
+    ],
+    "kind": "snack",
+    "base": [
+     {
+      "id": "toast",
+      "name": "吐司",
+      "py": "tǔ sī",
+      "emoji": "🍞",
+      "mw": "片"
+     },
+     {
+      "id": "kaya",
+      "name": "咖椰",
+      "py": "kā yē",
+      "emoji": "🍯"
+     },
+     {
+      "id": "butter",
+      "name": "牛油",
+      "py": "niú yóu",
+      "emoji": "🧈",
+      "mw": "片",
+      "also": [
+       "块"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "soft_egg",
+      "name": "半生熟蛋",
+      "py": "bàn shēng shú dàn",
+      "emoji": "🥚",
+      "mw": "个",
+      "also": [
+       "颗"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "teh_tarik",
+    "name": "拉茶",
+    "py": "lā chá",
+    "emoji": "☕",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "black_tea",
+      "name": "红茶",
+      "py": "hóng chá",
+      "emoji": "🍵"
+     },
+     {
+      "id": "cond_milk",
+      "name": "炼奶",
+      "py": "liàn nǎi",
+      "emoji": "🥛"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     }
+    ]
+   },
+   {
+    "id": "ice_kacang",
+    "name": "红豆冰",
+    "py": "hóng dòu bīng",
+    "emoji": "🍧",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "dessert",
+    "base": [
+     {
+      "id": "ice",
+      "name": "冰",
+      "py": "bīng",
+      "emoji": "🧊"
+     },
+     {
+      "id": "red_bean",
+      "name": "红豆",
+      "py": "hóng dòu",
+      "emoji": "🔴",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ],
+      "color": "红色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "corn",
+      "name": "玉米",
+      "py": "yù mǐ",
+      "emoji": "🌽",
+      "mw": "份",
+      "also": [
+       "粒",
+       "根"
+      ],
+      "color": "黄色"
+     },
+     {
+      "id": "peanut",
+      "name": "花生",
+      "py": "huā shēng",
+      "emoji": "🥜",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "bubble_tea",
+    "name": "珍珠奶茶",
+    "py": "zhēn zhū nǎi chá",
+    "emoji": "🧋",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "milk_tea",
+      "name": "奶茶",
+      "py": "nǎi chá",
+      "emoji": "🥤"
+     },
+     {
+      "id": "pearl",
+      "name": "珍珠",
+      "py": "zhēn zhū",
+      "emoji": "⚫",
+      "color": "黑色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "nata",
+      "name": "椰果",
+      "py": "yē guǒ",
+      "emoji": "🥥",
+      "mw": "份",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "pudding",
+      "name": "布丁",
+      "py": "bù dīng",
+      "emoji": "🍮",
+      "mw": "份",
+      "also": [
+       "个",
+       "块"
+      ]
+     },
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     }
+    ]
+   },
+   {
+    "id": "milk_tea",
+    "name": "奶茶",
+    "py": "nǎi chá",
+    "emoji": "🥤",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "black_tea",
+      "name": "红茶",
+      "py": "hóng chá",
+      "emoji": "🍵"
+     },
+     {
+      "id": "milk",
+      "name": "牛奶",
+      "py": "niú nǎi",
+      "emoji": "🥛"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     },
+     {
+      "id": "nata",
+      "name": "椰果",
+      "py": "yē guǒ",
+      "emoji": "🥥",
+      "mw": "份",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "pudding",
+      "name": "布丁",
+      "py": "bù dīng",
+      "emoji": "🍮",
+      "mw": "份",
+      "also": [
+       "个",
+       "块"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tau_huay",
+    "name": "豆花",
+    "py": "dòu huā",
+    "emoji": "🍮",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "dessert",
+    "base": [
+     {
+      "id": "beancurd",
+      "name": "豆花",
+      "py": "dòu huā",
+      "emoji": "🍮",
+      "color": "白色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "red_bean",
+      "name": "红豆",
+      "py": "hóng dòu",
+      "emoji": "🔴",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ],
+      "color": "红色"
+     },
+     {
+      "id": "peanut",
+      "name": "花生",
+      "py": "huā shēng",
+      "emoji": "🥜",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "fried_rice",
+    "name": "炒饭",
+    "py": "chǎo fàn",
+    "emoji": "🍚",
+    "mw": "盘",
+    "also": [
+     "碗",
+     "份",
+     "碟"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "rice",
+      "name": "米饭",
+      "py": "mǐ fàn",
+      "emoji": "🍚"
+     },
+     {
+      "id": "egg",
+      "name": "鸡蛋",
+      "py": "jī dàn",
+      "emoji": "🥚",
+      "mw": "个",
+      "also": [
+       "颗"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "chicken",
+      "name": "鸡肉",
+      "py": "jī ròu",
+      "emoji": "🍗",
+      "mw": "块",
+      "also": [
+       "片"
+      ]
+     },
+     {
+      "id": "fried_egg",
+      "name": "荷包蛋",
+      "py": "hé bāo dàn",
+      "emoji": "🍳",
+      "mw": "个"
+     }
+    ]
+   },
+   {
+    "id": "fried_bee_hoon",
+    "name": "炒米粉",
+    "py": "chǎo mǐ fěn",
+    "emoji": "🍝",
+    "mw": "盘",
+    "also": [
+     "份",
+     "碟"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "bee_hoon",
+      "name": "米粉",
+      "py": "mǐ fěn",
+      "emoji": "🍝"
+     }
+    ],
+    "extra": [
+     {
+      "id": "fried_egg",
+      "name": "荷包蛋",
+      "py": "hé bāo dàn",
+      "emoji": "🍳",
+      "mw": "个"
+     },
+     {
+      "id": "wing",
+      "name": "鸡翅",
+      "py": "jī chì",
+      "emoji": "🍗",
+      "mw": "只",
+      "also": [
+       "个"
+      ]
+     },
+     {
+      "id": "fishcake",
+      "name": "鱼饼",
+      "py": "yú bǐng",
+      "emoji": "🍥",
+      "mw": "片",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "spring_roll",
+      "name": "春卷",
+      "py": "chūn juǎn",
+      "emoji": "🌯",
+      "mw": "条",
+      "also": [
+       "个",
+       "根"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "dumpling_soup",
+    "name": "水饺汤",
+    "py": "shuǐ jiǎo tāng",
+    "emoji": "🥟",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "dumpling",
+      "name": "水饺",
+      "py": "shuǐ jiǎo",
+      "emoji": "🥟",
+      "mw": "个",
+      "also": [
+       "只"
+      ]
+     },
+     {
+      "id": "soup",
+      "name": "汤",
+      "py": "tāng",
+      "emoji": "🥣"
+     }
+    ],
+    "extra": [
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     }
+    ]
+   },
+   {
+    "id": "bean_bun",
+    "name": "豆沙包",
+    "py": "dòu shā bāo",
+    "emoji": "🥟",
+    "mw": "个",
+    "kind": "snack",
+    "base": [
+     {
+      "id": "bun_bean",
+      "name": "豆沙包",
+      "py": "dòu shā bāo",
+      "emoji": "🥟",
+      "mw": "个"
+     }
+    ],
+    "extra": []
+   },
+   {
+    "id": "meat_bun",
+    "name": "肉包",
+    "py": "ròu bāo",
+    "emoji": "🥟",
+    "mw": "个",
+    "kind": "snack",
+    "base": [
+     {
+      "id": "bun_meat",
+      "name": "肉包",
+      "py": "ròu bāo",
+      "emoji": "🥟",
+      "mw": "个"
+     }
+    ],
+    "extra": []
+   },
+   {
+    "id": "soy_milk",
+    "name": "豆浆",
+    "py": "dòu jiāng",
+    "emoji": "🥛",
+    "mw": "杯",
+    "also": [
+     "碗"
+    ],
+    "kind": "drink",
+    "base": [
+     {
+      "id": "soy_milk",
+      "name": "豆浆",
+      "py": "dòu jiāng",
+      "emoji": "🥛",
+      "color": "白色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     }
+    ]
+   },
+   {
+    "id": "sugarcane",
+    "name": "甘蔗水",
+    "py": "gān zhè shuǐ",
+    "emoji": "🧃",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "cane_juice",
+      "name": "甘蔗水",
+      "py": "gān zhè shuǐ",
+      "emoji": "🧃"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     }
+    ]
+   },
+   {
+    "id": "coconut",
+    "name": "椰子",
+    "py": "yē zi",
+    "emoji": "🥥",
+    "mw": "个",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "coconut",
+      "name": "椰子",
+      "py": "yē zi",
+      "emoji": "🥥",
+      "mw": "个"
+     }
+    ],
+    "extra": []
+   },
+   {
+    "id": "popiah",
+    "name": "薄饼",
+    "py": "báo bǐng",
+    "emoji": "🌯",
+    "mw": "条",
+    "also": [
+     "个",
+     "卷",
+     "张"
+    ],
+    "kind": "snack",
+    "base": [
+     {
+      "id": "popiah_skin",
+      "name": "饼皮",
+      "py": "bǐng pí",
+      "emoji": "🫓",
+      "mw": "张"
+     }
+    ],
+    "extra": [
+     {
+      "id": "lettuce",
+      "name": "生菜",
+      "py": "shēng cài",
+      "emoji": "🥬",
+      "mw": "片",
+      "also": [
+       "棵"
+      ],
+      "color": "绿色"
+     },
+     {
+      "id": "beansprout",
+      "name": "豆芽",
+      "py": "dòu yá",
+      "emoji": "🌱",
+      "mw": "份",
+      "also": [
+       "根"
+      ]
+     },
+     {
+      "id": "peanut",
+      "name": "花生",
+      "py": "huā shēng",
+      "emoji": "🥜",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "roti_prata",
+    "name": "印度煎饼",
+    "py": "yìn dù jiān bǐng",
+    "emoji": "🫓",
+    "mw": "张",
+    "also": [
+     "份",
+     "片"
+    ],
+    "kind": "snack",
+    "base": [
+     {
+      "id": "prata",
+      "name": "饼",
+      "py": "bǐng",
+      "emoji": "🫓",
+      "mw": "张",
+      "also": [
+       "片"
+      ]
+     },
+     {
+      "id": "curry",
+      "name": "咖喱",
+      "py": "gā lí",
+      "emoji": "🍛"
+     }
+    ],
+    "extra": [
+     {
+      "id": "egg",
+      "name": "鸡蛋",
+      "py": "jī dàn",
+      "emoji": "🥚",
+      "mw": "个",
+      "also": [
+       "颗"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "fishball_noodle",
+    "name": "鱼圆面",
+    "py": "yú yuán miàn",
+    "emoji": "🍜",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "noodle",
+      "name": "面条",
+      "py": "miàn tiáo",
+      "emoji": "🍜"
+     },
+     {
+      "id": "fishball",
+      "name": "鱼圆",
+      "py": "yú yuán",
+      "emoji": "⚪",
+      "mw": "个",
+      "also": [
+       "颗",
+       "粒"
+      ],
+      "color": "白色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "fishcake",
+      "name": "鱼饼",
+      "py": "yú bǐng",
+      "emoji": "🍥",
+      "mw": "片",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     }
+    ]
+   },
+   {
+    "id": "fish_soup",
+    "name": "鱼片米粉",
+    "py": "yú piàn mǐ fěn",
+    "emoji": "🍲",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "bee_hoon",
+      "name": "米粉",
+      "py": "mǐ fěn",
+      "emoji": "🍝"
+     },
+     {
+      "id": "fish_slice",
+      "name": "鱼片",
+      "py": "yú piàn",
+      "emoji": "🐟"
+     },
+     {
+      "id": "soup",
+      "name": "汤",
+      "py": "tāng",
+      "emoji": "🥣"
+     }
+    ],
+    "extra": [
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     }
+    ]
+   },
+   {
+    "id": "chicken_wing",
+    "name": "烤鸡翅",
+    "py": "kǎo jī chì",
+    "emoji": "🍗",
+    "mw": "只",
+    "also": [
+     "个"
+    ],
+    "kind": "snack",
+    "base": [
+     {
+      "id": "wing",
+      "name": "鸡翅",
+      "py": "jī chì",
+      "emoji": "🍗",
+      "mw": "只",
+      "also": [
+       "个"
+      ]
+     }
+    ],
+    "extra": []
+   },
+   {
+    "id": "ice_cream",
+    "name": "冰淇淋",
+    "py": "bīng qí lín",
+    "emoji": "🍨",
+    "mw": "杯",
+    "also": [
+     "个",
+     "份"
+    ],
+    "kind": "dessert",
+    "base": [],
+    "extra": [],
+    "stack": true,
+    "layers": [
+     {
+      "id": "l_mango",
+      "name": "芒果",
+      "py": "máng guǒ",
+      "emoji": "🥭",
+      "color": "黄色"
+     },
+     {
+      "id": "l_greentea",
+      "name": "绿茶",
+      "py": "lǜ chá",
+      "emoji": "🍵",
+      "color": "绿色"
+     },
+     {
+      "id": "l_vanilla",
+      "name": "香草",
+      "py": "xiāng cǎo",
+      "emoji": "🍦",
+      "color": "白色"
+     }
+    ]
+   }
+  ],
+  "menuwords": [
+   {
+    "k": "color",
+    "w": "红色",
+    "py": "hóng sè",
+    "hex": "#E53935"
+   },
+   {
+    "k": "color",
+    "w": "黄色",
+    "py": "huáng sè",
+    "hex": "#FDD835"
+   },
+   {
+    "k": "color",
+    "w": "绿色",
+    "py": "lǜ sè",
+    "hex": "#43A047"
+   },
+   {
+    "k": "color",
+    "w": "白色",
+    "py": "bái sè",
+    "hex": "#FAFAFA"
+   },
+   {
+    "k": "color",
+    "w": "黑色",
+    "py": "hēi sè",
+    "hex": "#212121"
+   },
+   {
+    "k": "pos",
+    "w": "最上面",
+    "py": "zuì shàng mian",
+    "i": 0
+   },
+   {
+    "k": "pos",
+    "w": "中间",
+    "py": "zhōng jiān",
+    "i": 1
+   },
+   {
+    "k": "pos",
+    "w": "最下面",
+    "py": "zuì xià mian",
+    "i": 2
+   },
+   {
+    "k": "num",
+    "w": "一",
+    "py": "yī",
+    "n": 1
+   },
+   {
+    "k": "num",
+    "w": "两",
+    "py": "liǎng",
+    "n": 2
+   },
+   {
+    "k": "num",
+    "w": "三",
+    "py": "sān",
+    "n": 3
+   },
+   {
+    "k": "num",
+    "w": "四",
+    "py": "sì",
+    "n": 4
+   },
+   {
+    "k": "num",
+    "w": "五",
+    "py": "wǔ",
+    "n": 5
+   },
+   {
+    "k": "num",
+    "w": "六",
+    "py": "liù",
+    "n": 6
+   },
+   {
+    "k": "num",
+    "w": "七",
+    "py": "qī",
+    "n": 7
+   },
+   {
+    "k": "num",
+    "w": "八",
+    "py": "bā",
+    "n": 8
+   },
+   {
+    "k": "num",
+    "w": "九",
+    "py": "jiǔ",
+    "n": 9
+   },
+   {
+    "k": "num",
+    "w": "十",
+    "py": "shí",
+    "n": 10
+   },
+   {
+    "k": "mw",
+    "n": "鸡饭",
+    "py": "jī fàn",
+    "mw": "盘",
+    "mwpy": "pán",
+    "also": [
+     "碟",
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "沙爹",
+    "py": "shā diē",
+    "mw": "串",
+    "mwpy": "chuàn"
+   },
+   {
+    "k": "mw",
+    "n": "椰浆饭",
+    "py": "yē jiāng fàn",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "盘",
+     "包",
+     "碟"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "咖椰吐司",
+    "py": "kā yē tǔ sī",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "片"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "拉茶",
+    "py": "lā chá",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "红豆冰",
+    "py": "hóng dòu bīng",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "珍珠奶茶",
+    "py": "zhēn zhū nǎi chá",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "奶茶",
+    "py": "nǎi chá",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "豆花",
+    "py": "dòu huā",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "炒饭",
+    "py": "chǎo fàn",
+    "mw": "盘",
+    "mwpy": "pán",
+    "also": [
+     "碗",
+     "份",
+     "碟"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "炒米粉",
+    "py": "chǎo mǐ fěn",
+    "mw": "盘",
+    "mwpy": "pán",
+    "also": [
+     "份",
+     "碟"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "水饺汤",
+    "py": "shuǐ jiǎo tāng",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "豆沙包",
+    "py": "dòu shā bāo",
+    "mw": "个",
+    "mwpy": "gè"
+   },
+   {
+    "k": "mw",
+    "n": "肉包",
+    "py": "ròu bāo",
+    "mw": "个",
+    "mwpy": "gè"
+   },
+   {
+    "k": "mw",
+    "n": "豆浆",
+    "py": "dòu jiāng",
+    "mw": "杯",
+    "mwpy": "bēi",
+    "also": [
+     "碗"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "甘蔗水",
+    "py": "gān zhè shuǐ",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "椰子",
+    "py": "yē zi",
+    "mw": "个",
+    "mwpy": "gè"
+   },
+   {
+    "k": "mw",
+    "n": "薄饼",
+    "py": "báo bǐng",
+    "mw": "条",
+    "mwpy": "tiáo",
+    "also": [
+     "个",
+     "卷",
+     "张"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "印度煎饼",
+    "py": "yìn dù jiān bǐng",
+    "mw": "张",
+    "mwpy": "zhāng",
+    "also": [
+     "份",
+     "片"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鱼圆面",
+    "py": "yú yuán miàn",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鱼片米粉",
+    "py": "yú piàn mǐ fěn",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "烤鸡翅",
+    "py": "kǎo jī chì",
+    "mw": "只",
+    "mwpy": "zhī",
+    "also": [
+     "个"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "冰淇淋",
+    "py": "bīng qí lín",
+    "mw": "杯",
+    "mwpy": "bēi",
+    "also": [
+     "个",
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鸡肉",
+    "py": "jī ròu",
+    "mw": "块",
+    "mwpy": "kuài",
+    "also": [
+     "片"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "荷包蛋",
+    "py": "hé bāo dàn",
+    "mw": "个",
+    "mwpy": "gè"
+   },
+   {
+    "k": "mw",
+    "n": "黄瓜",
+    "py": "huáng guā",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "根",
+     "条"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "花生",
+    "py": "huā shēng",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "颗",
+     "粒"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鸡翅",
+    "py": "jī chì",
+    "mw": "只",
+    "mwpy": "zhī",
+    "also": [
+     "个"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "吐司",
+    "py": "tǔ sī",
+    "mw": "片",
+    "mwpy": "piàn"
+   },
+   {
+    "k": "mw",
+    "n": "牛油",
+    "py": "niú yóu",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "半生熟蛋",
+    "py": "bàn shēng shú dàn",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "颗"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "冰块",
+    "py": "bīng kuài",
+    "mw": "块",
+    "mwpy": "kuài"
+   },
+   {
+    "k": "mw",
+    "n": "红豆",
+    "py": "hóng dòu",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "颗",
+     "粒"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "玉米",
+    "py": "yù mǐ",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "粒",
+     "根"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "椰果",
+    "py": "yē guǒ",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "布丁",
+    "py": "bù dīng",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "个",
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鸡蛋",
+    "py": "jī dàn",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "颗"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鱼饼",
+    "py": "yú bǐng",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "春卷",
+    "py": "chūn juǎn",
+    "mw": "条",
+    "mwpy": "tiáo",
+    "also": [
+     "个",
+     "根"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "水饺",
+    "py": "shuǐ jiǎo",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "只"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "青菜",
+    "py": "qīng cài",
+    "mw": "棵",
+    "mwpy": "kē",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "饼皮",
+    "py": "bǐng pí",
+    "mw": "张",
+    "mwpy": "zhāng"
+   },
+   {
+    "k": "mw",
+    "n": "生菜",
+    "py": "shēng cài",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "棵"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "豆芽",
+    "py": "dòu yá",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "根"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "饼",
+    "py": "bǐng",
+    "mw": "张",
+    "mwpy": "zhāng",
+    "also": [
+     "片"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鱼圆",
+    "py": "yú yuán",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "颗",
+     "粒"
+    ]
+   }
+  ]
+ },
+ "p4": {
+  "menu": [
+   {
+    "id": "chicken_rice",
+    "name": "鸡饭",
+    "py": "jī fàn",
+    "emoji": "🍗",
+    "mw": "盘",
+    "also": [
+     "碟",
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "rice",
+      "name": "米饭",
+      "py": "mǐ fàn",
+      "emoji": "🍚"
+     },
+     {
+      "id": "chicken",
+      "name": "鸡肉",
+      "py": "jī ròu",
+      "emoji": "🍗",
+      "mw": "块",
+      "also": [
+       "片"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "fried_egg",
+      "name": "荷包蛋",
+      "py": "hé bāo dàn",
+      "emoji": "🍳",
+      "mw": "个"
+     },
+     {
+      "id": "cucumber",
+      "name": "黄瓜",
+      "py": "huáng guā",
+      "emoji": "🥒",
+      "mw": "片",
+      "also": [
+       "根",
+       "条"
+      ],
+      "color": "绿色"
+     }
+    ]
+   },
+   {
+    "id": "satay",
+    "name": "沙爹",
+    "py": "shā diē",
+    "emoji": "🍢",
+    "mw": "串",
+    "kind": "snack",
+    "base": [
+     {
+      "id": "satay",
+      "name": "沙爹",
+      "py": "shā diē",
+      "emoji": "🍢",
+      "mw": "串"
+     }
+    ],
+    "extra": [
+     {
+      "id": "cucumber",
+      "name": "黄瓜",
+      "py": "huáng guā",
+      "emoji": "🥒",
+      "mw": "片",
+      "also": [
+       "根",
+       "条"
+      ],
+      "color": "绿色"
+     }
+    ]
+   },
+   {
+    "id": "nasi_lemak",
+    "name": "椰浆饭",
+    "py": "yē jiāng fàn",
+    "emoji": "🍛",
+    "mw": "份",
+    "also": [
+     "盘",
+     "包",
+     "碟"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "rice",
+      "name": "米饭",
+      "py": "mǐ fàn",
+      "emoji": "🍚"
+     },
+     {
+      "id": "ikan_bilis",
+      "name": "江鱼仔",
+      "py": "jiāng yú zǎi",
+      "emoji": "🐟"
+     },
+     {
+      "id": "peanut",
+      "name": "花生",
+      "py": "huā shēng",
+      "emoji": "🥜",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "wing",
+      "name": "鸡翅",
+      "py": "jī chì",
+      "emoji": "🍗",
+      "mw": "只",
+      "also": [
+       "个"
+      ]
+     },
+     {
+      "id": "fried_egg",
+      "name": "荷包蛋",
+      "py": "hé bāo dàn",
+      "emoji": "🍳",
+      "mw": "个"
+     },
+     {
+      "id": "cucumber",
+      "name": "黄瓜",
+      "py": "huáng guā",
+      "emoji": "🥒",
+      "mw": "片",
+      "also": [
+       "根",
+       "条"
+      ],
+      "color": "绿色"
+     }
+    ]
+   },
+   {
+    "id": "kaya_toast",
+    "name": "咖椰吐司",
+    "py": "kā yē tǔ sī",
+    "emoji": "🍞",
+    "mw": "份",
+    "also": [
+     "片"
+    ],
+    "kind": "snack",
+    "base": [
+     {
+      "id": "toast",
+      "name": "吐司",
+      "py": "tǔ sī",
+      "emoji": "🍞",
+      "mw": "片"
+     },
+     {
+      "id": "kaya",
+      "name": "咖椰",
+      "py": "kā yē",
+      "emoji": "🍯"
+     },
+     {
+      "id": "butter",
+      "name": "牛油",
+      "py": "niú yóu",
+      "emoji": "🧈",
+      "mw": "片",
+      "also": [
+       "块"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "soft_egg",
+      "name": "半生熟蛋",
+      "py": "bàn shēng shú dàn",
+      "emoji": "🥚",
+      "mw": "个",
+      "also": [
+       "颗"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "teh_tarik",
+    "name": "拉茶",
+    "py": "lā chá",
+    "emoji": "☕",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "black_tea",
+      "name": "红茶",
+      "py": "hóng chá",
+      "emoji": "🍵"
+     },
+     {
+      "id": "cond_milk",
+      "name": "炼奶",
+      "py": "liàn nǎi",
+      "emoji": "🥛"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     },
+     {
+      "id": "sugar",
+      "name": "糖",
+      "py": "táng",
+      "emoji": "🍬",
+      "mw": "块",
+      "also": [
+       "颗"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "ice_kacang",
+    "name": "红豆冰",
+    "py": "hóng dòu bīng",
+    "emoji": "🍧",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "dessert",
+    "base": [
+     {
+      "id": "ice",
+      "name": "冰",
+      "py": "bīng",
+      "emoji": "🧊"
+     },
+     {
+      "id": "red_bean",
+      "name": "红豆",
+      "py": "hóng dòu",
+      "emoji": "🔴",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ],
+      "color": "红色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "corn",
+      "name": "玉米",
+      "py": "yù mǐ",
+      "emoji": "🌽",
+      "mw": "份",
+      "also": [
+       "粒",
+       "根"
+      ],
+      "color": "黄色"
+     },
+     {
+      "id": "peanut",
+      "name": "花生",
+      "py": "huā shēng",
+      "emoji": "🥜",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ]
+     },
+     {
+      "id": "jelly",
+      "name": "果冻",
+      "py": "guǒ dòng",
+      "emoji": "🟩",
+      "mw": "块",
+      "also": [
+       "个"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "bubble_tea",
+    "name": "珍珠奶茶",
+    "py": "zhēn zhū nǎi chá",
+    "emoji": "🧋",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "milk_tea",
+      "name": "奶茶",
+      "py": "nǎi chá",
+      "emoji": "🥤"
+     },
+     {
+      "id": "pearl",
+      "name": "珍珠",
+      "py": "zhēn zhū",
+      "emoji": "⚫",
+      "color": "黑色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "nata",
+      "name": "椰果",
+      "py": "yē guǒ",
+      "emoji": "🥥",
+      "mw": "份",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "pudding",
+      "name": "布丁",
+      "py": "bù dīng",
+      "emoji": "🍮",
+      "mw": "份",
+      "also": [
+       "个",
+       "块"
+      ]
+     },
+     {
+      "id": "grass_jelly",
+      "name": "仙草",
+      "py": "xiān cǎo",
+      "emoji": "⬛",
+      "mw": "份",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     }
+    ]
+   },
+   {
+    "id": "milk_tea",
+    "name": "奶茶",
+    "py": "nǎi chá",
+    "emoji": "🥤",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "black_tea",
+      "name": "红茶",
+      "py": "hóng chá",
+      "emoji": "🍵"
+     },
+     {
+      "id": "milk",
+      "name": "牛奶",
+      "py": "niú nǎi",
+      "emoji": "🥛"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     },
+     {
+      "id": "nata",
+      "name": "椰果",
+      "py": "yē guǒ",
+      "emoji": "🥥",
+      "mw": "份",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "pudding",
+      "name": "布丁",
+      "py": "bù dīng",
+      "emoji": "🍮",
+      "mw": "份",
+      "also": [
+       "个",
+       "块"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tau_huay",
+    "name": "豆花",
+    "py": "dòu huā",
+    "emoji": "🍮",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "dessert",
+    "base": [
+     {
+      "id": "beancurd",
+      "name": "豆花",
+      "py": "dòu huā",
+      "emoji": "🍮",
+      "color": "白色"
+     },
+     {
+      "id": "syrup",
+      "name": "糖水",
+      "py": "táng shuǐ",
+      "emoji": "💧"
+     }
+    ],
+    "extra": [
+     {
+      "id": "red_bean",
+      "name": "红豆",
+      "py": "hóng dòu",
+      "emoji": "🔴",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ],
+      "color": "红色"
+     },
+     {
+      "id": "peanut",
+      "name": "花生",
+      "py": "huā shēng",
+      "emoji": "🥜",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "wanton_mee",
+    "name": "云吞面",
+    "py": "yún tūn miàn",
+    "emoji": "🍜",
+    "mw": "碗",
+    "also": [
+     "盘",
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "noodle",
+      "name": "面条",
+      "py": "miàn tiáo",
+      "emoji": "🍜"
+     },
+     {
+      "id": "wonton",
+      "name": "云吞",
+      "py": "yún tūn",
+      "emoji": "🥟",
+      "mw": "个",
+      "also": [
+       "只"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     }
+    ]
+   },
+   {
+    "id": "fried_rice",
+    "name": "炒饭",
+    "py": "chǎo fàn",
+    "emoji": "🍚",
+    "mw": "盘",
+    "also": [
+     "碗",
+     "份",
+     "碟"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "rice",
+      "name": "米饭",
+      "py": "mǐ fàn",
+      "emoji": "🍚"
+     },
+     {
+      "id": "egg",
+      "name": "鸡蛋",
+      "py": "jī dàn",
+      "emoji": "🥚",
+      "mw": "个",
+      "also": [
+       "颗"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "prawn",
+      "name": "虾",
+      "py": "xiā",
+      "emoji": "🦐",
+      "mw": "只"
+     },
+     {
+      "id": "chicken",
+      "name": "鸡肉",
+      "py": "jī ròu",
+      "emoji": "🍗",
+      "mw": "块",
+      "also": [
+       "片"
+      ]
+     },
+     {
+      "id": "fried_egg",
+      "name": "荷包蛋",
+      "py": "hé bāo dàn",
+      "emoji": "🍳",
+      "mw": "个"
+     }
+    ]
+   },
+   {
+    "id": "fried_bee_hoon",
+    "name": "炒米粉",
+    "py": "chǎo mǐ fěn",
+    "emoji": "🍝",
+    "mw": "盘",
+    "also": [
+     "份",
+     "碟"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "bee_hoon",
+      "name": "米粉",
+      "py": "mǐ fěn",
+      "emoji": "🍝"
+     }
+    ],
+    "extra": [
+     {
+      "id": "fried_egg",
+      "name": "荷包蛋",
+      "py": "hé bāo dàn",
+      "emoji": "🍳",
+      "mw": "个"
+     },
+     {
+      "id": "wing",
+      "name": "鸡翅",
+      "py": "jī chì",
+      "emoji": "🍗",
+      "mw": "只",
+      "also": [
+       "个"
+      ]
+     },
+     {
+      "id": "fishcake",
+      "name": "鱼饼",
+      "py": "yú bǐng",
+      "emoji": "🍥",
+      "mw": "片",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "spring_roll",
+      "name": "春卷",
+      "py": "chūn juǎn",
+      "emoji": "🌯",
+      "mw": "条",
+      "also": [
+       "个",
+       "根"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "dumpling_soup",
+    "name": "水饺汤",
+    "py": "shuǐ jiǎo tāng",
+    "emoji": "🥟",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "dumpling",
+      "name": "水饺",
+      "py": "shuǐ jiǎo",
+      "emoji": "🥟",
+      "mw": "个",
+      "also": [
+       "只"
+      ]
+     },
+     {
+      "id": "soup",
+      "name": "汤",
+      "py": "tāng",
+      "emoji": "🥣"
+     }
+    ],
+    "extra": [
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     }
+    ]
+   },
+   {
+    "id": "bean_bun",
+    "name": "豆沙包",
+    "py": "dòu shā bāo",
+    "emoji": "🥟",
+    "mw": "个",
+    "kind": "snack",
+    "base": [
+     {
+      "id": "bun_bean",
+      "name": "豆沙包",
+      "py": "dòu shā bāo",
+      "emoji": "🥟",
+      "mw": "个"
+     }
+    ],
+    "extra": []
+   },
+   {
+    "id": "meat_bun",
+    "name": "肉包",
+    "py": "ròu bāo",
+    "emoji": "🥟",
+    "mw": "个",
+    "kind": "snack",
+    "base": [
+     {
+      "id": "bun_meat",
+      "name": "肉包",
+      "py": "ròu bāo",
+      "emoji": "🥟",
+      "mw": "个"
+     }
+    ],
+    "extra": []
+   },
+   {
+    "id": "soy_milk",
+    "name": "豆浆",
+    "py": "dòu jiāng",
+    "emoji": "🥛",
+    "mw": "杯",
+    "also": [
+     "碗"
+    ],
+    "kind": "drink",
+    "base": [
+     {
+      "id": "soy_milk",
+      "name": "豆浆",
+      "py": "dòu jiāng",
+      "emoji": "🥛",
+      "color": "白色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     }
+    ]
+   },
+   {
+    "id": "sugarcane",
+    "name": "甘蔗水",
+    "py": "gān zhè shuǐ",
+    "emoji": "🧃",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "cane_juice",
+      "name": "甘蔗水",
+      "py": "gān zhè shuǐ",
+      "emoji": "🧃"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     }
+    ]
+   },
+   {
+    "id": "coconut",
+    "name": "椰子",
+    "py": "yē zi",
+    "emoji": "🥥",
+    "mw": "个",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "coconut",
+      "name": "椰子",
+      "py": "yē zi",
+      "emoji": "🥥",
+      "mw": "个"
+     }
+    ],
+    "extra": []
+   },
+   {
+    "id": "popiah",
+    "name": "薄饼",
+    "py": "báo bǐng",
+    "emoji": "🌯",
+    "mw": "条",
+    "also": [
+     "个",
+     "卷",
+     "张"
+    ],
+    "kind": "snack",
+    "base": [
+     {
+      "id": "popiah_skin",
+      "name": "饼皮",
+      "py": "bǐng pí",
+      "emoji": "🫓",
+      "mw": "张"
+     }
+    ],
+    "extra": [
+     {
+      "id": "lettuce",
+      "name": "生菜",
+      "py": "shēng cài",
+      "emoji": "🥬",
+      "mw": "片",
+      "also": [
+       "棵"
+      ],
+      "color": "绿色"
+     },
+     {
+      "id": "beansprout",
+      "name": "豆芽",
+      "py": "dòu yá",
+      "emoji": "🌱",
+      "mw": "份",
+      "also": [
+       "根"
+      ]
+     },
+     {
+      "id": "peanut",
+      "name": "花生",
+      "py": "huā shēng",
+      "emoji": "🥜",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ]
+     },
+     {
+      "id": "prawn",
+      "name": "虾",
+      "py": "xiā",
+      "emoji": "🦐",
+      "mw": "只"
+     }
+    ]
+   },
+   {
+    "id": "roti_prata",
+    "name": "印度煎饼",
+    "py": "yìn dù jiān bǐng",
+    "emoji": "🫓",
+    "mw": "张",
+    "also": [
+     "份",
+     "片"
+    ],
+    "kind": "snack",
+    "base": [
+     {
+      "id": "prata",
+      "name": "饼",
+      "py": "bǐng",
+      "emoji": "🫓",
+      "mw": "张",
+      "also": [
+       "片"
+      ]
+     },
+     {
+      "id": "curry",
+      "name": "咖喱",
+      "py": "gā lí",
+      "emoji": "🍛"
+     }
+    ],
+    "extra": [
+     {
+      "id": "egg",
+      "name": "鸡蛋",
+      "py": "jī dàn",
+      "emoji": "🥚",
+      "mw": "个",
+      "also": [
+       "颗"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "fishball_noodle",
+    "name": "鱼圆面",
+    "py": "yú yuán miàn",
+    "emoji": "🍜",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "noodle",
+      "name": "面条",
+      "py": "miàn tiáo",
+      "emoji": "🍜"
+     },
+     {
+      "id": "fishball",
+      "name": "鱼圆",
+      "py": "yú yuán",
+      "emoji": "⚪",
+      "mw": "个",
+      "also": [
+       "颗",
+       "粒"
+      ],
+      "color": "白色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "fishcake",
+      "name": "鱼饼",
+      "py": "yú bǐng",
+      "emoji": "🍥",
+      "mw": "片",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     }
+    ]
+   },
+   {
+    "id": "fish_soup",
+    "name": "鱼片米粉",
+    "py": "yú piàn mǐ fěn",
+    "emoji": "🍲",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "bee_hoon",
+      "name": "米粉",
+      "py": "mǐ fěn",
+      "emoji": "🍝"
+     },
+     {
+      "id": "fish_slice",
+      "name": "鱼片",
+      "py": "yú piàn",
+      "emoji": "🐟"
+     },
+     {
+      "id": "soup",
+      "name": "汤",
+      "py": "tāng",
+      "emoji": "🥣"
+     }
+    ],
+    "extra": [
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     },
+     {
+      "id": "tofu",
+      "name": "豆腐",
+      "py": "dòu fu",
+      "emoji": "⬜",
+      "mw": "块",
+      "also": [
+       "片"
+      ],
+      "color": "白色"
+     }
+    ]
+   },
+   {
+    "id": "prawn_mee",
+    "name": "虾面",
+    "py": "xiā miàn",
+    "emoji": "🦐",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "noodle",
+      "name": "面条",
+      "py": "miàn tiáo",
+      "emoji": "🍜"
+     },
+     {
+      "id": "prawn",
+      "name": "虾",
+      "py": "xiā",
+      "emoji": "🦐",
+      "mw": "只"
+     },
+     {
+      "id": "soup",
+      "name": "汤",
+      "py": "tāng",
+      "emoji": "🥣"
+     }
+    ],
+    "extra": [
+     {
+      "id": "pork",
+      "name": "猪肉",
+      "py": "zhū ròu",
+      "emoji": "🥩",
+      "mw": "片",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "beansprout",
+      "name": "豆芽",
+      "py": "dòu yá",
+      "emoji": "🌱",
+      "mw": "份",
+      "also": [
+       "根"
+      ]
+     },
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     }
+    ]
+   },
+   {
+    "id": "chicken_wing",
+    "name": "烤鸡翅",
+    "py": "kǎo jī chì",
+    "emoji": "🍗",
+    "mw": "只",
+    "also": [
+     "个"
+    ],
+    "kind": "snack",
+    "base": [
+     {
+      "id": "wing",
+      "name": "鸡翅",
+      "py": "jī chì",
+      "emoji": "🍗",
+      "mw": "只",
+      "also": [
+       "个"
+      ]
+     }
+    ],
+    "extra": []
+   },
+   {
+    "id": "ice_cream",
+    "name": "冰淇淋",
+    "py": "bīng qí lín",
+    "emoji": "🍨",
+    "mw": "杯",
+    "also": [
+     "个",
+     "份"
+    ],
+    "kind": "dessert",
+    "base": [],
+    "extra": [],
+    "stack": true,
+    "layers": [
+     {
+      "id": "l_mango",
+      "name": "芒果",
+      "py": "máng guǒ",
+      "emoji": "🥭",
+      "color": "黄色"
+     },
+     {
+      "id": "l_greentea",
+      "name": "绿茶",
+      "py": "lǜ chá",
+      "emoji": "🍵",
+      "color": "绿色"
+     },
+     {
+      "id": "l_vanilla",
+      "name": "香草",
+      "py": "xiāng cǎo",
+      "emoji": "🍦",
+      "color": "白色"
+     }
+    ]
+   }
+  ],
+  "menuwords": [
+   {
+    "k": "color",
+    "w": "红色",
+    "py": "hóng sè",
+    "hex": "#E53935"
+   },
+   {
+    "k": "color",
+    "w": "黄色",
+    "py": "huáng sè",
+    "hex": "#FDD835"
+   },
+   {
+    "k": "color",
+    "w": "绿色",
+    "py": "lǜ sè",
+    "hex": "#43A047"
+   },
+   {
+    "k": "color",
+    "w": "白色",
+    "py": "bái sè",
+    "hex": "#FAFAFA"
+   },
+   {
+    "k": "color",
+    "w": "黑色",
+    "py": "hēi sè",
+    "hex": "#212121"
+   },
+   {
+    "k": "pos",
+    "w": "最上面",
+    "py": "zuì shàng mian",
+    "i": 0
+   },
+   {
+    "k": "pos",
+    "w": "中间",
+    "py": "zhōng jiān",
+    "i": 1
+   },
+   {
+    "k": "pos",
+    "w": "最下面",
+    "py": "zuì xià mian",
+    "i": 2
+   },
+   {
+    "k": "num",
+    "w": "一",
+    "py": "yī",
+    "n": 1
+   },
+   {
+    "k": "num",
+    "w": "两",
+    "py": "liǎng",
+    "n": 2
+   },
+   {
+    "k": "num",
+    "w": "三",
+    "py": "sān",
+    "n": 3
+   },
+   {
+    "k": "num",
+    "w": "四",
+    "py": "sì",
+    "n": 4
+   },
+   {
+    "k": "num",
+    "w": "五",
+    "py": "wǔ",
+    "n": 5
+   },
+   {
+    "k": "num",
+    "w": "六",
+    "py": "liù",
+    "n": 6
+   },
+   {
+    "k": "num",
+    "w": "七",
+    "py": "qī",
+    "n": 7
+   },
+   {
+    "k": "num",
+    "w": "八",
+    "py": "bā",
+    "n": 8
+   },
+   {
+    "k": "num",
+    "w": "九",
+    "py": "jiǔ",
+    "n": 9
+   },
+   {
+    "k": "num",
+    "w": "十",
+    "py": "shí",
+    "n": 10
+   },
+   {
+    "k": "mw",
+    "n": "鸡饭",
+    "py": "jī fàn",
+    "mw": "盘",
+    "mwpy": "pán",
+    "also": [
+     "碟",
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "沙爹",
+    "py": "shā diē",
+    "mw": "串",
+    "mwpy": "chuàn"
+   },
+   {
+    "k": "mw",
+    "n": "椰浆饭",
+    "py": "yē jiāng fàn",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "盘",
+     "包",
+     "碟"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "咖椰吐司",
+    "py": "kā yē tǔ sī",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "片"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "拉茶",
+    "py": "lā chá",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "红豆冰",
+    "py": "hóng dòu bīng",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "珍珠奶茶",
+    "py": "zhēn zhū nǎi chá",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "奶茶",
+    "py": "nǎi chá",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "豆花",
+    "py": "dòu huā",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "云吞面",
+    "py": "yún tūn miàn",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "盘",
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "炒饭",
+    "py": "chǎo fàn",
+    "mw": "盘",
+    "mwpy": "pán",
+    "also": [
+     "碗",
+     "份",
+     "碟"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "炒米粉",
+    "py": "chǎo mǐ fěn",
+    "mw": "盘",
+    "mwpy": "pán",
+    "also": [
+     "份",
+     "碟"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "水饺汤",
+    "py": "shuǐ jiǎo tāng",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "豆沙包",
+    "py": "dòu shā bāo",
+    "mw": "个",
+    "mwpy": "gè"
+   },
+   {
+    "k": "mw",
+    "n": "肉包",
+    "py": "ròu bāo",
+    "mw": "个",
+    "mwpy": "gè"
+   },
+   {
+    "k": "mw",
+    "n": "豆浆",
+    "py": "dòu jiāng",
+    "mw": "杯",
+    "mwpy": "bēi",
+    "also": [
+     "碗"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "甘蔗水",
+    "py": "gān zhè shuǐ",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "椰子",
+    "py": "yē zi",
+    "mw": "个",
+    "mwpy": "gè"
+   },
+   {
+    "k": "mw",
+    "n": "薄饼",
+    "py": "báo bǐng",
+    "mw": "条",
+    "mwpy": "tiáo",
+    "also": [
+     "个",
+     "卷",
+     "张"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "印度煎饼",
+    "py": "yìn dù jiān bǐng",
+    "mw": "张",
+    "mwpy": "zhāng",
+    "also": [
+     "份",
+     "片"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鱼圆面",
+    "py": "yú yuán miàn",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鱼片米粉",
+    "py": "yú piàn mǐ fěn",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "虾面",
+    "py": "xiā miàn",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "烤鸡翅",
+    "py": "kǎo jī chì",
+    "mw": "只",
+    "mwpy": "zhī",
+    "also": [
+     "个"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "冰淇淋",
+    "py": "bīng qí lín",
+    "mw": "杯",
+    "mwpy": "bēi",
+    "also": [
+     "个",
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鸡肉",
+    "py": "jī ròu",
+    "mw": "块",
+    "mwpy": "kuài",
+    "also": [
+     "片"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "荷包蛋",
+    "py": "hé bāo dàn",
+    "mw": "个",
+    "mwpy": "gè"
+   },
+   {
+    "k": "mw",
+    "n": "黄瓜",
+    "py": "huáng guā",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "根",
+     "条"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "花生",
+    "py": "huā shēng",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "颗",
+     "粒"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鸡翅",
+    "py": "jī chì",
+    "mw": "只",
+    "mwpy": "zhī",
+    "also": [
+     "个"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "吐司",
+    "py": "tǔ sī",
+    "mw": "片",
+    "mwpy": "piàn"
+   },
+   {
+    "k": "mw",
+    "n": "牛油",
+    "py": "niú yóu",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "半生熟蛋",
+    "py": "bàn shēng shú dàn",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "颗"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "冰块",
+    "py": "bīng kuài",
+    "mw": "块",
+    "mwpy": "kuài"
+   },
+   {
+    "k": "mw",
+    "n": "糖",
+    "py": "táng",
+    "mw": "块",
+    "mwpy": "kuài",
+    "also": [
+     "颗"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "红豆",
+    "py": "hóng dòu",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "颗",
+     "粒"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "玉米",
+    "py": "yù mǐ",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "粒",
+     "根"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "果冻",
+    "py": "guǒ dòng",
+    "mw": "块",
+    "mwpy": "kuài",
+    "also": [
+     "个"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "椰果",
+    "py": "yē guǒ",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "布丁",
+    "py": "bù dīng",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "个",
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "仙草",
+    "py": "xiān cǎo",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "云吞",
+    "py": "yún tūn",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "只"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "青菜",
+    "py": "qīng cài",
+    "mw": "棵",
+    "mwpy": "kē",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鸡蛋",
+    "py": "jī dàn",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "颗"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "虾",
+    "py": "xiā",
+    "mw": "只",
+    "mwpy": "zhī"
+   },
+   {
+    "k": "mw",
+    "n": "鱼饼",
+    "py": "yú bǐng",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "春卷",
+    "py": "chūn juǎn",
+    "mw": "条",
+    "mwpy": "tiáo",
+    "also": [
+     "个",
+     "根"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "水饺",
+    "py": "shuǐ jiǎo",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "只"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "饼皮",
+    "py": "bǐng pí",
+    "mw": "张",
+    "mwpy": "zhāng"
+   },
+   {
+    "k": "mw",
+    "n": "生菜",
+    "py": "shēng cài",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "棵"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "豆芽",
+    "py": "dòu yá",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "根"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "饼",
+    "py": "bǐng",
+    "mw": "张",
+    "mwpy": "zhāng",
+    "also": [
+     "片"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鱼圆",
+    "py": "yú yuán",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "颗",
+     "粒"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "豆腐",
+    "py": "dòu fu",
+    "mw": "块",
+    "mwpy": "kuài",
+    "also": [
+     "片"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "猪肉",
+    "py": "zhū ròu",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "块"
+    ]
+   }
+  ]
+ },
+ "p5": {
+  "menu": [
+   {
+    "id": "chicken_rice",
+    "name": "鸡饭",
+    "py": "jī fàn",
+    "emoji": "🍗",
+    "mw": "盘",
+    "also": [
+     "碟",
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "rice",
+      "name": "米饭",
+      "py": "mǐ fàn",
+      "emoji": "🍚"
+     },
+     {
+      "id": "chicken",
+      "name": "鸡肉",
+      "py": "jī ròu",
+      "emoji": "🍗",
+      "mw": "块",
+      "also": [
+       "片"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "fried_egg",
+      "name": "荷包蛋",
+      "py": "hé bāo dàn",
+      "emoji": "🍳",
+      "mw": "个"
+     },
+     {
+      "id": "cucumber",
+      "name": "黄瓜",
+      "py": "huáng guā",
+      "emoji": "🥒",
+      "mw": "片",
+      "also": [
+       "根",
+       "条"
+      ],
+      "color": "绿色"
+     },
+     {
+      "id": "chili",
+      "name": "辣椒酱",
+      "py": "là jiāo jiàng",
+      "emoji": "🌶️",
+      "mw": "碟",
+      "also": [
+       "份"
+      ],
+      "color": "红色"
+     }
+    ]
+   },
+   {
+    "id": "laksa",
+    "name": "叻沙",
+    "py": "lè shā",
+    "emoji": "🍜",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "bee_hoon",
+      "name": "米粉",
+      "py": "mǐ fěn",
+      "emoji": "🍝"
+     },
+     {
+      "id": "laksa_soup",
+      "name": "叻沙汤",
+      "py": "lè shā tāng",
+      "emoji": "🍲"
+     }
+    ],
+    "extra": [
+     {
+      "id": "prawn",
+      "name": "虾",
+      "py": "xiā",
+      "emoji": "🦐",
+      "mw": "只"
+     },
+     {
+      "id": "fishcake",
+      "name": "鱼饼",
+      "py": "yú bǐng",
+      "emoji": "🍥",
+      "mw": "片",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "egg",
+      "name": "鸡蛋",
+      "py": "jī dàn",
+      "emoji": "🥚",
+      "mw": "个",
+      "also": [
+       "颗"
+      ]
+     },
+     {
+      "id": "beansprout",
+      "name": "豆芽",
+      "py": "dòu yá",
+      "emoji": "🌱",
+      "mw": "份",
+      "also": [
+       "根"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "satay",
+    "name": "沙爹",
+    "py": "shā diē",
+    "emoji": "🍢",
+    "mw": "串",
+    "kind": "snack",
+    "base": [
+     {
+      "id": "satay",
+      "name": "沙爹",
+      "py": "shā diē",
+      "emoji": "🍢",
+      "mw": "串"
+     },
+     {
+      "id": "satay_sauce",
+      "name": "沙爹酱",
+      "py": "shā diē jiàng",
+      "emoji": "🥜"
+     }
+    ],
+    "extra": [
+     {
+      "id": "cucumber",
+      "name": "黄瓜",
+      "py": "huáng guā",
+      "emoji": "🥒",
+      "mw": "片",
+      "also": [
+       "根",
+       "条"
+      ],
+      "color": "绿色"
+     }
+    ]
+   },
+   {
+    "id": "nasi_lemak",
+    "name": "椰浆饭",
+    "py": "yē jiāng fàn",
+    "emoji": "🍛",
+    "mw": "份",
+    "also": [
+     "盘",
+     "包",
+     "碟"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "rice",
+      "name": "米饭",
+      "py": "mǐ fàn",
+      "emoji": "🍚"
+     },
+     {
+      "id": "ikan_bilis",
+      "name": "江鱼仔",
+      "py": "jiāng yú zǎi",
+      "emoji": "🐟"
+     },
+     {
+      "id": "peanut",
+      "name": "花生",
+      "py": "huā shēng",
+      "emoji": "🥜",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "wing",
+      "name": "鸡翅",
+      "py": "jī chì",
+      "emoji": "🍗",
+      "mw": "只",
+      "also": [
+       "个"
+      ]
+     },
+     {
+      "id": "fried_egg",
+      "name": "荷包蛋",
+      "py": "hé bāo dàn",
+      "emoji": "🍳",
+      "mw": "个"
+     },
+     {
+      "id": "cucumber",
+      "name": "黄瓜",
+      "py": "huáng guā",
+      "emoji": "🥒",
+      "mw": "片",
+      "also": [
+       "根",
+       "条"
+      ],
+      "color": "绿色"
+     },
+     {
+      "id": "chili",
+      "name": "辣椒酱",
+      "py": "là jiāo jiàng",
+      "emoji": "🌶️",
+      "mw": "碟",
+      "also": [
+       "份"
+      ],
+      "color": "红色"
+     }
+    ]
+   },
+   {
+    "id": "kaya_toast",
+    "name": "咖椰吐司",
+    "py": "kā yē tǔ sī",
+    "emoji": "🍞",
+    "mw": "份",
+    "also": [
+     "片"
+    ],
+    "kind": "snack",
+    "base": [
+     {
+      "id": "toast",
+      "name": "吐司",
+      "py": "tǔ sī",
+      "emoji": "🍞",
+      "mw": "片"
+     },
+     {
+      "id": "kaya",
+      "name": "咖椰",
+      "py": "kā yē",
+      "emoji": "🍯"
+     },
+     {
+      "id": "butter",
+      "name": "牛油",
+      "py": "niú yóu",
+      "emoji": "🧈",
+      "mw": "片",
+      "also": [
+       "块"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "soft_egg",
+      "name": "半生熟蛋",
+      "py": "bàn shēng shú dàn",
+      "emoji": "🥚",
+      "mw": "个",
+      "also": [
+       "颗"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "teh_tarik",
+    "name": "拉茶",
+    "py": "lā chá",
+    "emoji": "☕",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "black_tea",
+      "name": "红茶",
+      "py": "hóng chá",
+      "emoji": "🍵"
+     },
+     {
+      "id": "cond_milk",
+      "name": "炼奶",
+      "py": "liàn nǎi",
+      "emoji": "🥛"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     },
+     {
+      "id": "sugar",
+      "name": "糖",
+      "py": "táng",
+      "emoji": "🍬",
+      "mw": "块",
+      "also": [
+       "颗"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "ice_kacang",
+    "name": "红豆冰",
+    "py": "hóng dòu bīng",
+    "emoji": "🍧",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "dessert",
+    "base": [
+     {
+      "id": "ice",
+      "name": "冰",
+      "py": "bīng",
+      "emoji": "🧊"
+     },
+     {
+      "id": "red_bean",
+      "name": "红豆",
+      "py": "hóng dòu",
+      "emoji": "🔴",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ],
+      "color": "红色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "corn",
+      "name": "玉米",
+      "py": "yù mǐ",
+      "emoji": "🌽",
+      "mw": "份",
+      "also": [
+       "粒",
+       "根"
+      ],
+      "color": "黄色"
+     },
+     {
+      "id": "peanut",
+      "name": "花生",
+      "py": "huā shēng",
+      "emoji": "🥜",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ]
+     },
+     {
+      "id": "jelly",
+      "name": "果冻",
+      "py": "guǒ dòng",
+      "emoji": "🟩",
+      "mw": "块",
+      "also": [
+       "个"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "bubble_tea",
+    "name": "珍珠奶茶",
+    "py": "zhēn zhū nǎi chá",
+    "emoji": "🧋",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "milk_tea",
+      "name": "奶茶",
+      "py": "nǎi chá",
+      "emoji": "🥤"
+     },
+     {
+      "id": "pearl",
+      "name": "珍珠",
+      "py": "zhēn zhū",
+      "emoji": "⚫",
+      "color": "黑色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "nata",
+      "name": "椰果",
+      "py": "yē guǒ",
+      "emoji": "🥥",
+      "mw": "份",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "pudding",
+      "name": "布丁",
+      "py": "bù dīng",
+      "emoji": "🍮",
+      "mw": "份",
+      "also": [
+       "个",
+       "块"
+      ]
+     },
+     {
+      "id": "grass_jelly",
+      "name": "仙草",
+      "py": "xiān cǎo",
+      "emoji": "⬛",
+      "mw": "份",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     }
+    ]
+   },
+   {
+    "id": "milk_tea",
+    "name": "奶茶",
+    "py": "nǎi chá",
+    "emoji": "🥤",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "black_tea",
+      "name": "红茶",
+      "py": "hóng chá",
+      "emoji": "🍵"
+     },
+     {
+      "id": "milk",
+      "name": "牛奶",
+      "py": "niú nǎi",
+      "emoji": "🥛"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     },
+     {
+      "id": "nata",
+      "name": "椰果",
+      "py": "yē guǒ",
+      "emoji": "🥥",
+      "mw": "份",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "pudding",
+      "name": "布丁",
+      "py": "bù dīng",
+      "emoji": "🍮",
+      "mw": "份",
+      "also": [
+       "个",
+       "块"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tau_huay",
+    "name": "豆花",
+    "py": "dòu huā",
+    "emoji": "🍮",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "dessert",
+    "base": [
+     {
+      "id": "beancurd",
+      "name": "豆花",
+      "py": "dòu huā",
+      "emoji": "🍮",
+      "color": "白色"
+     },
+     {
+      "id": "syrup",
+      "name": "糖水",
+      "py": "táng shuǐ",
+      "emoji": "💧"
+     }
+    ],
+    "extra": [
+     {
+      "id": "red_bean",
+      "name": "红豆",
+      "py": "hóng dòu",
+      "emoji": "🔴",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ],
+      "color": "红色"
+     },
+     {
+      "id": "peanut",
+      "name": "花生",
+      "py": "huā shēng",
+      "emoji": "🥜",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "wanton_mee",
+    "name": "云吞面",
+    "py": "yún tūn miàn",
+    "emoji": "🍜",
+    "mw": "碗",
+    "also": [
+     "盘",
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "noodle",
+      "name": "面条",
+      "py": "miàn tiáo",
+      "emoji": "🍜"
+     },
+     {
+      "id": "wonton",
+      "name": "云吞",
+      "py": "yún tūn",
+      "emoji": "🥟",
+      "mw": "个",
+      "also": [
+       "只"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     },
+     {
+      "id": "chili",
+      "name": "辣椒酱",
+      "py": "là jiāo jiàng",
+      "emoji": "🌶️",
+      "mw": "碟",
+      "also": [
+       "份"
+      ],
+      "color": "红色"
+     }
+    ]
+   },
+   {
+    "id": "fried_rice",
+    "name": "炒饭",
+    "py": "chǎo fàn",
+    "emoji": "🍚",
+    "mw": "盘",
+    "also": [
+     "碗",
+     "份",
+     "碟"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "rice",
+      "name": "米饭",
+      "py": "mǐ fàn",
+      "emoji": "🍚"
+     },
+     {
+      "id": "egg",
+      "name": "鸡蛋",
+      "py": "jī dàn",
+      "emoji": "🥚",
+      "mw": "个",
+      "also": [
+       "颗"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "prawn",
+      "name": "虾",
+      "py": "xiā",
+      "emoji": "🦐",
+      "mw": "只"
+     },
+     {
+      "id": "chicken",
+      "name": "鸡肉",
+      "py": "jī ròu",
+      "emoji": "🍗",
+      "mw": "块",
+      "also": [
+       "片"
+      ]
+     },
+     {
+      "id": "fried_egg",
+      "name": "荷包蛋",
+      "py": "hé bāo dàn",
+      "emoji": "🍳",
+      "mw": "个"
+     }
+    ]
+   },
+   {
+    "id": "fried_bee_hoon",
+    "name": "炒米粉",
+    "py": "chǎo mǐ fěn",
+    "emoji": "🍝",
+    "mw": "盘",
+    "also": [
+     "份",
+     "碟"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "bee_hoon",
+      "name": "米粉",
+      "py": "mǐ fěn",
+      "emoji": "🍝"
+     }
+    ],
+    "extra": [
+     {
+      "id": "fried_egg",
+      "name": "荷包蛋",
+      "py": "hé bāo dàn",
+      "emoji": "🍳",
+      "mw": "个"
+     },
+     {
+      "id": "wing",
+      "name": "鸡翅",
+      "py": "jī chì",
+      "emoji": "🍗",
+      "mw": "只",
+      "also": [
+       "个"
+      ]
+     },
+     {
+      "id": "fishcake",
+      "name": "鱼饼",
+      "py": "yú bǐng",
+      "emoji": "🍥",
+      "mw": "片",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "spring_roll",
+      "name": "春卷",
+      "py": "chūn juǎn",
+      "emoji": "🌯",
+      "mw": "条",
+      "also": [
+       "个",
+       "根"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "dumpling_soup",
+    "name": "水饺汤",
+    "py": "shuǐ jiǎo tāng",
+    "emoji": "🥟",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "dumpling",
+      "name": "水饺",
+      "py": "shuǐ jiǎo",
+      "emoji": "🥟",
+      "mw": "个",
+      "also": [
+       "只"
+      ]
+     },
+     {
+      "id": "soup",
+      "name": "汤",
+      "py": "tāng",
+      "emoji": "🥣"
+     }
+    ],
+    "extra": [
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     },
+     {
+      "id": "chili",
+      "name": "辣椒酱",
+      "py": "là jiāo jiàng",
+      "emoji": "🌶️",
+      "mw": "碟",
+      "also": [
+       "份"
+      ],
+      "color": "红色"
+     }
+    ]
+   },
+   {
+    "id": "bean_bun",
+    "name": "豆沙包",
+    "py": "dòu shā bāo",
+    "emoji": "🥟",
+    "mw": "个",
+    "kind": "snack",
+    "base": [
+     {
+      "id": "bun_bean",
+      "name": "豆沙包",
+      "py": "dòu shā bāo",
+      "emoji": "🥟",
+      "mw": "个"
+     }
+    ],
+    "extra": []
+   },
+   {
+    "id": "meat_bun",
+    "name": "肉包",
+    "py": "ròu bāo",
+    "emoji": "🥟",
+    "mw": "个",
+    "kind": "snack",
+    "base": [
+     {
+      "id": "bun_meat",
+      "name": "肉包",
+      "py": "ròu bāo",
+      "emoji": "🥟",
+      "mw": "个"
+     }
+    ],
+    "extra": []
+   },
+   {
+    "id": "soy_milk",
+    "name": "豆浆",
+    "py": "dòu jiāng",
+    "emoji": "🥛",
+    "mw": "杯",
+    "also": [
+     "碗"
+    ],
+    "kind": "drink",
+    "base": [
+     {
+      "id": "soy_milk",
+      "name": "豆浆",
+      "py": "dòu jiāng",
+      "emoji": "🥛",
+      "color": "白色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     }
+    ]
+   },
+   {
+    "id": "kopi",
+    "name": "咖啡",
+    "py": "kā fēi",
+    "emoji": "☕",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "coffee",
+      "name": "咖啡",
+      "py": "kā fēi",
+      "emoji": "☕"
+     },
+     {
+      "id": "cond_milk",
+      "name": "炼奶",
+      "py": "liàn nǎi",
+      "emoji": "🥛"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     },
+     {
+      "id": "sugar",
+      "name": "糖",
+      "py": "táng",
+      "emoji": "🍬",
+      "mw": "块",
+      "also": [
+       "颗"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "sugarcane",
+    "name": "甘蔗水",
+    "py": "gān zhè shuǐ",
+    "emoji": "🧃",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "cane_juice",
+      "name": "甘蔗水",
+      "py": "gān zhè shuǐ",
+      "emoji": "🧃"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     }
+    ]
+   },
+   {
+    "id": "coconut",
+    "name": "椰子",
+    "py": "yē zi",
+    "emoji": "🥥",
+    "mw": "个",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "coconut",
+      "name": "椰子",
+      "py": "yē zi",
+      "emoji": "🥥",
+      "mw": "个"
+     }
+    ],
+    "extra": []
+   },
+   {
+    "id": "watermelon_juice",
+    "name": "西瓜汁",
+    "py": "xī guā zhī",
+    "emoji": "🍉",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "melon_juice",
+      "name": "西瓜汁",
+      "py": "xī guā zhī",
+      "emoji": "🍉",
+      "color": "红色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     }
+    ]
+   },
+   {
+    "id": "apple_juice",
+    "name": "苹果汁",
+    "py": "píng guǒ zhī",
+    "emoji": "🍎",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "apple_juice",
+      "name": "苹果汁",
+      "py": "píng guǒ zhī",
+      "emoji": "🍎"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     }
+    ]
+   },
+   {
+    "id": "popiah",
+    "name": "薄饼",
+    "py": "báo bǐng",
+    "emoji": "🌯",
+    "mw": "条",
+    "also": [
+     "个",
+     "卷",
+     "张"
+    ],
+    "kind": "snack",
+    "base": [
+     {
+      "id": "popiah_skin",
+      "name": "饼皮",
+      "py": "bǐng pí",
+      "emoji": "🫓",
+      "mw": "张"
+     }
+    ],
+    "extra": [
+     {
+      "id": "lettuce",
+      "name": "生菜",
+      "py": "shēng cài",
+      "emoji": "🥬",
+      "mw": "片",
+      "also": [
+       "棵"
+      ],
+      "color": "绿色"
+     },
+     {
+      "id": "beansprout",
+      "name": "豆芽",
+      "py": "dòu yá",
+      "emoji": "🌱",
+      "mw": "份",
+      "also": [
+       "根"
+      ]
+     },
+     {
+      "id": "peanut",
+      "name": "花生",
+      "py": "huā shēng",
+      "emoji": "🥜",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ]
+     },
+     {
+      "id": "prawn",
+      "name": "虾",
+      "py": "xiā",
+      "emoji": "🦐",
+      "mw": "只"
+     },
+     {
+      "id": "chili",
+      "name": "辣椒酱",
+      "py": "là jiāo jiàng",
+      "emoji": "🌶️",
+      "mw": "碟",
+      "also": [
+       "份"
+      ],
+      "color": "红色"
+     }
+    ]
+   },
+   {
+    "id": "roti_prata",
+    "name": "印度煎饼",
+    "py": "yìn dù jiān bǐng",
+    "emoji": "🫓",
+    "mw": "张",
+    "also": [
+     "份",
+     "片"
+    ],
+    "kind": "snack",
+    "base": [
+     {
+      "id": "prata",
+      "name": "饼",
+      "py": "bǐng",
+      "emoji": "🫓",
+      "mw": "张",
+      "also": [
+       "片"
+      ]
+     },
+     {
+      "id": "curry",
+      "name": "咖喱",
+      "py": "gā lí",
+      "emoji": "🍛"
+     }
+    ],
+    "extra": [
+     {
+      "id": "egg",
+      "name": "鸡蛋",
+      "py": "jī dàn",
+      "emoji": "🥚",
+      "mw": "个",
+      "also": [
+       "颗"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "fishball_noodle",
+    "name": "鱼圆面",
+    "py": "yú yuán miàn",
+    "emoji": "🍜",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "noodle",
+      "name": "面条",
+      "py": "miàn tiáo",
+      "emoji": "🍜"
+     },
+     {
+      "id": "fishball",
+      "name": "鱼圆",
+      "py": "yú yuán",
+      "emoji": "⚪",
+      "mw": "个",
+      "also": [
+       "颗",
+       "粒"
+      ],
+      "color": "白色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "fishcake",
+      "name": "鱼饼",
+      "py": "yú bǐng",
+      "emoji": "🍥",
+      "mw": "片",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     },
+     {
+      "id": "chili",
+      "name": "辣椒酱",
+      "py": "là jiāo jiàng",
+      "emoji": "🌶️",
+      "mw": "碟",
+      "also": [
+       "份"
+      ],
+      "color": "红色"
+     }
+    ]
+   },
+   {
+    "id": "fish_soup",
+    "name": "鱼片米粉",
+    "py": "yú piàn mǐ fěn",
+    "emoji": "🍲",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "bee_hoon",
+      "name": "米粉",
+      "py": "mǐ fěn",
+      "emoji": "🍝"
+     },
+     {
+      "id": "fish_slice",
+      "name": "鱼片",
+      "py": "yú piàn",
+      "emoji": "🐟"
+     },
+     {
+      "id": "soup",
+      "name": "汤",
+      "py": "tāng",
+      "emoji": "🥣"
+     }
+    ],
+    "extra": [
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     },
+     {
+      "id": "tofu",
+      "name": "豆腐",
+      "py": "dòu fu",
+      "emoji": "⬜",
+      "mw": "块",
+      "also": [
+       "片"
+      ],
+      "color": "白色"
+     }
+    ]
+   },
+   {
+    "id": "prawn_mee",
+    "name": "虾面",
+    "py": "xiā miàn",
+    "emoji": "🦐",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "noodle",
+      "name": "面条",
+      "py": "miàn tiáo",
+      "emoji": "🍜"
+     },
+     {
+      "id": "prawn",
+      "name": "虾",
+      "py": "xiā",
+      "emoji": "🦐",
+      "mw": "只"
+     },
+     {
+      "id": "soup",
+      "name": "汤",
+      "py": "tāng",
+      "emoji": "🥣"
+     }
+    ],
+    "extra": [
+     {
+      "id": "pork",
+      "name": "猪肉",
+      "py": "zhū ròu",
+      "emoji": "🥩",
+      "mw": "片",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "beansprout",
+      "name": "豆芽",
+      "py": "dòu yá",
+      "emoji": "🌱",
+      "mw": "份",
+      "also": [
+       "根"
+      ]
+     },
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     }
+    ]
+   },
+   {
+    "id": "chicken_wing",
+    "name": "烤鸡翅",
+    "py": "kǎo jī chì",
+    "emoji": "🍗",
+    "mw": "只",
+    "also": [
+     "个"
+    ],
+    "kind": "snack",
+    "base": [
+     {
+      "id": "wing",
+      "name": "鸡翅",
+      "py": "jī chì",
+      "emoji": "🍗",
+      "mw": "只",
+      "also": [
+       "个"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "chili",
+      "name": "辣椒酱",
+      "py": "là jiāo jiàng",
+      "emoji": "🌶️",
+      "mw": "碟",
+      "also": [
+       "份"
+      ],
+      "color": "红色"
+     }
+    ]
+   },
+   {
+    "id": "ice_cream",
+    "name": "冰淇淋",
+    "py": "bīng qí lín",
+    "emoji": "🍨",
+    "mw": "杯",
+    "also": [
+     "个",
+     "份"
+    ],
+    "kind": "dessert",
+    "base": [],
+    "extra": [],
+    "stack": true,
+    "layers": [
+     {
+      "id": "l_mango",
+      "name": "芒果",
+      "py": "máng guǒ",
+      "emoji": "🥭",
+      "color": "黄色"
+     },
+     {
+      "id": "l_greentea",
+      "name": "绿茶",
+      "py": "lǜ chá",
+      "emoji": "🍵",
+      "color": "绿色"
+     },
+     {
+      "id": "l_vanilla",
+      "name": "香草",
+      "py": "xiāng cǎo",
+      "emoji": "🍦",
+      "color": "白色"
+     },
+     {
+      "id": "l_choco",
+      "name": "巧克力",
+      "py": "qiǎo kè lì",
+      "emoji": "🍫",
+      "color": "咖啡色"
+     }
+    ]
+   }
+  ],
+  "menuwords": [
+   {
+    "k": "color",
+    "w": "红色",
+    "py": "hóng sè",
+    "hex": "#E53935"
+   },
+   {
+    "k": "color",
+    "w": "黄色",
+    "py": "huáng sè",
+    "hex": "#FDD835"
+   },
+   {
+    "k": "color",
+    "w": "绿色",
+    "py": "lǜ sè",
+    "hex": "#43A047"
+   },
+   {
+    "k": "color",
+    "w": "白色",
+    "py": "bái sè",
+    "hex": "#FAFAFA"
+   },
+   {
+    "k": "color",
+    "w": "黑色",
+    "py": "hēi sè",
+    "hex": "#212121"
+   },
+   {
+    "k": "color",
+    "w": "咖啡色",
+    "py": "kā fēi sè",
+    "hex": "#795548"
+   },
+   {
+    "k": "pos",
+    "w": "最上面",
+    "py": "zuì shàng mian",
+    "i": 0
+   },
+   {
+    "k": "pos",
+    "w": "中间",
+    "py": "zhōng jiān",
+    "i": 1
+   },
+   {
+    "k": "pos",
+    "w": "最下面",
+    "py": "zuì xià mian",
+    "i": 2
+   },
+   {
+    "k": "num",
+    "w": "一",
+    "py": "yī",
+    "n": 1
+   },
+   {
+    "k": "num",
+    "w": "两",
+    "py": "liǎng",
+    "n": 2
+   },
+   {
+    "k": "num",
+    "w": "三",
+    "py": "sān",
+    "n": 3
+   },
+   {
+    "k": "num",
+    "w": "四",
+    "py": "sì",
+    "n": 4
+   },
+   {
+    "k": "num",
+    "w": "五",
+    "py": "wǔ",
+    "n": 5
+   },
+   {
+    "k": "num",
+    "w": "六",
+    "py": "liù",
+    "n": 6
+   },
+   {
+    "k": "num",
+    "w": "七",
+    "py": "qī",
+    "n": 7
+   },
+   {
+    "k": "num",
+    "w": "八",
+    "py": "bā",
+    "n": 8
+   },
+   {
+    "k": "num",
+    "w": "九",
+    "py": "jiǔ",
+    "n": 9
+   },
+   {
+    "k": "num",
+    "w": "十",
+    "py": "shí",
+    "n": 10
+   },
+   {
+    "k": "mw",
+    "n": "鸡饭",
+    "py": "jī fàn",
+    "mw": "盘",
+    "mwpy": "pán",
+    "also": [
+     "碟",
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "叻沙",
+    "py": "lè shā",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "沙爹",
+    "py": "shā diē",
+    "mw": "串",
+    "mwpy": "chuàn"
+   },
+   {
+    "k": "mw",
+    "n": "椰浆饭",
+    "py": "yē jiāng fàn",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "盘",
+     "包",
+     "碟"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "咖椰吐司",
+    "py": "kā yē tǔ sī",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "片"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "拉茶",
+    "py": "lā chá",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "红豆冰",
+    "py": "hóng dòu bīng",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "珍珠奶茶",
+    "py": "zhēn zhū nǎi chá",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "奶茶",
+    "py": "nǎi chá",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "豆花",
+    "py": "dòu huā",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "云吞面",
+    "py": "yún tūn miàn",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "盘",
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "炒饭",
+    "py": "chǎo fàn",
+    "mw": "盘",
+    "mwpy": "pán",
+    "also": [
+     "碗",
+     "份",
+     "碟"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "炒米粉",
+    "py": "chǎo mǐ fěn",
+    "mw": "盘",
+    "mwpy": "pán",
+    "also": [
+     "份",
+     "碟"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "水饺汤",
+    "py": "shuǐ jiǎo tāng",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "豆沙包",
+    "py": "dòu shā bāo",
+    "mw": "个",
+    "mwpy": "gè"
+   },
+   {
+    "k": "mw",
+    "n": "肉包",
+    "py": "ròu bāo",
+    "mw": "个",
+    "mwpy": "gè"
+   },
+   {
+    "k": "mw",
+    "n": "豆浆",
+    "py": "dòu jiāng",
+    "mw": "杯",
+    "mwpy": "bēi",
+    "also": [
+     "碗"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "咖啡",
+    "py": "kā fēi",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "甘蔗水",
+    "py": "gān zhè shuǐ",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "椰子",
+    "py": "yē zi",
+    "mw": "个",
+    "mwpy": "gè"
+   },
+   {
+    "k": "mw",
+    "n": "西瓜汁",
+    "py": "xī guā zhī",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "苹果汁",
+    "py": "píng guǒ zhī",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "薄饼",
+    "py": "báo bǐng",
+    "mw": "条",
+    "mwpy": "tiáo",
+    "also": [
+     "个",
+     "卷",
+     "张"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "印度煎饼",
+    "py": "yìn dù jiān bǐng",
+    "mw": "张",
+    "mwpy": "zhāng",
+    "also": [
+     "份",
+     "片"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鱼圆面",
+    "py": "yú yuán miàn",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鱼片米粉",
+    "py": "yú piàn mǐ fěn",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "虾面",
+    "py": "xiā miàn",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "烤鸡翅",
+    "py": "kǎo jī chì",
+    "mw": "只",
+    "mwpy": "zhī",
+    "also": [
+     "个"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "冰淇淋",
+    "py": "bīng qí lín",
+    "mw": "杯",
+    "mwpy": "bēi",
+    "also": [
+     "个",
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鸡肉",
+    "py": "jī ròu",
+    "mw": "块",
+    "mwpy": "kuài",
+    "also": [
+     "片"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "荷包蛋",
+    "py": "hé bāo dàn",
+    "mw": "个",
+    "mwpy": "gè"
+   },
+   {
+    "k": "mw",
+    "n": "黄瓜",
+    "py": "huáng guā",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "根",
+     "条"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "辣椒酱",
+    "py": "là jiāo jiàng",
+    "mw": "碟",
+    "mwpy": "dié",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "虾",
+    "py": "xiā",
+    "mw": "只",
+    "mwpy": "zhī"
+   },
+   {
+    "k": "mw",
+    "n": "鱼饼",
+    "py": "yú bǐng",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鸡蛋",
+    "py": "jī dàn",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "颗"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "豆芽",
+    "py": "dòu yá",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "根"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "花生",
+    "py": "huā shēng",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "颗",
+     "粒"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鸡翅",
+    "py": "jī chì",
+    "mw": "只",
+    "mwpy": "zhī",
+    "also": [
+     "个"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "吐司",
+    "py": "tǔ sī",
+    "mw": "片",
+    "mwpy": "piàn"
+   },
+   {
+    "k": "mw",
+    "n": "牛油",
+    "py": "niú yóu",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "半生熟蛋",
+    "py": "bàn shēng shú dàn",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "颗"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "冰块",
+    "py": "bīng kuài",
+    "mw": "块",
+    "mwpy": "kuài"
+   },
+   {
+    "k": "mw",
+    "n": "糖",
+    "py": "táng",
+    "mw": "块",
+    "mwpy": "kuài",
+    "also": [
+     "颗"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "红豆",
+    "py": "hóng dòu",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "颗",
+     "粒"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "玉米",
+    "py": "yù mǐ",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "粒",
+     "根"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "果冻",
+    "py": "guǒ dòng",
+    "mw": "块",
+    "mwpy": "kuài",
+    "also": [
+     "个"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "椰果",
+    "py": "yē guǒ",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "布丁",
+    "py": "bù dīng",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "个",
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "仙草",
+    "py": "xiān cǎo",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "云吞",
+    "py": "yún tūn",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "只"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "青菜",
+    "py": "qīng cài",
+    "mw": "棵",
+    "mwpy": "kē",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "春卷",
+    "py": "chūn juǎn",
+    "mw": "条",
+    "mwpy": "tiáo",
+    "also": [
+     "个",
+     "根"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "水饺",
+    "py": "shuǐ jiǎo",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "只"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "饼皮",
+    "py": "bǐng pí",
+    "mw": "张",
+    "mwpy": "zhāng"
+   },
+   {
+    "k": "mw",
+    "n": "生菜",
+    "py": "shēng cài",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "棵"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "饼",
+    "py": "bǐng",
+    "mw": "张",
+    "mwpy": "zhāng",
+    "also": [
+     "片"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鱼圆",
+    "py": "yú yuán",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "颗",
+     "粒"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "豆腐",
+    "py": "dòu fu",
+    "mw": "块",
+    "mwpy": "kuài",
+    "also": [
+     "片"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "猪肉",
+    "py": "zhū ròu",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "块"
+    ]
+   }
+  ]
+ },
+ "p6": {
+  "menu": [
+   {
+    "id": "chicken_rice",
+    "name": "鸡饭",
+    "py": "jī fàn",
+    "emoji": "🍗",
+    "mw": "盘",
+    "also": [
+     "碟",
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "rice",
+      "name": "米饭",
+      "py": "mǐ fàn",
+      "emoji": "🍚"
+     },
+     {
+      "id": "chicken",
+      "name": "鸡肉",
+      "py": "jī ròu",
+      "emoji": "🍗",
+      "mw": "块",
+      "also": [
+       "片"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "fried_egg",
+      "name": "荷包蛋",
+      "py": "hé bāo dàn",
+      "emoji": "🍳",
+      "mw": "个"
+     },
+     {
+      "id": "cucumber",
+      "name": "黄瓜",
+      "py": "huáng guā",
+      "emoji": "🥒",
+      "mw": "片",
+      "also": [
+       "根",
+       "条"
+      ],
+      "color": "绿色"
+     },
+     {
+      "id": "chili",
+      "name": "辣椒酱",
+      "py": "là jiāo jiàng",
+      "emoji": "🌶️",
+      "mw": "碟",
+      "also": [
+       "份",
+       "勺"
+      ],
+      "color": "红色"
+     }
+    ]
+   },
+   {
+    "id": "laksa",
+    "name": "叻沙",
+    "py": "lè shā",
+    "emoji": "🍜",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "bee_hoon",
+      "name": "米粉",
+      "py": "mǐ fěn",
+      "emoji": "🍝"
+     },
+     {
+      "id": "laksa_soup",
+      "name": "叻沙汤",
+      "py": "lè shā tāng",
+      "emoji": "🍲"
+     }
+    ],
+    "extra": [
+     {
+      "id": "prawn",
+      "name": "虾",
+      "py": "xiā",
+      "emoji": "🦐",
+      "mw": "只"
+     },
+     {
+      "id": "fishcake",
+      "name": "鱼饼",
+      "py": "yú bǐng",
+      "emoji": "🍥",
+      "mw": "片",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "egg",
+      "name": "鸡蛋",
+      "py": "jī dàn",
+      "emoji": "🥚",
+      "mw": "个",
+      "also": [
+       "颗"
+      ]
+     },
+     {
+      "id": "beansprout",
+      "name": "豆芽",
+      "py": "dòu yá",
+      "emoji": "🌱",
+      "mw": "份",
+      "also": [
+       "根"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "satay",
+    "name": "沙爹",
+    "py": "shā diē",
+    "emoji": "🍢",
+    "mw": "串",
+    "kind": "snack",
+    "base": [
+     {
+      "id": "satay",
+      "name": "沙爹",
+      "py": "shā diē",
+      "emoji": "🍢",
+      "mw": "串"
+     },
+     {
+      "id": "satay_sauce",
+      "name": "沙爹酱",
+      "py": "shā diē jiàng",
+      "emoji": "🥜"
+     }
+    ],
+    "extra": [
+     {
+      "id": "cucumber",
+      "name": "黄瓜",
+      "py": "huáng guā",
+      "emoji": "🥒",
+      "mw": "片",
+      "also": [
+       "根",
+       "条"
+      ],
+      "color": "绿色"
+     },
+     {
+      "id": "onion",
+      "name": "洋葱",
+      "py": "yáng cōng",
+      "emoji": "🧅",
+      "mw": "块",
+      "also": [
+       "片",
+       "个"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "char_kway_teow",
+    "name": "炒粿条",
+    "py": "chǎo guǒ tiáo",
+    "emoji": "🍝",
+    "mw": "盘",
+    "also": [
+     "碟",
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "kway_teow",
+      "name": "粿条",
+      "py": "guǒ tiáo",
+      "emoji": "🍝"
+     }
+    ],
+    "extra": [
+     {
+      "id": "prawn",
+      "name": "虾",
+      "py": "xiā",
+      "emoji": "🦐",
+      "mw": "只"
+     },
+     {
+      "id": "egg",
+      "name": "鸡蛋",
+      "py": "jī dàn",
+      "emoji": "🥚",
+      "mw": "个",
+      "also": [
+       "颗"
+      ]
+     },
+     {
+      "id": "beansprout",
+      "name": "豆芽",
+      "py": "dòu yá",
+      "emoji": "🌱",
+      "mw": "份",
+      "also": [
+       "根"
+      ]
+     },
+     {
+      "id": "fishcake",
+      "name": "鱼饼",
+      "py": "yú bǐng",
+      "emoji": "🍥",
+      "mw": "片",
+      "also": [
+       "块"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "nasi_lemak",
+    "name": "椰浆饭",
+    "py": "yē jiāng fàn",
+    "emoji": "🍛",
+    "mw": "份",
+    "also": [
+     "盘",
+     "包",
+     "碟"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "rice",
+      "name": "米饭",
+      "py": "mǐ fàn",
+      "emoji": "🍚"
+     },
+     {
+      "id": "ikan_bilis",
+      "name": "江鱼仔",
+      "py": "jiāng yú zǎi",
+      "emoji": "🐟"
+     },
+     {
+      "id": "peanut",
+      "name": "花生",
+      "py": "huā shēng",
+      "emoji": "🥜",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "wing",
+      "name": "鸡翅",
+      "py": "jī chì",
+      "emoji": "🍗",
+      "mw": "只",
+      "also": [
+       "个"
+      ]
+     },
+     {
+      "id": "fried_egg",
+      "name": "荷包蛋",
+      "py": "hé bāo dàn",
+      "emoji": "🍳",
+      "mw": "个"
+     },
+     {
+      "id": "cucumber",
+      "name": "黄瓜",
+      "py": "huáng guā",
+      "emoji": "🥒",
+      "mw": "片",
+      "also": [
+       "根",
+       "条"
+      ],
+      "color": "绿色"
+     },
+     {
+      "id": "chili",
+      "name": "辣椒酱",
+      "py": "là jiāo jiàng",
+      "emoji": "🌶️",
+      "mw": "碟",
+      "also": [
+       "份",
+       "勺"
+      ],
+      "color": "红色"
+     }
+    ]
+   },
+   {
+    "id": "kaya_toast",
+    "name": "咖椰吐司",
+    "py": "kā yē tǔ sī",
+    "emoji": "🍞",
+    "mw": "份",
+    "also": [
+     "片"
+    ],
+    "kind": "snack",
+    "base": [
+     {
+      "id": "toast",
+      "name": "吐司",
+      "py": "tǔ sī",
+      "emoji": "🍞",
+      "mw": "片"
+     },
+     {
+      "id": "kaya",
+      "name": "咖椰",
+      "py": "kā yē",
+      "emoji": "🍯"
+     },
+     {
+      "id": "butter",
+      "name": "牛油",
+      "py": "niú yóu",
+      "emoji": "🧈",
+      "mw": "片",
+      "also": [
+       "块"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "soft_egg",
+      "name": "半生熟蛋",
+      "py": "bàn shēng shú dàn",
+      "emoji": "🥚",
+      "mw": "个",
+      "also": [
+       "颗"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "teh_tarik",
+    "name": "拉茶",
+    "py": "lā chá",
+    "emoji": "☕",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "black_tea",
+      "name": "红茶",
+      "py": "hóng chá",
+      "emoji": "🍵"
+     },
+     {
+      "id": "cond_milk",
+      "name": "炼奶",
+      "py": "liàn nǎi",
+      "emoji": "🥛"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     },
+     {
+      "id": "sugar",
+      "name": "糖",
+      "py": "táng",
+      "emoji": "🍬",
+      "mw": "块",
+      "also": [
+       "勺",
+       "颗"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "ice_cream_sandwich",
+    "name": "冰淇淋三明治",
+    "py": "bīng qí lín sān míng zhì",
+    "emoji": "🥪",
+    "mw": "个",
+    "also": [
+     "块",
+     "份"
+    ],
+    "kind": "dessert",
+    "base": [
+     {
+      "id": "bread",
+      "name": "面包",
+      "py": "miàn bāo",
+      "emoji": "🍞",
+      "mw": "片",
+      "also": [
+       "个",
+       "块"
+      ]
+     },
+     {
+      "id": "ic_block",
+      "name": "冰淇淋",
+      "py": "bīng qí lín",
+      "emoji": "🍨",
+      "mw": "块"
+     }
+    ],
+    "extra": []
+   },
+   {
+    "id": "ice_kacang",
+    "name": "红豆冰",
+    "py": "hóng dòu bīng",
+    "emoji": "🍧",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "dessert",
+    "base": [
+     {
+      "id": "ice",
+      "name": "冰",
+      "py": "bīng",
+      "emoji": "🧊"
+     },
+     {
+      "id": "red_bean",
+      "name": "红豆",
+      "py": "hóng dòu",
+      "emoji": "🔴",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ],
+      "color": "红色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "corn",
+      "name": "玉米",
+      "py": "yù mǐ",
+      "emoji": "🌽",
+      "mw": "份",
+      "also": [
+       "粒",
+       "根"
+      ],
+      "color": "黄色"
+     },
+     {
+      "id": "peanut",
+      "name": "花生",
+      "py": "huā shēng",
+      "emoji": "🥜",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ]
+     },
+     {
+      "id": "jelly",
+      "name": "果冻",
+      "py": "guǒ dòng",
+      "emoji": "🟩",
+      "mw": "块",
+      "also": [
+       "个"
+      ]
+     },
+     {
+      "id": "cond_milk",
+      "name": "炼奶",
+      "py": "liàn nǎi",
+      "emoji": "🥛",
+      "mw": "勺"
+     }
+    ]
+   },
+   {
+    "id": "bubble_tea",
+    "name": "珍珠奶茶",
+    "py": "zhēn zhū nǎi chá",
+    "emoji": "🧋",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "milk_tea",
+      "name": "奶茶",
+      "py": "nǎi chá",
+      "emoji": "🥤"
+     },
+     {
+      "id": "pearl",
+      "name": "珍珠",
+      "py": "zhēn zhū",
+      "emoji": "⚫",
+      "color": "黑色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "nata",
+      "name": "椰果",
+      "py": "yē guǒ",
+      "emoji": "🥥",
+      "mw": "份",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "pudding",
+      "name": "布丁",
+      "py": "bù dīng",
+      "emoji": "🍮",
+      "mw": "份",
+      "also": [
+       "个",
+       "块"
+      ]
+     },
+     {
+      "id": "grass_jelly",
+      "name": "仙草",
+      "py": "xiān cǎo",
+      "emoji": "⬛",
+      "mw": "份",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     }
+    ]
+   },
+   {
+    "id": "milk_tea",
+    "name": "奶茶",
+    "py": "nǎi chá",
+    "emoji": "🥤",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "black_tea",
+      "name": "红茶",
+      "py": "hóng chá",
+      "emoji": "🍵"
+     },
+     {
+      "id": "milk",
+      "name": "牛奶",
+      "py": "niú nǎi",
+      "emoji": "🥛"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     },
+     {
+      "id": "nata",
+      "name": "椰果",
+      "py": "yē guǒ",
+      "emoji": "🥥",
+      "mw": "份",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "pudding",
+      "name": "布丁",
+      "py": "bù dīng",
+      "emoji": "🍮",
+      "mw": "份",
+      "also": [
+       "个",
+       "块"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "tau_huay",
+    "name": "豆花",
+    "py": "dòu huā",
+    "emoji": "🍮",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "dessert",
+    "base": [
+     {
+      "id": "beancurd",
+      "name": "豆花",
+      "py": "dòu huā",
+      "emoji": "🍮",
+      "color": "白色"
+     },
+     {
+      "id": "syrup",
+      "name": "糖水",
+      "py": "táng shuǐ",
+      "emoji": "💧"
+     }
+    ],
+    "extra": [
+     {
+      "id": "red_bean",
+      "name": "红豆",
+      "py": "hóng dòu",
+      "emoji": "🔴",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ],
+      "color": "红色"
+     },
+     {
+      "id": "peanut",
+      "name": "花生",
+      "py": "huā shēng",
+      "emoji": "🥜",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "wanton_mee",
+    "name": "云吞面",
+    "py": "yún tūn miàn",
+    "emoji": "🍜",
+    "mw": "碗",
+    "also": [
+     "盘",
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "noodle",
+      "name": "面条",
+      "py": "miàn tiáo",
+      "emoji": "🍜"
+     },
+     {
+      "id": "wonton",
+      "name": "云吞",
+      "py": "yún tūn",
+      "emoji": "🥟",
+      "mw": "个",
+      "also": [
+       "只"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     },
+     {
+      "id": "chili",
+      "name": "辣椒酱",
+      "py": "là jiāo jiàng",
+      "emoji": "🌶️",
+      "mw": "碟",
+      "also": [
+       "份",
+       "勺"
+      ],
+      "color": "红色"
+     }
+    ]
+   },
+   {
+    "id": "fried_rice",
+    "name": "炒饭",
+    "py": "chǎo fàn",
+    "emoji": "🍚",
+    "mw": "盘",
+    "also": [
+     "碗",
+     "份",
+     "碟"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "rice",
+      "name": "米饭",
+      "py": "mǐ fàn",
+      "emoji": "🍚"
+     },
+     {
+      "id": "egg",
+      "name": "鸡蛋",
+      "py": "jī dàn",
+      "emoji": "🥚",
+      "mw": "个",
+      "also": [
+       "颗"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "prawn",
+      "name": "虾",
+      "py": "xiā",
+      "emoji": "🦐",
+      "mw": "只"
+     },
+     {
+      "id": "chicken",
+      "name": "鸡肉",
+      "py": "jī ròu",
+      "emoji": "🍗",
+      "mw": "块",
+      "also": [
+       "片"
+      ]
+     },
+     {
+      "id": "fried_egg",
+      "name": "荷包蛋",
+      "py": "hé bāo dàn",
+      "emoji": "🍳",
+      "mw": "个"
+     }
+    ]
+   },
+   {
+    "id": "fried_bee_hoon",
+    "name": "炒米粉",
+    "py": "chǎo mǐ fěn",
+    "emoji": "🍝",
+    "mw": "盘",
+    "also": [
+     "份",
+     "碟"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "bee_hoon",
+      "name": "米粉",
+      "py": "mǐ fěn",
+      "emoji": "🍝"
+     }
+    ],
+    "extra": [
+     {
+      "id": "fried_egg",
+      "name": "荷包蛋",
+      "py": "hé bāo dàn",
+      "emoji": "🍳",
+      "mw": "个"
+     },
+     {
+      "id": "wing",
+      "name": "鸡翅",
+      "py": "jī chì",
+      "emoji": "🍗",
+      "mw": "只",
+      "also": [
+       "个"
+      ]
+     },
+     {
+      "id": "fishcake",
+      "name": "鱼饼",
+      "py": "yú bǐng",
+      "emoji": "🍥",
+      "mw": "片",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "spring_roll",
+      "name": "春卷",
+      "py": "chūn juǎn",
+      "emoji": "🌯",
+      "mw": "条",
+      "also": [
+       "个",
+       "根"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "dumpling_soup",
+    "name": "水饺汤",
+    "py": "shuǐ jiǎo tāng",
+    "emoji": "🥟",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "dumpling",
+      "name": "水饺",
+      "py": "shuǐ jiǎo",
+      "emoji": "🥟",
+      "mw": "个",
+      "also": [
+       "只"
+      ]
+     },
+     {
+      "id": "soup",
+      "name": "汤",
+      "py": "tāng",
+      "emoji": "🥣"
+     }
+    ],
+    "extra": [
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     },
+     {
+      "id": "chili",
+      "name": "辣椒酱",
+      "py": "là jiāo jiàng",
+      "emoji": "🌶️",
+      "mw": "碟",
+      "also": [
+       "份",
+       "勺"
+      ],
+      "color": "红色"
+     }
+    ]
+   },
+   {
+    "id": "bean_bun",
+    "name": "豆沙包",
+    "py": "dòu shā bāo",
+    "emoji": "🥟",
+    "mw": "个",
+    "kind": "snack",
+    "base": [
+     {
+      "id": "bun_bean",
+      "name": "豆沙包",
+      "py": "dòu shā bāo",
+      "emoji": "🥟",
+      "mw": "个"
+     }
+    ],
+    "extra": []
+   },
+   {
+    "id": "meat_bun",
+    "name": "肉包",
+    "py": "ròu bāo",
+    "emoji": "🥟",
+    "mw": "个",
+    "kind": "snack",
+    "base": [
+     {
+      "id": "bun_meat",
+      "name": "肉包",
+      "py": "ròu bāo",
+      "emoji": "🥟",
+      "mw": "个"
+     }
+    ],
+    "extra": []
+   },
+   {
+    "id": "soy_milk",
+    "name": "豆浆",
+    "py": "dòu jiāng",
+    "emoji": "🥛",
+    "mw": "杯",
+    "also": [
+     "碗"
+    ],
+    "kind": "drink",
+    "base": [
+     {
+      "id": "soy_milk",
+      "name": "豆浆",
+      "py": "dòu jiāng",
+      "emoji": "🥛",
+      "color": "白色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     }
+    ]
+   },
+   {
+    "id": "kopi",
+    "name": "咖啡",
+    "py": "kā fēi",
+    "emoji": "☕",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "coffee",
+      "name": "咖啡",
+      "py": "kā fēi",
+      "emoji": "☕"
+     },
+     {
+      "id": "cond_milk",
+      "name": "炼奶",
+      "py": "liàn nǎi",
+      "emoji": "🥛"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     },
+     {
+      "id": "sugar",
+      "name": "糖",
+      "py": "táng",
+      "emoji": "🍬",
+      "mw": "块",
+      "also": [
+       "勺",
+       "颗"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "sugarcane",
+    "name": "甘蔗水",
+    "py": "gān zhè shuǐ",
+    "emoji": "🧃",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "cane_juice",
+      "name": "甘蔗水",
+      "py": "gān zhè shuǐ",
+      "emoji": "🧃"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     }
+    ]
+   },
+   {
+    "id": "coconut",
+    "name": "椰子",
+    "py": "yē zi",
+    "emoji": "🥥",
+    "mw": "个",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "coconut",
+      "name": "椰子",
+      "py": "yē zi",
+      "emoji": "🥥",
+      "mw": "个"
+     }
+    ],
+    "extra": []
+   },
+   {
+    "id": "watermelon_juice",
+    "name": "西瓜汁",
+    "py": "xī guā zhī",
+    "emoji": "🍉",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "melon_juice",
+      "name": "西瓜汁",
+      "py": "xī guā zhī",
+      "emoji": "🍉",
+      "color": "红色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     }
+    ]
+   },
+   {
+    "id": "apple_juice",
+    "name": "苹果汁",
+    "py": "píng guǒ zhī",
+    "emoji": "🍎",
+    "mw": "杯",
+    "kind": "drink",
+    "base": [
+     {
+      "id": "apple_juice",
+      "name": "苹果汁",
+      "py": "píng guǒ zhī",
+      "emoji": "🍎"
+     }
+    ],
+    "extra": [
+     {
+      "id": "ice_cube",
+      "name": "冰块",
+      "py": "bīng kuài",
+      "emoji": "🧊",
+      "mw": "块"
+     }
+    ]
+   },
+   {
+    "id": "popiah",
+    "name": "薄饼",
+    "py": "báo bǐng",
+    "emoji": "🌯",
+    "mw": "条",
+    "also": [
+     "个",
+     "卷",
+     "张"
+    ],
+    "kind": "snack",
+    "base": [
+     {
+      "id": "popiah_skin",
+      "name": "饼皮",
+      "py": "bǐng pí",
+      "emoji": "🫓",
+      "mw": "张"
+     }
+    ],
+    "extra": [
+     {
+      "id": "lettuce",
+      "name": "生菜",
+      "py": "shēng cài",
+      "emoji": "🥬",
+      "mw": "片",
+      "also": [
+       "棵"
+      ],
+      "color": "绿色"
+     },
+     {
+      "id": "beansprout",
+      "name": "豆芽",
+      "py": "dòu yá",
+      "emoji": "🌱",
+      "mw": "份",
+      "also": [
+       "根"
+      ]
+     },
+     {
+      "id": "peanut",
+      "name": "花生",
+      "py": "huā shēng",
+      "emoji": "🥜",
+      "mw": "份",
+      "also": [
+       "颗",
+       "粒"
+      ]
+     },
+     {
+      "id": "prawn",
+      "name": "虾",
+      "py": "xiā",
+      "emoji": "🦐",
+      "mw": "只"
+     },
+     {
+      "id": "chili",
+      "name": "辣椒酱",
+      "py": "là jiāo jiàng",
+      "emoji": "🌶️",
+      "mw": "碟",
+      "also": [
+       "份",
+       "勺"
+      ],
+      "color": "红色"
+     }
+    ]
+   },
+   {
+    "id": "roti_prata",
+    "name": "印度煎饼",
+    "py": "yìn dù jiān bǐng",
+    "emoji": "🫓",
+    "mw": "张",
+    "also": [
+     "份",
+     "片"
+    ],
+    "kind": "snack",
+    "base": [
+     {
+      "id": "prata",
+      "name": "饼",
+      "py": "bǐng",
+      "emoji": "🫓",
+      "mw": "张",
+      "also": [
+       "片"
+      ]
+     },
+     {
+      "id": "curry",
+      "name": "咖喱",
+      "py": "gā lí",
+      "emoji": "🍛"
+     }
+    ],
+    "extra": [
+     {
+      "id": "egg",
+      "name": "鸡蛋",
+      "py": "jī dàn",
+      "emoji": "🥚",
+      "mw": "个",
+      "also": [
+       "颗"
+      ]
+     }
+    ]
+   },
+   {
+    "id": "fishball_noodle",
+    "name": "鱼圆面",
+    "py": "yú yuán miàn",
+    "emoji": "🍜",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "noodle",
+      "name": "面条",
+      "py": "miàn tiáo",
+      "emoji": "🍜"
+     },
+     {
+      "id": "fishball",
+      "name": "鱼圆",
+      "py": "yú yuán",
+      "emoji": "⚪",
+      "mw": "个",
+      "also": [
+       "颗",
+       "粒"
+      ],
+      "color": "白色"
+     }
+    ],
+    "extra": [
+     {
+      "id": "fishcake",
+      "name": "鱼饼",
+      "py": "yú bǐng",
+      "emoji": "🍥",
+      "mw": "片",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     },
+     {
+      "id": "chili",
+      "name": "辣椒酱",
+      "py": "là jiāo jiàng",
+      "emoji": "🌶️",
+      "mw": "碟",
+      "also": [
+       "份",
+       "勺"
+      ],
+      "color": "红色"
+     }
+    ]
+   },
+   {
+    "id": "fish_soup",
+    "name": "鱼片米粉",
+    "py": "yú piàn mǐ fěn",
+    "emoji": "🍲",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "bee_hoon",
+      "name": "米粉",
+      "py": "mǐ fěn",
+      "emoji": "🍝"
+     },
+     {
+      "id": "fish_slice",
+      "name": "鱼片",
+      "py": "yú piàn",
+      "emoji": "🐟"
+     },
+     {
+      "id": "soup",
+      "name": "汤",
+      "py": "tāng",
+      "emoji": "🥣"
+     }
+    ],
+    "extra": [
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     },
+     {
+      "id": "tofu",
+      "name": "豆腐",
+      "py": "dòu fu",
+      "emoji": "⬜",
+      "mw": "块",
+      "also": [
+       "片"
+      ],
+      "color": "白色"
+     }
+    ]
+   },
+   {
+    "id": "prawn_mee",
+    "name": "虾面",
+    "py": "xiā miàn",
+    "emoji": "🦐",
+    "mw": "碗",
+    "also": [
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "noodle",
+      "name": "面条",
+      "py": "miàn tiáo",
+      "emoji": "🍜"
+     },
+     {
+      "id": "prawn",
+      "name": "虾",
+      "py": "xiā",
+      "emoji": "🦐",
+      "mw": "只"
+     },
+     {
+      "id": "soup",
+      "name": "汤",
+      "py": "tāng",
+      "emoji": "🥣"
+     }
+    ],
+    "extra": [
+     {
+      "id": "pork",
+      "name": "猪肉",
+      "py": "zhū ròu",
+      "emoji": "🥩",
+      "mw": "片",
+      "also": [
+       "块"
+      ]
+     },
+     {
+      "id": "beansprout",
+      "name": "豆芽",
+      "py": "dòu yá",
+      "emoji": "🌱",
+      "mw": "份",
+      "also": [
+       "根"
+      ]
+     },
+     {
+      "id": "veg",
+      "name": "青菜",
+      "py": "qīng cài",
+      "emoji": "🥬",
+      "mw": "棵",
+      "also": [
+       "份"
+      ],
+      "color": "绿色"
+     }
+    ]
+   },
+   {
+    "id": "chicken_wing",
+    "name": "烤鸡翅",
+    "py": "kǎo jī chì",
+    "emoji": "🍗",
+    "mw": "只",
+    "also": [
+     "个"
+    ],
+    "kind": "snack",
+    "base": [
+     {
+      "id": "wing",
+      "name": "鸡翅",
+      "py": "jī chì",
+      "emoji": "🍗",
+      "mw": "只",
+      "also": [
+       "个"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "chili",
+      "name": "辣椒酱",
+      "py": "là jiāo jiàng",
+      "emoji": "🌶️",
+      "mw": "碟",
+      "also": [
+       "份",
+       "勺"
+      ],
+      "color": "红色"
+     }
+    ]
+   },
+   {
+    "id": "carrot_cake",
+    "name": "菜头粿",
+    "py": "cài tóu guǒ",
+    "emoji": "🥘",
+    "mw": "盘",
+    "also": [
+     "碟",
+     "份"
+    ],
+    "kind": "meal",
+    "base": [
+     {
+      "id": "radish_cake",
+      "name": "萝卜糕",
+      "py": "luó bo gāo",
+      "emoji": "⬜",
+      "mw": "块",
+      "also": [
+       "片"
+      ]
+     },
+     {
+      "id": "egg",
+      "name": "鸡蛋",
+      "py": "jī dàn",
+      "emoji": "🥚",
+      "mw": "个",
+      "also": [
+       "颗"
+      ]
+     }
+    ],
+    "extra": [
+     {
+      "id": "chili",
+      "name": "辣椒酱",
+      "py": "là jiāo jiàng",
+      "emoji": "🌶️",
+      "mw": "碟",
+      "also": [
+       "份",
+       "勺"
+      ],
+      "color": "红色"
+     }
+    ]
+   },
+   {
+    "id": "ice_cream",
+    "name": "冰淇淋",
+    "py": "bīng qí lín",
+    "emoji": "🍨",
+    "mw": "杯",
+    "also": [
+     "个",
+     "份"
+    ],
+    "kind": "dessert",
+    "base": [],
+    "extra": [],
+    "stack": true,
+    "layers": [
+     {
+      "id": "l_mango",
+      "name": "芒果",
+      "py": "máng guǒ",
+      "emoji": "🥭",
+      "color": "黄色"
+     },
+     {
+      "id": "l_greentea",
+      "name": "绿茶",
+      "py": "lǜ chá",
+      "emoji": "🍵",
+      "color": "绿色"
+     },
+     {
+      "id": "l_vanilla",
+      "name": "香草",
+      "py": "xiāng cǎo",
+      "emoji": "🍦",
+      "color": "白色"
+     },
+     {
+      "id": "l_choco",
+      "name": "巧克力",
+      "py": "qiǎo kè lì",
+      "emoji": "🍫",
+      "color": "咖啡色"
+     },
+     {
+      "id": "l_taro",
+      "name": "芋头",
+      "py": "yù tou",
+      "emoji": "🟣",
+      "color": "紫色"
+     }
+    ]
+   }
+  ],
+  "menuwords": [
+   {
+    "k": "color",
+    "w": "红色",
+    "py": "hóng sè",
+    "hex": "#E53935"
+   },
+   {
+    "k": "color",
+    "w": "黄色",
+    "py": "huáng sè",
+    "hex": "#FDD835"
+   },
+   {
+    "k": "color",
+    "w": "绿色",
+    "py": "lǜ sè",
+    "hex": "#43A047"
+   },
+   {
+    "k": "color",
+    "w": "白色",
+    "py": "bái sè",
+    "hex": "#FAFAFA"
+   },
+   {
+    "k": "color",
+    "w": "黑色",
+    "py": "hēi sè",
+    "hex": "#212121"
+   },
+   {
+    "k": "color",
+    "w": "紫色",
+    "py": "zǐ sè",
+    "hex": "#8E24AA"
+   },
+   {
+    "k": "color",
+    "w": "咖啡色",
+    "py": "kā fēi sè",
+    "hex": "#795548"
+   },
+   {
+    "k": "pos",
+    "w": "最上面",
+    "py": "zuì shàng mian",
+    "i": 0
+   },
+   {
+    "k": "pos",
+    "w": "中间",
+    "py": "zhōng jiān",
+    "i": 1
+   },
+   {
+    "k": "pos",
+    "w": "最下面",
+    "py": "zuì xià mian",
+    "i": 2
+   },
+   {
+    "k": "num",
+    "w": "一",
+    "py": "yī",
+    "n": 1
+   },
+   {
+    "k": "num",
+    "w": "两",
+    "py": "liǎng",
+    "n": 2
+   },
+   {
+    "k": "num",
+    "w": "三",
+    "py": "sān",
+    "n": 3
+   },
+   {
+    "k": "num",
+    "w": "四",
+    "py": "sì",
+    "n": 4
+   },
+   {
+    "k": "num",
+    "w": "五",
+    "py": "wǔ",
+    "n": 5
+   },
+   {
+    "k": "num",
+    "w": "六",
+    "py": "liù",
+    "n": 6
+   },
+   {
+    "k": "num",
+    "w": "七",
+    "py": "qī",
+    "n": 7
+   },
+   {
+    "k": "num",
+    "w": "八",
+    "py": "bā",
+    "n": 8
+   },
+   {
+    "k": "num",
+    "w": "九",
+    "py": "jiǔ",
+    "n": 9
+   },
+   {
+    "k": "num",
+    "w": "十",
+    "py": "shí",
+    "n": 10
+   },
+   {
+    "k": "mw",
+    "n": "鸡饭",
+    "py": "jī fàn",
+    "mw": "盘",
+    "mwpy": "pán",
+    "also": [
+     "碟",
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "叻沙",
+    "py": "lè shā",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "沙爹",
+    "py": "shā diē",
+    "mw": "串",
+    "mwpy": "chuàn"
+   },
+   {
+    "k": "mw",
+    "n": "炒粿条",
+    "py": "chǎo guǒ tiáo",
+    "mw": "盘",
+    "mwpy": "pán",
+    "also": [
+     "碟",
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "椰浆饭",
+    "py": "yē jiāng fàn",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "盘",
+     "包",
+     "碟"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "咖椰吐司",
+    "py": "kā yē tǔ sī",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "片"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "拉茶",
+    "py": "lā chá",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "冰淇淋三明治",
+    "py": "bīng qí lín sān míng zhì",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "块",
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "红豆冰",
+    "py": "hóng dòu bīng",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "珍珠奶茶",
+    "py": "zhēn zhū nǎi chá",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "奶茶",
+    "py": "nǎi chá",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "豆花",
+    "py": "dòu huā",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "云吞面",
+    "py": "yún tūn miàn",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "盘",
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "炒饭",
+    "py": "chǎo fàn",
+    "mw": "盘",
+    "mwpy": "pán",
+    "also": [
+     "碗",
+     "份",
+     "碟"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "炒米粉",
+    "py": "chǎo mǐ fěn",
+    "mw": "盘",
+    "mwpy": "pán",
+    "also": [
+     "份",
+     "碟"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "水饺汤",
+    "py": "shuǐ jiǎo tāng",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "豆沙包",
+    "py": "dòu shā bāo",
+    "mw": "个",
+    "mwpy": "gè"
+   },
+   {
+    "k": "mw",
+    "n": "肉包",
+    "py": "ròu bāo",
+    "mw": "个",
+    "mwpy": "gè"
+   },
+   {
+    "k": "mw",
+    "n": "豆浆",
+    "py": "dòu jiāng",
+    "mw": "杯",
+    "mwpy": "bēi",
+    "also": [
+     "碗"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "咖啡",
+    "py": "kā fēi",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "甘蔗水",
+    "py": "gān zhè shuǐ",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "椰子",
+    "py": "yē zi",
+    "mw": "个",
+    "mwpy": "gè"
+   },
+   {
+    "k": "mw",
+    "n": "西瓜汁",
+    "py": "xī guā zhī",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "苹果汁",
+    "py": "píng guǒ zhī",
+    "mw": "杯",
+    "mwpy": "bēi"
+   },
+   {
+    "k": "mw",
+    "n": "薄饼",
+    "py": "báo bǐng",
+    "mw": "条",
+    "mwpy": "tiáo",
+    "also": [
+     "个",
+     "卷",
+     "张"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "印度煎饼",
+    "py": "yìn dù jiān bǐng",
+    "mw": "张",
+    "mwpy": "zhāng",
+    "also": [
+     "份",
+     "片"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鱼圆面",
+    "py": "yú yuán miàn",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鱼片米粉",
+    "py": "yú piàn mǐ fěn",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "虾面",
+    "py": "xiā miàn",
+    "mw": "碗",
+    "mwpy": "wǎn",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "烤鸡翅",
+    "py": "kǎo jī chì",
+    "mw": "只",
+    "mwpy": "zhī",
+    "also": [
+     "个"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "菜头粿",
+    "py": "cài tóu guǒ",
+    "mw": "盘",
+    "mwpy": "pán",
+    "also": [
+     "碟",
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "冰淇淋",
+    "py": "bīng qí lín",
+    "mw": "杯",
+    "mwpy": "bēi",
+    "also": [
+     "个",
+     "份",
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鸡肉",
+    "py": "jī ròu",
+    "mw": "块",
+    "mwpy": "kuài",
+    "also": [
+     "片"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "荷包蛋",
+    "py": "hé bāo dàn",
+    "mw": "个",
+    "mwpy": "gè"
+   },
+   {
+    "k": "mw",
+    "n": "黄瓜",
+    "py": "huáng guā",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "根",
+     "条"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "辣椒酱",
+    "py": "là jiāo jiàng",
+    "mw": "碟",
+    "mwpy": "dié",
+    "also": [
+     "份",
+     "勺"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "虾",
+    "py": "xiā",
+    "mw": "只",
+    "mwpy": "zhī"
+   },
+   {
+    "k": "mw",
+    "n": "鱼饼",
+    "py": "yú bǐng",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鸡蛋",
+    "py": "jī dàn",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "颗"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "豆芽",
+    "py": "dòu yá",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "根"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "洋葱",
+    "py": "yáng cōng",
+    "mw": "块",
+    "mwpy": "kuài",
+    "also": [
+     "片",
+     "个"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "花生",
+    "py": "huā shēng",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "颗",
+     "粒"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鸡翅",
+    "py": "jī chì",
+    "mw": "只",
+    "mwpy": "zhī",
+    "also": [
+     "个"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "吐司",
+    "py": "tǔ sī",
+    "mw": "片",
+    "mwpy": "piàn"
+   },
+   {
+    "k": "mw",
+    "n": "牛油",
+    "py": "niú yóu",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "半生熟蛋",
+    "py": "bàn shēng shú dàn",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "颗"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "冰块",
+    "py": "bīng kuài",
+    "mw": "块",
+    "mwpy": "kuài"
+   },
+   {
+    "k": "mw",
+    "n": "糖",
+    "py": "táng",
+    "mw": "块",
+    "mwpy": "kuài",
+    "also": [
+     "勺",
+     "颗"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "面包",
+    "py": "miàn bāo",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "个",
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "红豆",
+    "py": "hóng dòu",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "颗",
+     "粒"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "玉米",
+    "py": "yù mǐ",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "粒",
+     "根"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "果冻",
+    "py": "guǒ dòng",
+    "mw": "块",
+    "mwpy": "kuài",
+    "also": [
+     "个"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "炼奶",
+    "py": "liàn nǎi",
+    "mw": "勺",
+    "mwpy": "sháo"
+   },
+   {
+    "k": "mw",
+    "n": "椰果",
+    "py": "yē guǒ",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "布丁",
+    "py": "bù dīng",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "个",
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "仙草",
+    "py": "xiān cǎo",
+    "mw": "份",
+    "mwpy": "fèn",
+    "also": [
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "云吞",
+    "py": "yún tūn",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "只"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "青菜",
+    "py": "qīng cài",
+    "mw": "棵",
+    "mwpy": "kē",
+    "also": [
+     "份"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "春卷",
+    "py": "chūn juǎn",
+    "mw": "条",
+    "mwpy": "tiáo",
+    "also": [
+     "个",
+     "根"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "水饺",
+    "py": "shuǐ jiǎo",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "只"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "饼皮",
+    "py": "bǐng pí",
+    "mw": "张",
+    "mwpy": "zhāng"
+   },
+   {
+    "k": "mw",
+    "n": "生菜",
+    "py": "shēng cài",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "棵"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "饼",
+    "py": "bǐng",
+    "mw": "张",
+    "mwpy": "zhāng",
+    "also": [
+     "片"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "鱼圆",
+    "py": "yú yuán",
+    "mw": "个",
+    "mwpy": "gè",
+    "also": [
+     "颗",
+     "粒"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "豆腐",
+    "py": "dòu fu",
+    "mw": "块",
+    "mwpy": "kuài",
+    "also": [
+     "片"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "猪肉",
+    "py": "zhū ròu",
+    "mw": "片",
+    "mwpy": "piàn",
+    "also": [
+     "块"
+    ]
+   },
+   {
+    "k": "mw",
+    "n": "萝卜糕",
+    "py": "luó bo gāo",
+    "mw": "块",
+    "mwpy": "kuài",
+    "also": [
+     "片"
+    ]
+   }
+  ]
+ }
+}

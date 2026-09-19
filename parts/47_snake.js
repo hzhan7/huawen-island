@@ -31,7 +31,8 @@
   const CRASH = { wall: '撞到篱笆啦！', durian: '哎哟！榴莲好扎！', crab: '被螃蟹夹到啦！', self: '咬到自己啦！' };
   const PUNCT = '，。！？、；：”’）》…—,.!?;:';
   const KW = 700;   // 楷体加粗一点，气泡里更清楚
-  const PARTY_T = 2.5;   // 整句完成 → 下一句出现的秒数（期间朗读 + 大横幅 + 蛇跳舞）
+  const PARTY_T = 2.5;   // 整句完成 → 下一句出现的最短秒数（期间朗读 + 大横幅 + 蛇跳舞）；长句按字数 / 朗读时长延长
+  const PARTY_MIN = 1.3; // 过了这么久，按方向 / 点一下就能直接进下一句
 
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -72,7 +73,9 @@
     /* ================= 题目 ================= */
     function pickItems(n) {
       let out = [];
-      if (g.isReview) out = (g.items('order', n) || []).filter(isItem);
+      // 重练：只在错题里真有“排句子”题时用错题（g.items 在没有该栏目错题时会退回整个题库，连 para 长段也混进来）
+      const rvN = typeof g.hasReview === 'function' ? g.hasReview('order') : (g.isReview ? 1 : 0);
+      if (g.isReview && rvN > 0) out = (g.items('order', n) || []).filter(isItem);
       if (!out.length) {
         const all = (Array.isArray(g.G.order) ? g.G.order : []).filter(isItem);
         const np = all.filter((o) => o.mode !== 'para'), pa = all.filter((o) => o.mode === 'para');
@@ -150,7 +153,17 @@
       it.tiles.forEach((t) => { n += Math.max(1, g.wrapText(str(t), w - lf * 2.2, lf, 'kai').length); });
       return n * lh + Math.round(lf * 0.9);
     }
+    /** 画布在屏幕里实际露出来的高度（引擎画布最少 480 高：横拿手机时下半截在屏幕外，又因 touch-action:none 滑不上来） */
+    function visH() {
+      try {
+        const cv = g.c && g.c.canvas;
+        if (!cv || !cv.getBoundingClientRect) return g.h;
+        const r = cv.getBoundingClientRect(), vh = W.innerHeight || g.h;
+        return clamp(Math.floor(vh - r.top), 120, g.h);
+      } catch (e) { return g.h; }
+    }
     function layout(fix) {
+      L.visH = visH();
       const land = g.w > g.h * 1.05;
       L.land = land;
       const u = land ? clamp(g.h / 800, 0.8, 1.35) : clamp(g.w / 390, 0.85, 1.4);
@@ -170,8 +183,10 @@
       L.iconW = Math.round(L.bf * 1.6);
       const inner = L.barW - L.barPad * 2 - L.iconW;   // 左边留一个小图标位
       L.barInner = inner;
-      const sizing = (S.list || []).slice();
-      if (S.Q && sizing.indexOf(S.Q.it) < 0) sizing.push(S.Q.it);
+      // 句子条高度：非编号题按整份题单里最长的一句定（换题时句子条不跳）；编号题（para）的块只是 ①②③，一行就够
+      const curPara = !!(S.Q && S.Q.para);
+      const sizing = curPara ? [S.Q.it] : (S.list || []).filter((it) => it.mode !== 'para');
+      if (!curPara && S.Q && sizing.indexOf(S.Q.it) < 0) sizing.push(S.Q.it);
       const needLines = (bf) => {
         let n = 1;
         sizing.forEach((it) => { n = Math.max(n, chipLayout(fullTexts(it), bf, inner).lines, chipLayout(it.tiles.map(() => '?'), bf, inner).lines); });
@@ -182,15 +197,20 @@
       lines = Math.min(lines, 3);
       const ch = Math.round(L.bf * 1.52), lg = Math.round(L.bf * 0.3);
       L.barH = L.barPad * 2 + lines * ch + (lines - 1) * lg;
-      // para 编号对照表
+      // para 编号对照表：只按“当前这道题”量高度（以前按整份题单最长的一篇量，手机上棋盘被挤成一小块）；
+      // 对照表太高时字小一号，至少给棋盘留一半地方
       L.legW = L.barW;
       L.legY = L.barY + L.barH + Math.round(6 * u);
       L.legH = 0;
-      sizing.forEach((it) => { L.legH = Math.max(L.legH, legendH(it, L.legW)); });
-      // 棋盘
       L.fr = clamp(Math.round((land ? g.h / 800 * 16 : g.w / 390 * 10)), 8, 20);
-      const bTop = L.barY + L.barH + Math.round(8 * u) + (L.legH ? L.legH + Math.round(8 * u) : 0);
       const bBot = land ? g.h - side : g.h - L.dpH;
+      if (curPara) {
+        const room = bBot - L.legY - Math.round(8 * u);
+        L.legH = legendH(S.Q.it, L.legW);
+        while (L.legH > room * 0.5 && L.lf > 13) { L.lf--; L.legH = legendH(S.Q.it, L.legW); }
+      }
+      // 棋盘
+      const bTop = L.barY + L.barH + Math.round(8 * u) + (L.legH ? L.legH + Math.round(8 * u) : 0);
       const aw = areaW - L.fr * 2, ah = bBot - bTop - L.fr * 2 - 6;
       if (fix || !L.cols) {
         if (land) {
@@ -210,7 +230,7 @@
       // 方向键（倒 T 形）
       const bw = Math.round((land ? 72 : 66) * u), bh = Math.round((land ? 62 : 54) * u), gp = Math.round(8 * u);
       let cx, cy;
-      if (land) { cx = g.w - side - L.dpW / 2; cy = clamp(L.by + L.bh * 0.62, L.by + bh * 2, g.h - side - bh); }
+      if (land) { cx = g.w - side - L.dpW / 2; cy = clamp(L.by + L.bh * 0.62, L.by + bh * 2, Math.min(g.h - side - bh, (L.visH || g.h) - side - bh / 2 - 6)); }
       else { cx = g.w / 2; cy = g.h - side - bh / 2 - Math.round(6 * u); }
       L.btn = {
         up: { x: cx - bw / 2, y: cy - bh / 2 - gp - bh, w: bw, h: bh },
@@ -369,8 +389,14 @@
     function startQuestion() {
       const it = S.list[S.qi];
       S.Q = makeQ(it);
-      layout(false);
+      // 每题重算格子：编号题（para）要在棋盘上方放对照表，行数会变 → 小蛇、榴莲、螃蟹按新格子重新摆
       S.blocks = []; S.flyers = []; S.landT = []; S.bonus = [];
+      const c0 = L.cols, r0 = L.rows;
+      layout(true);
+      if (L.cols !== c0 || L.rows !== r0) {
+        spawnSnake(); placeDurians(); placeCrabs();
+        S.pts = null; S.bc = null;
+      }
       const ks = g.shuffle(S.Q.tiles.map((t) => t.k));
       const f0 = g.randi(0, FRUITS.length - 1);
       ks.forEach((k, i) => {
@@ -464,6 +490,10 @@
     function pressDir(d) {
       if (!d || S.empty || g.state !== 'play') return;
       S.pressT[d] = S.vt;
+      if (S.mode === 'party') {   // 庆祝够久了：按一下直接下一句
+        if (S.party && !S.party.ended && S.vt - S.party.t0 >= PARTY_MIN) endParty(true);
+        return;
+      }
       if (S.mode === 'wait') {
         const h = S.seg[0], nx = h.x + DV[d][0], ny = h.y + DV[d][1];
         const neck = S.seg[1] && cellEq(S.seg[1], mod(nx, L.cols), mod(ny, L.rows));
@@ -558,7 +588,8 @@
       const mult = g.combo >= 10 ? 4 : g.combo >= 6 ? 3 : g.combo >= 3 ? 2 : 1;
       g.addScore(5 * mult, hp.x, hp.y - L.cell * 0.9);
       if (g.combo === 3 || g.combo === 6 || g.combo === 10 || (g.combo > 10 && g.combo % 5 === 0)) {
-        g.float('连击×' + g.combo + '！', g.w / 2, L.by + L.bh * 0.35, { color: g.combo >= 10 ? '#E3B3FF' : '#FFB347', size: Math.round(36 * L.u) });
+        // 飘在句子条和棋盘的交界处：别盖住棋盘中间正要挑选的词块
+        g.float('连击×' + g.combo + '！', g.w / 2, L.barY + L.barH + Math.round(6 * L.u), { color: g.combo >= 10 ? '#E3B3FF' : '#FFB347', size: Math.round(32 * L.u) });
         g.sfx('combo');
       }
       g.sfx('chomp');
@@ -585,6 +616,7 @@
       const sp = findSpot(b.kx, b.ky, b);
       b.alive = true;
       if (sp) { b.x = sp.x; b.y = sp.y; }
+      ensureReachable();   // 弹到的新位置别被蛇身 / 榴莲围死
       b.fly = { t0: S.vt, dur: 0.6, fx: from.x, fy: from.y };
       if (S.cf.hints || Q.wrongs >= 2) S.blocks.forEach((o) => { if (o.alive && allowed(o.k)) o.hint = S.vt + 4; });
     }
@@ -597,17 +629,44 @@
       const bx = L.barX + L.barW / 2, by = L.barY + L.barH / 2;
       S.speedUp += 0.12;
       S.idle = 0;
-      // 整句大横幅：句子条会被引擎的“连击×N / 真棒”飘字盖住，棋盘中央再亮一次整句（边读边看）
-      S.banner = { text: Q.para ? '' : text, t0: S.vt + 0.3, n: S.qi + 1, of: S.list.length };
-      g.right(Q.it, bx, by + L.barH * 0.7, g.pick(PRAISE));
-      g.say(text, { caption: '' });
+      // 整句大横幅：句子条会被引擎的“连击×N / 真棒”飘字盖住，棋盘中央再亮一次整句（边读边看）。
+      // 以前固定 2.5 秒就收走：P6 二十多字的长句只露 1 秒多，孩子来不及读，朗读也被下一句打断。
+      // 现在：横幅一直亮到朗读读完（没朗读时按字数给时间，最长 6.5 秒）；1.3 秒后按方向 / 点一下可直接跳到下一句。
+      // 最后一句：先把整句读完 / 看完，再算分过关（g.right 会立刻触发引擎的“过关啦”，朗读会被结算页掐断）
+      const last = g.done + 1 >= g.rounds;
+      const P = S.party = { t0: S.vt, ended: false, said: !!Q.para, timeUp: false, last, item: Q.it, lx: bx, ly: by + L.barH * 0.7 };
+      S.banner = Q.para
+        ? { text: Q.eaten.map((k) => Q.labels[k]).join(' → '), font: 'round', t0: S.vt + 0.3, pill: '✅ 顺序排对了' }
+        : { text, font: 'kai', t0: S.vt + 0.3, pill: '🔊 大声读一读' };
+      if (!last) g.right(Q.it, bx, by + L.barH * 0.7, g.pick(PRAISE));
+      else { g.float(g.pick(PRAISE), bx, by + L.barH * 0.7 - 34, { color: '#FFE45C', size: 32 }); g.sfx('coin'); }
+      // 编号题整段太长（一两百字），不读，免得读到下一题还没完
+      if (!Q.para) g.say(text, { caption: '' }).then(() => { if (S.party !== P || P.ended) return; P.said = true; if (P.timeUp) endParty(false); });
       g.after(0.5, () => {
         g.sfx('match');
         g.burst(bx, by, { kind: 'confetti', n: 30 });
         g.burst(bx, by, { kind: 'star', n: 12 });
       });
       g.after(0.75, shrink);
-      if (g.state === 'play') g.after(PARTY_T, () => { S.qi++; if (S.qi < S.list.length) startQuestion(); });
+      if (g.state === 'play') {
+        const hold = Q.para ? PARTY_T : clamp(1.2 + Array.from(text).length * 0.14, PARTY_T, 6.5);
+        g.after(hold, () => { if (S.party !== P || P.ended) return; P.timeUp = true; if (P.said || !g.speaking) endParty(false); });
+        g.after(hold + 9, () => { if (S.party === P && !P.ended) endParty(true); });   // 朗读卡住的兜底
+      }
+    }
+    /** 结束整句庆祝：横幅飞回句子条 → 下一句 */
+    function endParty(stopTts) {
+      const P = S.party;
+      if (!P || P.ended) return;
+      P.ended = true;
+      if (stopTts && g.speaking) { try { g.ctx.tts.stop(); } catch (e) { /* ignore */ } }
+      if (S.banner) S.banner.outT = S.vt;
+      g.after(0.4, () => {
+        if (S.party !== P) return;
+        S.party = null;
+        if (P.last) { g.right(P.item, P.lx, P.ly, '过关！'); return; }
+        S.qi++; if (S.qi < S.list.length) startQuestion();
+      });
     }
     function shrink() {
       if (S.seg.length > 3) {
@@ -976,24 +1035,25 @@
         c.restore();
       });
     }
-    /** 整句完成的大横幅：弹出 → 停留 → 缩小飞回句子条 */
+    /** 整句完成的大横幅：弹出 → 停留（朗读 / 孩子自己读）→ 缩小飞回句子条 */
     function drawBanner(c) {
       const B = S.banner;
       if (!B || !B.text || !S.Q) return;
       const t = S.vt - B.t0;
       if (t < 0) return;
-      const out0 = PARTY_T - 0.95, out1 = PARTY_T - 0.45;
-      if (t > out1) { S.banner = null; return; }
+      const OUT = 0.4;
+      if (B.outT != null && S.vt - B.outT >= OUT) { S.banner = null; return; }
+      const font = B.font || 'kai';
       if (!B.lay || B.lay.cell !== L.cell || B.lay.bw !== L.bw) {
         const maxW = Math.min(L.bw - L.cell * 0.5, Math.round(600 * L.u));
         let fs = clamp(Math.round(L.cell * 0.82), 20, 40), lines = [];
         for (;;) {
-          lines = g.wrapText(B.text, maxW - fs * 1.2, fs, 'kai');
+          lines = g.wrapText(B.text, maxW - fs * 1.2, fs, font);
           if (lines.length <= 3 || fs <= 15) break;
           fs -= 2;
         }
         let tw = 0;
-        lines.forEach((ln) => { tw = Math.max(tw, g.measure(ln, fs, 'kai', KW)); });
+        lines.forEach((ln) => { tw = Math.max(tw, g.measure(ln, fs, font, KW)); });
         const lh = Math.round(fs * 1.34), pill = Math.round(clamp(fs * 0.62, 14, 20));
         const w = Math.min(maxW, Math.max(tw + fs * 1.2, pill * 9)), h = lines.length * lh + Math.round(fs * 0.9) + pill;
         B.lay = { cell: L.cell, bw: L.bw, fs, lines, lh, pill, w, h };
@@ -1001,8 +1061,8 @@
       const Y = B.lay;
       let sc = t < 0.38 ? outBack(t / 0.38) : 1, a = 1;
       let x = L.bx + L.bw / 2, y = L.by + L.bh * 0.42;
-      if (t > out0) {   // 缩小飞回句子条
-        const k = outCubic((t - out0) / (out1 - out0));
+      if (B.outT != null) {   // 缩小飞回句子条
+        const k = outCubic(clamp((S.vt - B.outT) / OUT, 0, 1));
         x = lerp(x, L.barX + L.barW / 2, k); y = lerp(y, L.barY + L.barH / 2, k);
         sc = 1 - 0.65 * k; a = 1 - k;
       }
@@ -1017,14 +1077,24 @@
       g.rrect(-w / 2, -h / 2, w, h, r, '#FFFBEF', NAVY, 3);
       g.rrect(-w / 2 + 8, -h / 2 + 5, w - 16, Math.min(16, h * 0.18), 10, 'rgba(255,255,255,.8)');
       // 顶上的绿色小牌子
-      const pf = Y.pill, pt = '🔊 大声读一读', pw = g.measure(pt, pf, 'round') + pf * 1.6, ph = pf * 1.75;
+      const pf = Y.pill, pt = B.pill || '🔊 大声读一读', pw = g.measure(pt, pf, 'round') + pf * 1.6, ph = pf * 1.75;
       g.rrect(-pw / 2, -h / 2 - ph * 0.55 + 3, pw, ph, ph / 2, NAVY);
       g.rrect(-pw / 2, -h / 2 - ph * 0.55, pw, ph, ph / 2, '#45C35E', NAVY, 2.5);
       g.text(pt, 0, -h / 2 - ph * 0.55 + ph / 2 + 1, { size: pf, font: 'round', color: '#FFFFFF', stroke: NAVY, strokeW: 3 });
       const top = -h / 2 + pf * 0.55 + Y.lh / 2 + Y.fs * 0.2;
-      Y.lines.forEach((ln, i) => g.text(ln, 0, top + i * Y.lh, { size: Y.fs, font: 'kai', weight: KW, color: NAVY, maxW: w - Y.fs * 0.8 }));
+      Y.lines.forEach((ln, i) => g.text(ln, 0, top + i * Y.lh, { size: Y.fs, font, weight: KW, color: NAVY, maxW: w - Y.fs * 0.8 }));
       g.emoji('⭐', -w / 2 + 4, -h / 2 + 4, Y.fs * 1.05, { rot: Math.sin(S.vt * 4) * 0.4 });
       g.emoji('⭐', w / 2 - 4, h / 2 - 4, Y.fs * 0.9, { rot: -Math.sin(S.vt * 4) * 0.4 });
+      // 可以跳过了：底下一行小字提示
+      const P = S.party;
+      if (P && !P.ended && B.outT == null && S.vt - P.t0 >= PARTY_MIN && g.state === 'play') {
+        const hf = Math.round(clamp(15 * L.u, 14, 19)), ht = S.touch ? '点一下，下一句 ▶' : '按方向键，下一句 ▶';
+        const hw = g.measure(ht, hf, 'round') + hf * 1.6, hh = hf * 1.8, hy = h / 2 + hh * 0.5 + 12;
+        const ka = Math.min(1, (S.vt - P.t0 - PARTY_MIN) / 0.3) * (0.75 + 0.25 * Math.sin(S.vt * 6));
+        c.globalAlpha = a * ka;
+        g.rrect(-hw / 2, hy - hh / 2, hw, hh, hh / 2, 'rgba(29,43,83,.82)');
+        g.text(ht, 0, hy + 1, { size: hf, font: 'round', color: '#FFFFFF' });
+      }
       c.restore();
     }
     /* ---------- 草坪上飞的小蝴蝶（纯装饰，画在词块下面，永远不挡字） ---------- */
@@ -1056,12 +1126,14 @@
       g.rrect(X, Y + 3, Wd, L.legH, 14, 'rgba(29,43,83,.35)');
       g.rrect(X, Y, Wd, L.legH, 14, 'rgba(255,251,239,.96)', NAVY, 2);
       let y = Y + lf * 0.45 + lh / 2;
-      const order = Q.tiles.map((t) => t.k).sort((a, b) => CIRC.indexOf(Q.labels[a]) - CIRC.indexOf(Q.labels[b]));
+      // 排完后按正确顺序重排：孩子能把整段按顺序再读一遍
+      const order = Q.done && Q.eaten.length === Q.tiles.length ? Q.eaten.slice()
+        : Q.tiles.map((t) => t.k).sort((a, b) => CIRC.indexOf(Q.labels[a]) - CIRC.indexOf(Q.labels[b]));
       order.forEach((k) => {
         const eaten = Q.eaten.indexOf(k) >= 0;
         const lines = g.wrapText(Q.tiles[k].t, Wd - lf * 2.2, lf, 'kai');
         g.text(Q.labels[k], X + lf * 0.95, y, { size: lf + 2, font: 'round', weight: 800, color: eaten ? '#3AA35A' : '#E0572B' });
-        lines.forEach((ln, i) => g.text(ln, X + lf * 1.8, y + i * lh, { size: lf, font: 'kai', color: NAVY, align: 'left', alpha: eaten ? 0.4 : 1 }));
+        lines.forEach((ln, i) => g.text(ln, X + lf * 1.8, y + i * lh, { size: lf, font: 'kai', color: NAVY, align: 'left', alpha: eaten && !Q.done ? 0.4 : 1 }));
         if (eaten) g.text('✓', X + Wd - lf * 0.9, y, { size: lf + 4, font: 'round', weight: 800, color: '#3AA35A' });
         y += Math.max(1, lines.length) * lh;
       });
@@ -1086,7 +1158,7 @@
         c.beginPath(); c.moveTo(k, 0); c.lineTo(-k * 0.7, -k * 0.95); c.lineTo(-k * 0.7, k * 0.95); c.closePath(); c.fill(); c.stroke();
         c.restore();
       }
-      if (L.land) {
+      if (L.land && !S.touch) {   // iPad 横屏没有键盘：不提示键盘
         const fs = Math.round(15 * L.u), t = '键盘 ← ↑ → ↓ 或 W A S D', tw = g.measure(t, fs, 'sans') + 24 * L.u, th = fs * 1.9;
         g.rrect(L.padCx - tw / 2, L.padBot + 16 * L.u, tw, th, th / 2, 'rgba(29,43,83,.78)');
         g.text(t, L.padCx, L.padBot + 16 * L.u + th / 2 + 1, { size: fs, font: 'sans', color: '#FFFFFF' });
@@ -1137,7 +1209,7 @@
       const hp = headPx();
       let msg;
       if (S.waitCrash) msg = '换个方向走！';
-      else if (S.hint1) msg = L.land ? '按方向键出发！' : '滑一滑，出发！';
+      else if (S.hint1) msg = S.touch ? '滑一滑，出发！' : L.land ? '按方向键出发！' : '点箭头出发！';
       else msg = '看好顺序，出发！';
       drawBubble(msg, hp.x, hp.y);
       if (S.hint1) {   // 闪烁的手指：沿着蛇头朝向滑动
@@ -1202,7 +1274,8 @@
         S.qi = 0; S.Q = null; S.speedUp = 0; S.pressT = {}; S.sw = null; S.bc = null;
         S.blocks = []; S.bonus = []; S.durians = []; S.crabs = []; S.flyers = []; S.landT = []; S.tags = [];
         S.hurtT = null; S.barShake = null; S.bump = null; S.bonk = null; S.pts = null; S.mouth = 0;
-        S.banner = null; S.idle = 0; S.idleTold = false; S.flies = null;
+        S.banner = null; S.party = null; S.idle = 0; S.idleTold = false; S.flies = null;
+        if (S.touch == null) { try { S.touch = !!(W.matchMedia && W.matchMedia('(pointer: coarse)').matches); } catch (e) { S.touch = false; } }
         S.mode = 'wait';
         layout(true);
         spawnSnake();
@@ -1283,8 +1356,17 @@
         drawHints(c);
         drawBanner(c);
         drawFlyers(c);
+        if (L.land && S.touch && L.visH < g.h - 40 && L.visH < 430) {   // 横拿手机：下半截看不到 → 提示竖过来
+          const fs = Math.round(clamp(g.w / 60, 15, 20)), t = '📱 下面看不到？把手机竖过来玩！';
+          const tw = g.measure(t, fs, 'round') + fs * 1.6, th = fs * 1.9, ty = Math.max(g.hudTop + 4, L.visH - th - 10);
+          const k = 0.85 + 0.15 * Math.sin(S.vt * 4);
+          g.rrect(g.w / 2 - tw / 2, ty + 3, tw, th, th / 2, NAVY);
+          g.rrect(g.w / 2 - tw / 2, ty, tw, th, th / 2, 'rgba(255,214,64,' + k + ')', NAVY, 2.5);
+          g.text(t, g.w / 2, ty + th / 2 + 1, { size: fs, font: 'round', color: NAVY });
+        }
       },
       down(gg, p) {
+        if (p && p.type) S.touch = p.type !== 'mouse';
         if (S.empty) return;
         for (const d of DIRS) {
           const b = L.btn[d], m = 6;
@@ -1319,8 +1401,8 @@
       },
       key(gg, k) {
         if (S.empty) return;
-        if (KEYDIR[k]) { pressDir(KEYDIR[k]); return; }
-        if ((k === 'space' || k === 'enter') && S.mode === 'wait') pressDir(S.dir);
+        if (KEYDIR[k]) { S.touch = false; pressDir(KEYDIR[k]); return; }
+        if ((k === 'space' || k === 'enter') && (S.mode === 'wait' || S.mode === 'party')) pressDir(S.dir);
       },
       resize() {
         if (!g || !L.cols) return;

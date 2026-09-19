@@ -13,8 +13,12 @@
  *     钓到旧靴子 👢 → g.miss（只断连击）；鱼钩碰到水母 → 被电一下、收回（只断连击）。
  *   关卡越高：鱼游得越快、干扰鱼越多（重复的错偏旁 + 题库里别的偏旁）、靴子/水母越多、
  *   第 7 关起鱼群会突然掉头；场景 白天(1–4) → 黄昏(5–7) → 夜晚(8–10)。每关 8 题。
- * 操作：点/触鱼；键盘 ←→ 移动小船，空格/↓/回车 垂直下钩（钩子碰到哪条鱼就钓哪条），↑ 收钩。
- *   点泡泡可以再听一次词语（有中文朗读时）。
+ *   鱼的游法：泳道里只有一条鱼 → 在屏幕里来回游（游到边上掉头，低关卡所有鱼都看得见）；
+ *   两条以上 → 整条泳道像传送带一样同速循环、等间距不重叠（高关卡鱼多时不会挤成一团）。
+ *   引导：第 1 关第 1 题有闪烁的手指“点它！”；1–3 关同一题钓错两次，提示“是它！”。
+ *   钓错时“？”格里闪一下钓错的偏旁并盖红叉章（这个偏旁拼不出来）。
+ * 操作：点/触鱼；键盘 ←→ 移动小船（船到头后瞄准点继续往外滑），空格/↓/回车 沿瞄准虚线下钩
+ *   （鱼钩碰到哪条鱼就钓哪条，虚线上最先碰到的那条会画圈），↑ 收钩。点泡泡可以再听一次词语（有中文朗读时）。
  * 正确答案只取题库字段：rad（判定）、base/ans/py/hint（显示），opts 为本题选项。
  * 调试：window.__fish = 当前 g（g.F 为本关状态），供 tools/shot.js / play.js 读取。
  * ===================================================================== */
@@ -82,13 +86,15 @@
   /* 同一部首的不同写法：干扰鱼不能是正确偏旁的变体（衣/衤、火/灬……），免得“也算对” */
   const VAR = [['衣', '衤'], ['心', '忄'], ['水', '氵'], ['手', '扌'], ['人', '亻'], ['火', '灬'], ['刀', '刂'], ['犬', '犭'], ['言', '讠'],
     ['食', '饣'], ['金', '钅'], ['糸', '纟'], ['足', '⻊'], ['示', '礻'], ['玉', '王'], ['竹', '⺮'], ['艸', '艹'], ['肉', '月'], ['辵', '辶'],
-    ['攴', '攵'], ['网', '罒'], ['冰', '冫'], ['邑', '阝'], ['阜', '阝']];
+    ['攴', '攵'], ['网', '罒'], ['冰', '冫'], ['邑', '阝'], ['阜', '阝'],
+    ['口', '囗']];   // 口 / 囗 在鱼身上的小圆牌里几乎一模一样：钓“围”时不能再游来一条“口”干扰鱼（FALLBACK 里有 口）
   const sameRad = (a, b) => a === b || VAR.some((p) => p.indexOf(a) >= 0 && p.indexOf(b) >= 0);
   const FALLBACK = ['口', '木', '氵', '扌', '亻', '女', '土', '日', '月', '火', '目', '米', '纟', '讠', '艹', '宀', '辶', '足', '钅', '饣', '忄', '石', '虫', '禾', '王'];
 
   /* ---------- 小船本地坐标（× k；原点 = 船在水线处的中心，y 向下） ---------- */
   const CAT_X = -6, DECK = -12, SIGN_Y = -118, SIGN = 58, PLUS_X = 36, BOX_X = 71, BOX = 44;
   const ROD_BASE_X = -44, ROD_BASE_Y = -14, ROD_TIP_X = -92, ROD_TIP_Y = -84;
+  const CORAL = [0, -26, -14, -30, 13, -36, 20, -22];
 
   function makeSpec(ctx) {
     const L = { k: 1 };
@@ -118,16 +124,20 @@
     /* ================= 布局 ================= */
     function layout(g) {
       const w = g.w, h = g.h;
+      const old = { w: L.w || 0, span: L.span || 0, m: L.m || 0 };   // 旧尺寸：resize 时按比例挪鱼 / 船
+      L.w = w;
       const k = clamp(Math.min(w / 390, h / 760), 0.7, 1.3);
       L.k = k;
-      L.bubH = Math.round(80 * k);
-      L.bubY = Math.round(g.hudTop + 4 * k);
+      L.kb = k * (w >= 700 && h >= 600 ? 1.15 : 1);   // 电脑横屏：题目泡泡再大一号
+      L.bubH = Math.round(80 * L.kb);
+      // 引擎 HUD 的“连击×N”小牌挂在分数下面、比 g.hudTop 还低约 15px → 泡泡再往下让一点，别被它盖住
+      L.bubY = Math.round(g.hudTop + 20 * k);
       L.sy = Math.round(L.bubY + L.bubH + 158 * k);
       L.floor = Math.round(h - 34 * k);
       L.fTop = L.sy + 48 * k;
       L.fBot = L.floor - 26 * k;
       const avail = L.fBot - L.fTop;
-      L.nl = clamp(Math.floor(avail / (80 * k)), 3, 7);
+      L.nl = clamp(Math.floor(avail / (76 * k)), 3, 7);
       L.lh = avail / L.nl;
       L.m = 84 * k;
       L.span = w + 2 * L.m;
@@ -138,6 +148,7 @@
         F.fish.forEach((f) => { f.grad = null; });
         makeCity(g);
       }
+      return old;
     }
     function makeLanes(g) {
       const n = L.nl, base = L.span / lvv(LV.cross, g.level);
@@ -147,19 +158,47 @@
       lanes.forEach((ln) => { ln.v = base * ln.jit; });
       return lanes;
     }
-    function relane(g) {
+    /* 窗口变了（横竖屏 / 拖窗口）：鱼、船、靴子按新宽度等比例挪过去；泳道数变了就把鱼重新平均分到各泳道。
+       （以前只把鱼夹在屏幕内：从电脑宽屏缩回手机时所有鱼挤到右边叠成一团；泳道数变了还会两条鱼挤进同一道） */
+    function relane(g, old) {
       if (!F) return;
+      const w = g.w, k = L.k;
+      const sx = old && old.w > 0 ? w / old.w : 1;
+      const conv = (x) => (old && old.span > 0 ? (x + old.m) / old.span * L.span - L.m : x * sx);   // 传送带坐标换算
+      const wrap = (x) => { while (x > w + L.m) x -= L.span; while (x < -L.m) x += L.span; return x; };
       if (F.lanes.length !== L.nl) {
-        const old = F.lanes;
+        const oldLanes = F.lanes;
         F.lanes = makeLanes(g);
-        F.lanes.forEach((ln, i) => { if (old[i]) { ln.dir = old[i].dir; ln.jit = old[i].jit; } });
-        F.fish.forEach((f) => { f.lane = f.lane % L.nl; });
+        F.lanes.forEach((ln, i) => { if (oldLanes[i]) { ln.dir = oldLanes[i].dir; ln.jit = oldLanes[i].jit; } });
+        const sw = F.fish.filter(catchable).sort((a, b) => a.lane - b.lane || a.bx - b.bx);
+        sw.forEach((f, i) => { f.lane = i % L.nl; });
+        F.fish.forEach((f) => { if (!catchable(f)) f.lane = f.lane % L.nl; });
+        if (F.laneN.length < L.nl) F.laneN = new Array(L.nl).fill(0);
       }
       const base = L.span / lvv(LV.cross, g.level);
       F.lanes.forEach((ln, i) => { ln.y = L.fTop + L.lh * (i + 0.5); ln.v = base * ln.jit; });
-      F.boots.forEach((b) => { b.baseY = clamp(b.baseY, L.fTop, L.fBot); });
-      F.jellies.forEach((j) => { j.cy = (L.fTop + L.fBot) / 2; j.amp = Math.max(0, (L.fBot - L.fTop) / 2 - j.r); j.r = 24 * L.k; });
-      F.boat.x = clamp(F.boat.x, L.bMin, L.bMax);
+      F.lanes.forEach((ln, li) => {
+        const arr = F.fish.filter((f) => catchable(f) && f.lane === li);
+        if (!arr.length) return;
+        if (arr.length === 1) {   // 来回游的鱼：按屏宽比例挪
+          const f = arr[0], hl = fishLen(f) * 0.5 + 8 * k;
+          f.bx = clamp((f.bx + f.off) * sx, hl, Math.max(hl, w - hl));
+        } else {                  // 传送带：以第一条为准重新等距排开，不重叠
+          arr.sort((a, b) => (a.bx + a.off) - (b.bx + b.off));
+          const gap = L.span / arr.length, x0 = conv(arr[0].bx + arr[0].off);
+          arr.forEach((f, j) => { f.bx = wrap(x0 + j * gap); f.dir = ln.dir; });
+        }
+      });
+      F.fish.forEach((f) => {
+        f.v = base * f.jit;
+        if (catchable(f)) { f.st = 'swim'; f.off = f.off0 = 0; f.x = f.bx; f.dy = 0; }
+        else if (f.st === 'flee' || f.st === 'escape' || f.st === 'leap') f.x *= sx;
+      });
+      F.boots.forEach((b) => { if (b.st === 'swim') b.x = wrap(conv(b.x)); b.baseY = clamp(b.baseY, L.fTop + 20 * k, L.fBot - 20 * k); });
+      F.jellies.forEach((j) => { j.x *= sx; j.r = 24 * k; j.cy = (L.fTop + L.fBot) / 2; j.amp = Math.max(0, (L.fBot - L.fTop) / 2 - j.r); });
+      F.crab.x *= sx;
+      F.boat.x = clamp(F.boat.x * sx, L.bMin, L.bMax); F.boat.tx = null; F.boat.vx = 0;
+      F.bubCX *= sx; F.aimOff = 0;
     }
     function makeCity(g) {
       const w = g.w, k = L.k, city = [];
@@ -190,6 +229,7 @@
     function toW(lx, ly, o) { const B = F.boat; o.x = B.x + lx * B.cs - ly * B.sn; o.y = B.by + lx * B.sn + ly * B.cs; return o; }
     function toL(wx, wy, o) { const B = F.boat, dx = wx - B.x, dy = wy - B.by; o.x = dx * B.cs + dy * B.sn; o.y = -dx * B.sn + dy * B.cs; return o; }
     const signW = (o) => toW(CAT_X * L.k, SIGN_Y * L.k - F.cat.jump, o);
+    const aimX = (g) => clamp(F.tip0.x + F.aimOff, 24 * L.k, g.w - 24 * L.k);   // 键盘下钩的瞄准点
     const boxW = (o) => toW(BOX_X * L.k, SIGN_Y * L.k - F.cat.jump, o);
 
     /* ================= 鱼 ================= */
@@ -228,9 +268,9 @@
       return null;
     }
     function newFish(lab, lane, pi) {
-      return { lab, lane, pi, s: rnd(0.93, 1.07), bx: 0, off: 0, off0: 0, et: 0, ed: 1, st: 'enter', dir: 1, face: 1, x: -999, y: 0,
+      return { lab, lane, pi, s: rnd(0.88, 1.12), bx: 0, off: 0, off0: 0, et: 0, ed: 1, st: 'enter', dir: 1, face: 1, x: -999, y: 0,
         rot: 0, vx: 0, vy: 0, spin: 0, ph: rnd(0, TAU), bobPh: rnd(0, TAU), bobF: rnd(1.3, 2.1), agit: 0, grad: null,
-        bubT: rnd(0.5, 2.5), labGone: false, fv: 0, escT: 0, decoy: false };
+        bubT: rnd(0.5, 2.5), labGone: false, fv: 0, escT: 0, decoy: false, v: 0, jit: 1, dy: 0, dyT: 0 };
     }
     function pickDecoys(g, opts, rad, base, n) {
       if (n <= 0) return [];
@@ -258,14 +298,18 @@
       let pk = 0;
       per.forEach((arr, li) => {
         const ln = F.lanes[li], m = arr.length;
-        const ph = rnd(-0.15, 0.15);
+        // 一条鱼的泳道：鱼在屏幕里来回游（游到边上掉头）；两条以上：整条泳道像传送带一样匀速循环、等间距不重叠
+        const gap = L.span / Math.max(1, m), first = rnd(0.12, 0.3) * g.w;
         arr.forEach((o, j) => {
           const f = newFish(o.lab, li, pals[pk++ % pals.length]);
           f.decoy = o.decoy;
-          f.bx = clamp(((j + 0.5 + ph) / m), 0.08, 0.92) * g.w;
+          if (m <= 1) f.bx = rnd(0.25, 0.75) * g.w;
+          else { f.bx = first + j * gap; if (f.bx > g.w + L.m) f.bx -= L.span; }
           const startX = ln.dir > 0 ? -L.m - j * 50 * L.k : g.w + L.m + j * 50 * L.k;
           f.off0 = f.off = startX - f.bx; f.et = 0; f.ed = 1.0 + j * 0.14 + rnd(0, 0.25);
           f.dir = ln.dir; f.face = ln.dir; f.x = startX; f.y = ln.y;
+          f.jit = ln.jit * rnd(0.88, 1.12); f.v = ln.v / ln.jit * f.jit;
+          if (f.bx < -fishLen(f) * 0.5 || f.bx > g.w + fishLen(f) * 0.5) { f.st = 'swim'; f.off0 = f.off = 0; f.x = f.bx; }   // 传送带上排在屏幕外的：直接跟着传送带转进来
           F.fish.push(f);
         });
       });
@@ -286,11 +330,14 @@
       F.hintCh = chars(F.hint);
       if (F.hintCh.indexOf(F.ans) < 0) F.hintCh = [F.ans];   // 数据兜底：hint 里没有 ans → 只显示拼音 + 空格
       F.pos = posOf(it);
-      F.qT = 0; F.idleT = 0; F.tapped = false; F.solved = false; F.reveal = 0; F.bubPop = 0;
+      F.qT = 0; F.idleT = 0; F.tapped = false; F.solved = false; F.qWrong = false; F.qWrongN = 0; F.reveal = 0; F.bubPop = 0;
       const S = F.sign;
-      S.mode = 'q'; S.slot = ''; S.slotPop = 1; S.mt = 0; S.pop = 1; S.shake = 0;
+      S.mode = 'q'; S.slot = ''; S.slotPop = 1; S.mt = 0; S.pop = 1; S.shake = 0; S.bad = ''; S.badT = 0;
       spawnSchool(g);
+      if (g.state === 'play') sayHint(g);   // 第 1 题在 play() 里读（倒计时期间不读）
     }
+    /* 有中文朗读才读泡泡里的词（没有 TTS 时引擎会弹拼音字幕条——拼音泡泡里已经有了，不重复） */
+    function sayHint(g) { if (ttsOK() && F && F.hint) g.say(F.hint); }
     function nextQuestion(g) {
       if (!F || g.state !== 'play') return;
       const ni = F.qi + 1;
@@ -315,9 +362,9 @@
       g.sfx('swing');
     }
     function bite(g, f) {
-      const H = F.hook, k = L.k;
+      const H = F.hook;
       H.fish = null; H.carry = f;
-      f.st = 'hooked'; f.agit = 1; f.hk = 0;
+      f.st = 'hooked'; f.agit = 1; f.hk = 0; f.hx0 = f.x - H.x; f.hy0 = f.y - H.y; f.hr0 = f.rot;
       g.sfx('chomp'); g.shake(3);
       puffs(H.x, H.y, 6);
       const ok = !F.solved && !f.decoy && f.lab === F.rad;
@@ -331,14 +378,13 @@
       }
       F.bendKick = 1;
       F.boat.rockV += 0.9 * sgn(H.x - F.boat.x);
-      void k;
     }
     function hang(f, H, dt) {
       f.hk = Math.min(1, (f.hk || 0) + dt * 6);
-      const len = fishLen(f);
-      f.x = H.x; f.y = H.y + len * 0.47 * f.hk + (1 - f.hk) * 0;
-      f.rot = -f.dir * Math.PI / 2 * f.hk + Math.sin(F.t * 26) * 0.18 * f.agit;
-      f.face = f.dir;
+      const e = oCubic(f.hk), len = fishLen(f);
+      f.x = H.x + lerp(f.hx0 || 0, 0, e); f.y = H.y + lerp(f.hy0 || 0, len * 0.47, e);
+      f.rot = lerp(f.hr0 || 0, -f.dir * Math.PI / 2, e) + Math.sin(F.t * 26) * 0.18 * f.agit;
+      f.face += (f.dir - f.face) * 0.5;
     }
     function leap(g) {
       const H = F.hook, f = H.carry, k = L.k;
@@ -376,28 +422,49 @@
       S.mode = 'ans'; S.pop = 0; S.slot = '';
       signW(Q1);
       g.ring(Q1.x, Q1.y, '#FFFFFF', 120 * k);
+      // 火花从牌子四个角迸出（以前从牌子正中炸开，新字刚出来就被一团白光盖住）
+      const hs = SIGN * k * 0.5;
+      for (let i = 0; i < 4; i++) g.burst(Q1.x + (i % 2 ? hs : -hs), Q1.y + (i < 2 ? -hs : hs), { kind: 'spark', color: '#FFF6B0', n: 5 });
       g.sfx('power');
       F.reveal = 0.0001;
       F.cat.mood = 'happy'; F.cat.moodT = 1.6; F.cat.jv = 300 * k; F.cat.squash = 0.8;
-      const quick = F.qT < 4 && !F.qWrong;
-      g.right(F.item, Q1.x, Q1.y);   // 最后一题会自动过关（state → 'over'）
-      if (quick && g.state === 'play') g.float('一次就中！', Q1.x, Q1.y - 70 * k, { color: '#8CF5FF', size: 24 });
-      if (ttsOK()) g.say(F.hint);
-      if (g.state === 'play') addT(1.5, () => nextQuestion(g));
+      sayHint(g);
+      // 先让孩子看清合成的新字（牌子弹大 + 光芒），0.3 秒后再“叮”地加分。
+      // 金币 / 星星从小船下面的海里喷出来（引擎金币最高蹦 ~150px）：以前从牌子右边的格子炸开，
+      // 金币正好往上飞过泡泡，泡泡里刚填上的字被盖住一整秒、接着就换下一题 → 孩子根本看不清答案。
+      // “+分”飘字自己画在格子下方（引擎默认画在 (x, y-34) 往上飘）
+      addT(0.3, () => {
+        if (!F || g.state !== 'play') return;
+        boxW(Q2); signW(Q3);
+        const s0 = g.score;
+        rightAt(g, Q3.x, waveY(Q3.x) - 4 * k);   // 最后一题会自动过关（state → 'over'）
+        const pts = g.score - s0;
+        if (pts > 0) g.float('+' + pts, Math.min(Q2.x + 6 * k, g.w - 40 * k), Q2.y + 32 * k, { color: '#FFE45C', size: Math.round(30 * k) });
+        if (g.state === 'play') addT(1.25, () => nextQuestion(g));
+      });
+    }
+    /* 引擎把“连击×N！”大字固定画在 (g.w/2, g.hudTop+70)——正是题目泡泡的位置，刚填上的答案字会被它盖住 1.3 秒。
+       引擎没有给游戏改位置的参数：调用 g.right 的那一瞬间临时把 g.hudTop 指到水面下，让连击字从水里冒上来，调用完立刻还原
+       （g.right 里只有这一处读 g.hudTop；HUD 自己的布局用的是引擎内部变量） */
+    function rightAt(g, x, y) {
+      const ht = g.hudTop;
+      g.hudTop = L.sy + 58 * L.k - 70;
+      try { g.right(F.item, x, y, ''); } finally { g.hudTop = ht; }
     }
     function snap(g) {
       const H = F.hook, f = H.carry, k = L.k;
       H.carry = null; setH('return');
       if (!f) return;
       const sy = waveY(f.x);
-      f.st = 'escape'; f.escT = 0;
-      f.vy = f.y < sy + 50 * k ? -320 * k : -60 * k;
+      f.st = 'escape'; f.escT = 0; f.splashed = false;
+      f.vy = f.y < sy + 70 * k ? -560 * k : -120 * k;
       f.vx = (f.x < g.w / 2 ? -1 : 1) * rnd(160, 240) * k;
       f.spin = (Math.random() < 0.5 ? -1 : 1) * 8;
       g.burst(f.x, Math.min(f.y, sy), { kind: 'water', n: 18 });
       g.sfx('splash');
       puffs(f.x, f.y, 10);
-      F.qWrong = true;
+      F.qWrong = true; F.qWrongN++;
+      F.sign.bad = f.lab; F.sign.badT = 1.0;   // “？”格里闪一下钓错的偏旁并打叉：这个偏旁拼不出来
       const note = F.base + '＋' + F.rad + '＝' + F.ans + '（' + F.hint + '，' + F.py + '）；你钓了：' + f.lab;
       g.wrong(F.item, note, f.x, Math.max(f.y - 20 * k, sy - 40 * k));
       F.cat.mood = 'shock'; F.cat.moodT = 1.1;
@@ -458,9 +525,10 @@
           F.turnT -= dt;
           if (F.turnT <= 0) {
             F.turnT = F.turnP * rnd(0.8, 1.2);
-            const ln = F.lanes[Math.floor(Math.random() * F.lanes.length)];
+            // 鱼群受惊掉头：随机一条泳道（传送带泳道整排一起掉头，单条鱼的泳道就是那条鱼）
+            const li = Math.floor(Math.random() * F.lanes.length), ln = F.lanes[li];
             ln.dir *= -1;
-            for (const f of F.fish) if (f.lane === ln.i && f.st === 'swim') { f.agit = 1; puffs(f.x, f.y, 3); }
+            for (const f of F.fish) if (f.lane === li && f.st === 'swim') { f.dir *= -1; f.agit = 1; puffs(f.x, f.y, 4); }
           }
         }
       }
@@ -471,8 +539,19 @@
       const kbDir = (g.held.left ? -1 : 0) + (g.held.right ? 1 : 0);
       if (logic && kbDir && (H.st === 'idle' || H.st === 'return')) {
         B.tx = null;
-        B.vx = lerp(B.vx, kbDir * 380 * k, Math.min(1, dt * 10));
-        B.x += B.vx * dt;
+        const atEdge = (kbDir < 0 && B.x <= L.bMin + 0.5) || (kbDir > 0 && B.x >= L.bMax - 0.5);
+        if (F.aimOff && sgn(F.aimOff) !== kbDir) {   // 先把瞄准点收回到竿尖下
+          const d = 420 * k * dt;
+          F.aimOff = Math.abs(F.aimOff) <= d ? 0 : F.aimOff - sgn(F.aimOff) * d;
+          B.vx *= Math.exp(-10 * dt); B.x += B.vx * dt;
+        } else if (atEdge) {                          // 船到头了：瞄准点继续往外滑（屏幕两边也钓得到）
+          B.vx = 0;
+          const lo = 24 * k - F.tip0.x, hi = g.w - 24 * k - F.tip0.x;
+          F.aimOff = clamp(F.aimOff + kbDir * 420 * k * dt, lo, hi);
+        } else {
+          B.vx = lerp(B.vx, kbDir * 380 * k, Math.min(1, dt * 10));
+          B.x += B.vx * dt;
+        }
       } else if (B.tx != null) {
         const a = (B.tx - B.x) * 32 - B.vx * 10;
         B.vx += a * dt; B.x += B.vx * dt;
@@ -481,12 +560,17 @@
         B.vx *= Math.exp(-7 * dt); B.x += B.vx * dt;
       }
       if (B.x < L.bMin) { B.x = L.bMin; B.vx = 0; } else if (B.x > L.bMax) { B.x = L.bMax; B.vx = 0; }
-      B.rockV += (-B.rock * 38 - B.rockV * 4.2) * dt; B.rock += B.rockV * dt * 0.1;
+      B.rockV += (-B.rock * 60 - B.rockV * 5) * dt; B.rock += B.rockV * dt;
       pose();
       toW(ROD_TIP_X * k, ROD_TIP_Y * k, F.tip0);
 
       /* 猫 */
       const C = F.cat;
+      if (g.state === 'over') {   // 结束动画：过关小猫开心地一蹦一蹦，失败就哭丧着脸
+        const win = g.done >= g.rounds;
+        C.mood = win ? 'happy' : 'worry'; C.moodT = 1;
+        if (win && C.jump <= 0 && C.jv <= 0) { C.jv = 330 * k; C.squash = 0.8; }
+      }
       C.moodT -= dt;
       if (C.moodT <= 0 && C.mood !== 'idle') { C.mood = (H.st === 'cast') ? 'focus' : 'idle'; C.moodT = 0; }
       C.jv -= 1900 * k * dt; C.jump += C.jv * dt;
@@ -506,6 +590,7 @@
       F.bendKick = Math.max(0, F.bendKick - dt * 3);
       const S = F.sign;
       if (S.shake > 0) S.shake = Math.max(0, S.shake - dt);
+      if (S.badT > 0) S.badT = Math.max(0, S.badT - dt);
       if (S.slotPop < 1) S.slotPop = Math.min(1, S.slotPop + dt / 0.35);
       if (S.mode === 'merge') { S.mt += dt / 0.28; if (S.mt >= 1) { S.mt = 1; poof(g); } }
       if (S.pop < 1) S.pop = Math.min(1, S.pop + dt / 0.6);
@@ -515,6 +600,7 @@
         if (S.fold >= 1) { S.fold = 1; S.foldV = 0; }
       }
       if (F.reveal > 0 && F.reveal < 1) F.reveal = Math.min(1, F.reveal + dt / 0.45);
+      signW(Q3); F.bubCX += (Q3.x + 24 * k - F.bubCX) * Math.min(1, dt * 2.2);
       if (F.bubPop < 1) F.bubPop = Math.min(1, F.bubPop + dt / 0.5);
 
       /* 偏旁飞向“？”格 */
@@ -609,7 +695,7 @@
           break;
         }
         case 'fight': {
-          const f = H.carry, ty = waveY(H.x) + 14 * k;
+          const f = H.carry, ty = waveY(H.x) - 8 * k;
           H.x += Math.sin(H.t * 28) * 150 * k * dt;
           H.y = Math.max(ty, H.y - L.reelV * 0.5 * dt);
           F.tickT -= dt;
@@ -658,6 +744,20 @@
     function stepFish(g, dt) {
       const k = L.k, w = g.w, t = F.t, bobA = lvv(LV.bob, g.level) * L.lh;
       let dead = 0;
+      // 同一泳道的两条鱼碰头 / 追尾：一条往上让、一条往下让，偏旁牌不叠在一起
+      const fl = F.fish, nf = fl.length;
+      const LN = F.laneN;
+      for (let i = 0; i < LN.length; i++) LN[i] = 0;
+      for (let i = 0; i < nf; i++) { fl[i].dyT = 0; if (catchable(fl[i]) && fl[i].lane < LN.length) LN[fl[i].lane]++; }
+      for (let i = 0; i < nf; i++) {
+        const a = fl[i];
+        if (!catchable(a)) continue;
+        for (let j = i + 1; j < nf; j++) {
+          const b = fl[j];
+          if (b.lane !== a.lane || !catchable(b)) continue;
+          if (Math.abs(a.bx + a.off - b.bx - b.off) < (fishLen(a) + fishLen(b)) * 0.72) { a.dyT = -1; b.dyT = 1; }
+        }
+      }
       for (const f of F.fish) {
         const ln = F.lanes[f.lane] || F.lanes[0];
         f.agit = Math.max(0, f.agit - dt * 1.6);
@@ -665,18 +765,28 @@
         switch (f.st) {
           case 'enter':
           case 'swim': {
-            f.dir = ln.dir;
-            f.bx += ln.dir * ln.v * dt;
+            if ((F.laneN[f.lane] || 0) <= 1) {
+              // 泳道里只有它：在屏幕里来回游，游到边上掉头；速度有起伏，受惊时冲一下
+              const hl = fishLen(f) * 0.5 + 8 * k, x0 = hl, x1 = Math.max(hl, w - hl);
+              const surge = 1 + 0.14 * Math.sin(t * f.bobF * 0.6 + f.bobPh) + f.agit * 0.9;
+              f.bx += f.dir * f.v * surge * dt;
+              if (f.bx < x0 && f.dir < 0) { f.dir = 1; if (f.bx > x0 - 20 * k) f.bx = 2 * x0 - f.bx; }
+              else if (f.bx > x1 && f.dir > 0) { f.dir = -1; if (f.bx < x1 + 20 * k) f.bx = 2 * x1 - f.bx; }
+            } else {
+              // 传送带泳道：同速同向，出了一边从另一边回来
+              f.dir = ln.dir;
+              f.bx += ln.dir * ln.v * dt;
+              if (f.st === 'swim') { if (f.bx > w + L.m) f.bx -= L.span; else if (f.bx < -L.m) f.bx += L.span; }
+            }
             if (f.st === 'enter') {
               f.et += dt;
               const p = Math.min(1, f.et / f.ed);
               f.off = f.off0 * (1 - oCubic(p));
               if (p >= 1) { f.st = 'swim'; f.off = 0; }
-            } else {
-              if (f.bx > w + L.m) f.bx -= L.span; else if (f.bx < -L.m) f.bx += L.span;
             }
             f.x = f.bx + f.off;
-            f.y = ln.y + Math.sin(t * f.bobF + f.bobPh) * bobA;
+            f.dy += (f.dyT * 0.3 * L.lh - f.dy) * Math.min(1, dt * 6);
+            f.y = ln.y + Math.sin(t * f.bobF + f.bobPh) * bobA + f.dy;
             f.face += (f.dir - f.face) * Math.min(1, dt * 7);
             f.rot *= Math.exp(-8 * dt);
             f.bubT -= dt;
@@ -693,12 +803,13 @@
             }
             break;
           }
-          case 'escape': {
+          case 'escape': {   // 挣脱：蹦出水面翻个身，扑通掉回去，再逃走
             f.escT += dt;
             const sy = waveY(f.x);
-            if (f.y < sy) { f.vy += L.grav * dt; } else { f.vy *= Math.exp(-5 * dt); f.vy += 120 * k * dt; }
-            f.x += f.vx * dt; f.y += f.vy * dt; f.rot += f.spin * dt; f.spin *= Math.exp(-2 * dt);
-            if (f.escT > 0.45 && f.y > sy + 6 * k) { flee(g, f); f.vy = 60 * k; }
+            if (f.vy < 0 || f.y < sy) f.vy += L.grav * dt; else f.vy *= Math.exp(-5 * dt);
+            f.x += f.vx * dt; f.y += f.vy * dt; f.rot += f.spin * dt; f.spin *= Math.exp(-1.5 * dt);
+            if (!f.splashed && f.vy > 0 && f.y > sy && f.escT > 0.12) { f.splashed = true; g.burst(f.x, sy, { kind: 'water', n: 14 }); puffs(f.x, f.y + 8 * k, 6); g.sfx('splash'); }
+            if (f.escT > 0.3 && f.vy > 0 && f.y > sy + 8 * k) { flee(g, f); f.vy = 110 * k; }
             break;
           }
           case 'flee': {
@@ -954,7 +1065,7 @@
         c.moveTo(x, fy - 14 * k); c.lineTo(x + 13 * k, fy - 36 * k);
         c.moveTo(x + 7 * k, fy - 24 * k); c.lineTo(x + 20 * k, fy - 22 * k);
         c.stroke();
-        for (const [dx, dy] of [[0, -26], [-14, -30], [13, -36], [20, -22]]) { c.beginPath(); c.arc(x + dx * k, fy + dy * k, 5 * k, 0, TAU); c.fill(); }
+        for (let i = 0; i < CORAL.length; i += 2) { c.beginPath(); c.arc(x + CORAL[i] * k, fy + CORAL[i + 1] * k, 5 * k, 0, TAU); c.fill(); }
       }
       // 海星 + 贝壳
       const sx = w * 0.64, sy2 = fy + 10 * k;
@@ -1227,7 +1338,7 @@
         c.beginPath(); c.moveTo(cx + sd * 14 * k, cy - 34 * k); c.quadraticCurveTo(cx + sd * 26 * k, cy - 60 * k, sgx + sd * 19 * k, armY); c.stroke();
         c.strokeStyle = '#FFA94D'; c.lineWidth = 5.6 * k; c.stroke();
       }
-      drawCatHead(g, c, cx, cy - 50 * k);
+      drawCatHead(g, c, cx, cy - 46 * k);
       drawSign(g, c, sgx, sgy);
       for (const sd of [-1, 1]) {
         c.beginPath(); c.arc(sgx + sd * 19 * k, armY, 5.6 * k, 0, TAU); c.fillStyle = '#FFA94D'; c.fill(); c.lineWidth = 2 * k; c.strokeStyle = NAVY; c.stroke();
@@ -1306,7 +1417,16 @@
           c.fillStyle = S.slot ? '#FFFFFF' : 'rgba(255,255,255,.82)'; c.fill();
           c.setLineDash(S.slot ? [] : [5 * k, 4 * k]); c.lineWidth = 2.6 * k; c.strokeStyle = S.slot ? NAVY : '#3AA0FF'; c.stroke(); c.setLineDash([]);
           if (S.slot) g.text(S.slot, 0, 1 * k, { size: Math.round(32 * k), font: 'kai', weight: 700, color: '#E8533F' });
-          else g.text('？', 0, 1 * k, { size: Math.round(28 * k), font: 'round', color: '#3AA0FF' });
+          else if (S.badT > 0) {   // 钓错：错偏旁放进格子里抖一抖、打红叉，再淡掉
+            const a = Math.min(1, S.badT / 0.3), jx = Math.sin(t * 60) * 2.5 * k * Math.min(1, S.badT);
+            c.globalAlpha = a;
+            g.text(S.bad, jx, 1 * k, { size: Math.round(32 * k), font: 'kai', weight: 700, color: '#7A8398' });
+            const qx = bs * 0.46, qy = -bs * 0.46, qr = 10 * k;   // 右上角红色小叉章
+            c.beginPath(); c.arc(qx, qy, qr, 0, TAU); c.fillStyle = '#FF3B3B'; c.fill(); c.lineWidth = 2 * k; c.strokeStyle = NAVY; c.stroke();
+            c.strokeStyle = '#FFFFFF'; c.lineWidth = 2.6 * k; c.lineCap = 'round';
+            c.beginPath(); c.moveTo(qx - qr * 0.42, qy - qr * 0.42); c.lineTo(qx + qr * 0.42, qy + qr * 0.42); c.moveTo(qx + qr * 0.42, qy - qr * 0.42); c.lineTo(qx - qr * 0.42, qy + qr * 0.42); c.stroke();
+            c.globalAlpha = 1;
+          } else g.text('？', 0, 1 * k, { size: Math.round(28 * k), font: 'round', color: '#3AA0FF' });
         }
         c.restore();
       }
@@ -1350,17 +1470,17 @@
       c.restore();
     }
     function drawBubble(g, c) {
-      const k = L.k, t = F.t, n = F.hintCh.length;
-      const fs = Math.round(40 * k), pfs = Math.round(17 * k), cw = fs * 1.12;
+      const k = L.kb, t = F.t, n = F.hintCh.length;
+      const fs = Math.round(40 * k), pfs = Math.round(19 * k), cw = fs * 1.12;
       const tts = ttsOK();
       const bw = Math.max(150 * k, n * cw + 52 * k + (tts ? 20 * k : 0)), bh = L.bubH;
-      const bx = clamp(g.w / 2 - bw / 2, 8 * k, g.w - bw - 8 * k), by = L.bubY;
+      const bx = clamp(F.bubCX - bw / 2, 8 * k, g.w - bw - 8 * k), by = L.bubY;   // 泡泡跟着小猫的船慢慢飘
       F.bubRect = { x: bx, y: by, w: bw, h: bh };
       const pop = 0.8 + 0.2 * oBack(F.bubPop);
       const ccx = bx + bw / 2, ccy = by + bh / 2;
       // 想法泡泡的小尾巴：连到小猫的牌子
       signW(Q1);
-      const ex = Q1.x + 30 * L.k, ey = Q1.y - SIGN * k / 2 - 2 * k;
+      const ex = Q1.x + 30 * L.k, ey = Q1.y - SIGN * L.k / 2 - 2 * L.k;
       const sx0 = clamp(ex, bx + 24 * k, bx + bw - 24 * k), sy0 = by + bh;
       c.lineWidth = 2.4 * k; c.strokeStyle = NAVY; c.fillStyle = '#FFFFFF';
       for (let i = 0; i < 3; i++) {
@@ -1421,18 +1541,33 @@
     function drawAim(g, c) {
       const k = L.k, H = F.hook, t = F.t;
       if (F.kb && H.st === 'idle' && !F.solved && g.state === 'play') {
-        const x = F.tip.x;
+        // 键盘瞄准：从鱼钩到瞄准点的虚线，鱼钩一路上最先碰到的东西画圈（鱼黄圈，靴子/水母红圈）
+        const x0 = H.x, y0 = H.y, x1 = aimX(g), y1 = L.fBot;
+        const A = aimHit(g), hit = A.hit, hx = A.x, hy = A.y;
         c.setLineDash([6 * k, 7 * k]); c.lineDashOffset = -t * 30;
-        c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 2 * k;
-        c.beginPath(); c.moveTo(x, waveY(x) + 10 * k); c.lineTo(x, L.fBot); c.stroke();
+        c.strokeStyle = 'rgba(255,255,255,.6)'; c.lineWidth = 2.2 * k;
+        c.beginPath(); c.moveTo(x0, y0); c.lineTo(hx, hy); c.stroke();
         c.setLineDash([]); c.lineDashOffset = 0;
-        for (const f of F.fish) {
-          if (!catchable(f)) continue;
-          if (Math.abs(f.x - x) < fishLen(f) * 0.5) ring(c, f.x, f.y, fishLen(f) * 0.58, '#FFE45C', t);
-        }
+        if (!hit) { c.beginPath(); c.arc(x1, y1, 7 * k, 0, TAU); c.strokeStyle = 'rgba(255,255,255,.6)'; c.stroke(); }
+        else if (hit.lab) ring(c, hit.x, hit.y, fishLen(hit) * 0.58, '#FFE45C', t);
+        else ring(c, hit.x, hit.y, (hit.r || 26 * k) * 1.3, '#FF6B6B', t);
       }
       const hv = F.hover;
       if (hv && H.st === 'idle' && !F.solved && (hv.st === 'swim' || hv.st === 'enter')) ring(c, hv.x, hv.y, hv.lab ? fishLen(hv) * 0.58 : 34 * k, '#FFFFFF', t);
+    }
+    /* 键盘下钩：沿“鱼钩 → 瞄准点”这条线，鱼钩最先碰到的东西（与 stepHook 的判定一致） */
+    const AH = { hit: null, x: 0, y: 0 };
+    function aimHit(g) {
+      const H = F.hook, k = L.k, x0 = H.x, y0 = H.y, x1 = aimX(g), y1 = L.fBot;
+      AH.hit = null; AH.x = x1; AH.y = y1;
+      const n = Math.max(8, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / (8 * k)));
+      for (let i = 1; i <= n; i++) {
+        const x = lerp(x0, x1, i / n), y = lerp(y0, y1, i / n);
+        if (y <= L.sy) continue;
+        const hit = jellyAt(x, y, 4 * k) || fishAt(g, x, y, 2 * k) || bootAt(g, x, y, 0);
+        if (hit) { AH.hit = hit; AH.x = x; AH.y = y; break; }
+      }
+      return AH;
     }
     function ring(c, x, y, r, col, t) {
       c.save();
@@ -1452,25 +1587,28 @@
       drawBadge(g, c, fl.ch, fl.x, fl.y, s, '#FFC928');
     }
     function drawFinger(g, c) {
-      if (g.state !== 'play' || F.solved || F.tapped || F.hook.st !== 'idle') return;
+      if (g.state !== 'play' || F.solved || F.hook.st !== 'idle') return;
       const k = L.k, t = F.t;
-      const tutorial = g.level === 1 && F.qi === 0 && F.qT > 0.8;
-      if (!tutorial) return;
+      // 第 1 关第 1 题：闪烁的手指教玩法；1–3 关同一题钓错两次：再提示一下对的那条鱼
+      const tutorial = g.level === 1 && F.qi === 0 && F.qT > 0.8 && !F.tapped;
+      const mercy = g.level <= 3 && F.qWrongN >= 2 && F.sign.badT <= 0;
+      if (!tutorial && !mercy) return;
       let tgt = null;
       for (const f of F.fish) if (f.st === 'swim' && f.lab === F.rad && !f.decoy && f.x > 40 * k && f.x < g.w - 40 * k) { tgt = f; break; }
       if (!tgt) return;
       ring(c, tgt.x, tgt.y, fishLen(tgt) * 0.62, '#FFE45C', t);
       const bob = Math.abs(Math.sin(t * 5)) * 12 * k;
-      const fx = tgt.x + 6 * k, fy = tgt.y + fishHt(tgt) * 0.5 + 26 * k + bob;
-      g.emoji('👆', fx, fy, 44 * k, { alpha: 0.7 + 0.3 * Math.sin(t * 10) });
-      g.text('点它！', fx + 44 * k, fy + 6 * k, { size: Math.round(18 * k), font: 'round', color: '#FFFFFF', stroke: NAVY, strokeW: 4 * k });
+      const below = tgt.y < (L.fTop + L.fBot) / 2;   // 下半屏的鱼：手指放在鱼上方往下指，别埋进沙子里
+      const fx = tgt.x + 6 * k, fy = below ? tgt.y + fishHt(tgt) * 0.5 + 26 * k + bob : tgt.y - fishHt(tgt) * 0.5 - 26 * k - bob;
+      g.emoji(below ? '👆' : '👇', fx, fy, 44 * k, { alpha: 0.7 + 0.3 * Math.sin(t * 10) });
+      g.text(tutorial ? '点它！' : '是它！', clamp(fx + 48 * k, 40 * k, g.w - 40 * k), fy + 6 * k, { size: Math.round(18 * k), font: 'round', color: '#FFFFFF', stroke: NAVY, strokeW: 4 * k });
     }
 
     /* ================= spec ================= */
     const spec = {
       name: '偏旁钓鱼', icon: '🎣',
       maxLevel: 10, lives: 3, rounds: 8, music: 'bright', sky: 'sea',
-      intro: '钓起对的偏旁鱼，和小猫牌子上的字拼出泡泡里的字！',
+      intro: '钓起对的偏旁鱼，拼出泡泡里的字！',
       controls: '点鱼下钩 · 键盘 ←→ 移船、空格下钩',
       init(g) {
         g.sky = null;   // 场景全部自己画（选关界面仍用引擎的 sea 背景）
@@ -1486,11 +1624,11 @@
           boat: { x: g.w * 0.5, vx: 0, tx: null, rock: 0, rockV: 0, by: 0, ang: 0, cs: 1, sn: 0 },
           hook: { st: 'idle', t: 0, x: 0, y: 0, fish: null, boot: null, carry: null, tx: 0, ty: 0, said: false },
           cat: { mood: 'idle', moodT: 0, jump: 0, jv: 0, squash: 1, blinkT: 2, blink: 0 },
-          sign: { mode: 'q', slot: '', slotPop: 1, mt: 0, pop: 1, shake: 0, fold: 1, foldV: 0 },
+          sign: { mode: 'q', slot: '', slotPop: 1, mt: 0, pop: 1, shake: 0, fold: 1, foldV: 0, bad: '', badT: 0 },
           tip0: { x: 0, y: 0 }, tip: { x: 0, y: 0 }, bend: 0, bendKick: 0, reelA: 0, tickT: 0,
-          fly: null, reveal: 0, bubPop: 1, bubRect: null, hover: null, kb: false, solved: false, tapped: false, qWrong: false,
+          fly: null, reveal: 0, bubPop: 1, bubRect: null, bubCX: g.w / 2, hover: null, kb: false, aimOff: 0, solved: false, tapped: false, qWrong: false,
           turnP: lvv(LV.turn, g.level), turnT: lvv(LV.turn, g.level),
-          bubs: [], bi: 0, ambT: 0,
+          bubs: [], bi: 0, ambT: 0, laneN: [0, 0, 0, 0, 0, 0, 0, 0],
           clouds: [], stars: [], lanterns: [], farFish: [], weeds: [], plank: [], city: [],
           crab: { x: g.w * 0.3, dir: 1 }, chest: { x: 0.84, t: rnd(0, 4) }
         };
@@ -1503,6 +1641,7 @@
         for (let i = 0; i < 36; i++) F.plank.push({ x: Math.random(), y: Math.random(), r: rnd(0.8, 2), ph: rnd(0, TAU), sp: rnd(1, 3) });
         g.F = F;
         W.__fish = g;
+        F.aimHit = () => aimHit(g);   // 调试：键盘瞄准线上最先碰到的东西
         layout(g);
         makeCity(g);
         F.lanes = makeLanes(g);
@@ -1519,11 +1658,12 @@
         toW(ROD_TIP_X * L.k, ROD_TIP_Y * L.k, F.tip0);
         F.tip.x = F.tip0.x; F.tip.y = F.tip0.y;
         F.hook.x = F.tip0.x; F.hook.y = waveY(F.tip0.x) + 26 * L.k;
+        signW(Q3); F.bubCX = Q3.x + 24 * L.k;
         if (list.length) startQuestion(g, 0);
         else { F.item = null; F.base = '？'; F.rad = ''; F.ans = ''; F.py = ''; F.hint = ''; F.hintCh = []; F.pos = 'L'; }
         step(g, 0.001, false);
       },
-      play(g) { if (F) { F.qT = 0; F.idleT = 0; } },
+      play(g) { if (F) { F.qT = 0; F.idleT = 0; sayHint(g); } },
       update(g, dt) { step(g, dt, true); },
       draw(g, c) {
         if (!F) return;
@@ -1559,10 +1699,11 @@
       down(g, p) {
         if (!F || g.state !== 'play') return;
         const k = L.k, H = F.hook;
-        F.kb = false;
+        F.kb = false; F.aimOff = 0;
         const br = F.bubRect;
         if (br && p.x >= br.x && p.x <= br.x + br.w && p.y >= br.y && p.y <= br.y + br.h) {
-          if (ttsOK() && !g.speaking) g.say(F.hint);
+          if (!g.speaking) sayHint(g);
+          F.bubPop = 0.4;
           return;
         }
         if (F.solved || !F.item) return;
@@ -1594,13 +1735,18 @@
           F.kb = true;
           if (F.solved || !F.item) return;
           if (H.st !== 'idle' && H.st !== 'return') return;
-          cast(g, null, null, F.tip0.x, L.fBot + 12 * L.k);
+          // 瞄准线圈中的是谁，就钓谁（鱼钩追着它下去，和点鱼一样）。以前鱼钩沿直线下沉，
+          // 下沉的 0.3 秒里别的鱼游进线上就先被钩住——高关卡圈着对的鱼按空格，却钓上错的、扣心，孩子会觉得不公平
+          const hit = aimHit(g).hit;
+          if (hit && hit.lab != null && catchable(hit)) cast(g, hit, null, 0, 0);
+          else if (hit && F.boots.indexOf(hit) >= 0) cast(g, null, hit, 0, 0);
+          else cast(g, null, null, aimX(g), L.fBot + 12 * L.k);   // 没圈中 / 圈中水母：照直线下钩
           F.boat.tx = null;
         } else if (key === 'up') {
           if (H.st === 'cast') { H.fish = null; H.boot = null; setH('return'); }
         }
       },
-      resize(g) { layout(g); relane(g); },
+      resize(g) { const old = layout(g); relane(g, old); },
       end() { if (W.__fish && W.__fish.F === F) W.__fish = null; F = null; }
     };
     return spec;

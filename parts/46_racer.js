@@ -5,8 +5,9 @@
  * 玩法：伪 3D 赛道（自绘，带弯道、视差天际线、椰树/路灯/组屋/灯笼/路牌飞速后退），
  *   3–4 条车道（= 本题选项数）。顶部题目横幅 + “车道路牌”（选项按车道从左到右排好，
  *   颜色/编号与路上的门一一对应，当前车道的选项会亮起并填进题目的（　）里）。
- *   前方开来一排选项门：点车道 / 左右滑动 / ← → 换道，穿过正确的门 → 氮气加速 + 金币雨；
- *   撞错门 → 打滑转圈、扣心、画面上显示讲解 e。↑ / 上滑 / 🔥 按钮 = 加速（答对有极速奖励）。
+ *   前方开来一排选项门：点车道 / 左右滑动 / ← → 换道，穿过正确的门 → 门牌劈成两半飞出去 + 氮气加速 + 金币雨；
+ *   撞错门 → 门牌被撞飞、打滑转圈、扣心、画面上显示讲解 e，这道题过两题再考；最后一颗心撞错时先停车看完讲解再结束。
+ *   ↑ / 上滑 / 🔥 按钮 = 加速（答对有极速奖励）。最后一道门后面是终点拱门。
  * 关卡：车速、读题时间、路障（3 关起）、慢车（5 关起）、门会换位置（7 关起）、白天→黄昏→夜晚。
  * 正确性：选项严格取自 item.c，打乱后以 op.idx 对照 item.a 判定；错题 note 写明正确答案。
  * ===================================================================== */
@@ -21,6 +22,7 @@
   const CREAM = '#FFFBEF';
   const D0 = 3;       // 赛车在镜头前方的距离（世界单位）；这里缩放 = 1
   const DFAR = 66;    // 可见距离
+  const FIN = 4;      // 终点线在最后一道门后面多远
   const OPT = [
     { c: '#FF5A5F', d: '#C8392B', l: '#FFE4E2' },
     { c: '#2F95F5', d: '#1766BF', l: '#DDEEFF' },
@@ -39,6 +41,7 @@
   const HDB_COL = ['#F4C95D', '#EE8F4B', '#6FB7E0', '#F28FAD', '#8FD19A', '#B99AE8'];
   const CAR_COL = [['#3AA0FF', '#1C6CC8'], ['#2EBD55', '#1B8C3C'], ['#B25CFF', '#7A2FC8'], ['#FFB020', '#C97A00']];
   const STAMPS = ['棒', '好', '对', '优'];
+  const GREEN = { c: '#2EBD55', d: '#1B8C3C', l: '#DCF6E2' };
 
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -281,42 +284,64 @@
       return out;
     }
     function optSize(fs, t) { return hasLatin(t) ? Math.round(fs * 0.86) : fs; }
+    /* 路牌里一行能放下的文字宽度（fitBoard 与 drawBoard 共用，保证量的和画的一致） */
+    const colTextW = (w) => w - 16;
+    const rowTextW = (w) => w - 100;
+    /* 两行的车道路牌只接受“自然断行”：断在标点后（因为……/所以……）或拼音空格处（shēng/bìng），
+       不把“干干净净”“植物园”这种词从中间劈开 */
+    function naturalBreak(line) {
+      const last = line.charAt(line.length - 1);
+      return BRK.indexOf(last) >= 0 || /[\s…]$/.test(line) || hasLatin(line);
+    }
+    /* 竖排（每个选项一列）能用的最大字号：一行放下，或两行且自然断行；都不行返回 null（改用横排） */
+    function colsFont(g, q, colW, fo, minF) {
+      const room = colTextW(colW);
+      for (let fz0 = fo; fz0 >= minF; fz0--) {
+        let ok = true, ml = 1;
+        for (const op of q.opts) {
+          const f = optFont(op.text), fz = optSize(fz0, op.text);
+          if (g.measure(op.text, fz, f) <= room) continue;
+          const ls = wrapBal(g, op.text, room, fz, f);
+          if (ls.length > 2 || !naturalBreak(ls[0]) || ls.some((l) => g.measure(l, fz, f) > room + 0.5)) { ok = false; break; }
+          ml = 2;
+        }
+        if (ok) return { fz: fz0, ml };
+      }
+      return null;
+    }
     function fitBoard(g) {
       const q = S && (S.q || S.pre);
       const h = g.h;
       if (!q) { L.bh = 0; L.boardH = 0; L.tileY = L.by; L.barY = L.by; L.hyT = Math.round(Math.max(L.by + 70, h * 0.34)); return; }
       const n = q.opts.length;
       const gap0 = L.small ? 7 : 12;
-      const maxBottom = h * (L.small ? 0.58 : 0.52);
+      // 题板底边不超过画面 55%（手机）/ 57%（电脑），给路面留地方：长句题（病句、成语用法）字号逐级缩小直到放得下
+      const maxBottom = h * (L.small ? 0.55 : 0.57);
+      const minCol = L.small ? 17 : 19;
       let best = null;
       for (let step = 0; step < 8; step++) {
-        const fq = Math.max(15, L.fsQ0 - step * 2), fo = Math.max(14, L.fsO0 - step * 2);
+        const fq = Math.max(16, L.fsQ0 - step * 2), fo = Math.max(16, L.fsO0 - step * 2);
         const qW = L.bw - 36;
         let ql = wrapBal(g, q.item.q, qW, fq, 'kai').length;
         for (const op of q.opts) ql = Math.max(ql, wrapBal(g, qText(q, op), qW, fq, 'kai').length);
         const lhQ = Math.round(fq * 1.38);
         const bh = ql * lhQ + (L.small ? 24 : 28);
-        const lhO = Math.round(fo * 1.28);
         const colW = (L.bw - gap0 * (n - 1)) / n;
-        const maxCL = L.small ? 2 : 3;
-        let cols = true, ml = 1;
-        for (const op of q.opts) {
-          const f = optFont(op.text);
-          const fz = optSize(fo, op.text);
-          const ls = wrapBal(g, op.text, colW - 18, fz, f);
-          if (ls.length > maxCL || ls.some((l) => g.measure(l, fz, f) > colW - 12)) cols = false;
-          ml = Math.max(ml, ls.length);
-        }
-        let mode, tileH, boardH, gap;
-        if (cols) { mode = 'cols'; gap = gap0; tileH = Math.max(58, ml * lhO + 30); boardH = tileH; }
-        else {
-          mode = 'rows'; gap = Math.max(5, gap0 - 2);
+        const cf = colsFont(g, q, colW, fo, Math.min(minCol, fo));
+        let mode, tileH, boardH, gap, fsO, lhO;
+        if (cf) {
+          // 一个选项一列：左右顺序 = 车道顺序，最直观。四字词语宁可字小一号也保持一行
+          mode = 'cols'; gap = gap0; fsO = cf.fz; lhO = Math.round(fsO * 1.28);
+          tileH = Math.max(58, cf.ml * lhO + 30); boardH = tileH;
+        } else {
+          // 句子类选项：一个选项一行（编号、颜色与路上的门对应）
+          mode = 'rows'; gap = L.small ? 5 : 8; fsO = fo; lhO = Math.round(fo * 1.25);
           let rl = 1;
-          for (const op of q.opts) rl = Math.max(rl, wrapBal(g, op.text, L.bw - 100, optSize(fo, op.text), optFont(op.text)).length);
-          tileH = Math.max(46, rl * lhO + 16); boardH = n * tileH + (n - 1) * gap;
+          for (const op of q.opts) rl = Math.max(rl, wrapBal(g, op.text, rowTextW(L.bw), optSize(fo, op.text), optFont(op.text)).length);
+          tileH = Math.max(L.small ? 46 : 42, rl * lhO + 14); boardH = n * tileH + (n - 1) * gap;
         }
         const bottom = L.by + bh + 14 + boardH + 20;
-        best = { fsQ: fq, fsO: fo, lhQ, lhO, bh, mode, tileH, boardH, colW, gap, bottom };
+        best = { fsQ: fq, fsO, lhQ, lhO, bh, mode, tileH, boardH, colW, gap, bottom };
         if (bottom <= maxBottom) break;
       }
       Object.assign(L, best);
@@ -480,9 +505,11 @@
       const ok = op.idx === q.item.a;
       q.res = { op, ok };
       q.out = 0;
+      S.turbo = false;   // 过了门加速键复位（答对的极速奖励看 turboUsed）
       g.tween(q, { out: 1 }, 0.38, 'outQuad', () => { q.gone = true; });
       const sx = L.carSX, sy = L.yCar - L.carH * 0.6;
       const gy = L.yCar - L.carH * 1.35;
+      smashGate(g, op, ok);
       if (ok) {
         S.stamp = { t: 0, ch: STAMPS[(Math.random() * STAMPS.length) | 0] };
         g.burst(sx, gy, { kind: 'confetti', n: 36 });
@@ -491,27 +518,98 @@
         S.boost = 1.5;
         g.sfx('power');
         for (let i = 0; i < 4; i++) g.burst(g.rand(g.w * 0.12, g.w * 0.88), L.hy + (L.yCar - L.hy) * g.rand(0.4, 0.6), { kind: 'coin', n: 6 });
-        if (turboBonus && g.state === 'play') { g.addScore(10); g.float('极速 +10', sx, sy - 70, { color: '#7FE3FF', size: 24 }); }
+        // 最后一题答对会自动通关（state 变 over），极速奖励照样加（引擎会同步存档与结算分数）
+        if (turboBonus) { g.addScore(10); g.float('极速 +10', sx, sy - 70, { color: '#7FE3FF', size: 24 }); }
         if (g.state === 'play') g.after(1.05, () => nextQuestion(g));
       } else {
         const right = q.item.c[q.item.a];
         const note = q.item.q + ' 正确答案：' + right + '（你选了：' + op.text + '）';
         g.burst(sx, gy, { kind: 'dot', color: OPT[op.col].c, n: 18 });
-        g.wrong(q.item, note, sx, sy);
+        const final = g.maxLives > 0 && g.lives <= 1;
+        if (final) {
+          // 最后一颗心：先停车把讲解看完（点继续或讲解放完），再扣心结束——最后这道错题也要弄懂
+          S.pendingWrong = { item: q.item, note };
+          S.halt = true;
+          g.float('✗', sx, sy - 24, { color: '#FF5A5F', size: 50 });
+          g.shake(13); g.flash('#FF2E2E'); g.sfx('hit');
+        } else {
+          g.wrong(q.item, note, sx, sy);
+          // 这道错题本关过两题再考一次（放到队尾的话 10 题通关前根本轮不到）
+          S.queue.splice(Math.min(S.queue.length, S.qi + 2), 0, q.item);
+        }
         g.sfx('crash');
         S.spin = 0;
         g.tween(S, { spin: TAU }, 0.95, 'outCubic');
         S.slow = 1.1;
         for (let i = 0; i < 16; i++) puff(sx + g.rand(-L.carW * 0.6, L.carW * 0.6), L.yCar - g.rand(0, L.carH * 0.4), g.rand(-160, 160), g.rand(-90, 20), g.rand(10, 18) * L.U, 0.9, 0.5, false);
-        S.queue.push(q.item);   // 本关后面再考一次
         const e = String(q.item.e || '');
-        S.explain = { ans: right, e, t: -0.35, dur: clamp(2.3 + e.length * 0.045, 2.6, 4.4) };   // 先看 0.35 秒打滑再弹讲解
+        S.explain = { ans: right, e, t: -0.35, dur: clamp(2.3 + e.length * 0.045, 2.6, 4.4) + (final ? 1 : 0), final };   // 先看 0.35 秒打滑再弹讲解
       }
     }
     function closeExplain(g) {
       if (!S.explain) return;
       S.explain = null;
-      if (g.state === 'play') g.after(0.2, () => nextQuestion(g));
+      if (S.pendingWrong) {
+        const pw = S.pendingWrong;
+        S.pendingWrong = null;
+        g.wrong(pw.item, pw.note, L.carSX, L.yCar - L.carH * 0.6);   // 心归零 → 引擎播放失败动画
+      }
+      if (g.state === 'play') { S.halt = false; g.after(0.2, () => nextQuestion(g)); }
+    }
+    /* ---------- 冲门碎片：答对 = 门牌从中间劈成两半飞出去、门柱往两边倒；答错 = 整块门牌被撞飞翻跟头 ---------- */
+    const debris = [];
+    const DCV = [document.createElement('canvas'), document.createElement('canvas')];
+    let dcvI = 0;
+    function smashGate(g, op, ok) {
+      if (!op.spr || !op.spr.cv.width) return;
+      // 门牌精灵画布下一题会重画，碎片要用自己的副本
+      const cv = DCV[dcvI]; dcvI = (dcvI + 1) % DCV.length;
+      cv.width = op.spr.cv.width; cv.height = op.spr.cv.height;
+      const x2 = cv.getContext('2d'); x2.clearRect(0, 0, cv.width, cv.height); x2.drawImage(op.spr.cv, 0, 0);
+      const lw = L.hw * 2 / S.N, gw = lw * 0.86, pw = Math.max(1.5, gw * 0.09), H = gw * 0.95;
+      const gx = L.cx + (xAtD(D0) + laneC(op.lx, S.N) - L.camX) * L.hw, gyB = L.yCar;
+      const ratio = (gw * 1.054) / op.spr.bw;
+      const spW = op.spr.w * ratio, spH = op.spr.h * ratio;
+      const cy = gyB - H - (op.spr.top + op.spr.bh * 0.62) * ratio + spH / 2;
+      const U = L.U, col = OPT[op.col].c;
+      op.smashed = true;
+      debris.length = 0;
+      for (let side = -1; side <= 1; side += 2) {
+        debris.push({ cv: null, col, w: pw, h: H * 0.85, x: gx + side * (gw / 2 - pw / 2), y: gyB - H * 0.45, vx: side * g.rand(90, 160) * U, vy: -g.rand(120, 220) * U, r: 0, vr: side * g.rand(2, 3.5), t: 0, life: 0.95 });
+      }
+      if (ok) {
+        for (let side = -1; side <= 1; side += 2) {
+          debris.push({ cv, sx: side < 0 ? 0 : 0.5, sw: 0.5, w: spW / 2, h: spH, x: gx + side * spW / 4, y: cy, vx: side * g.rand(190, 280) * U, vy: -g.rand(280, 380) * U, r: 0, vr: side * g.rand(3, 5.5), t: 0, life: 1 });
+        }
+        g.ring(gx, cy, '#FFE45C');
+        g.burst(gx, cy, { kind: 'star', n: 12 });
+        g.shake(6);
+      } else {
+        debris.push({ cv, sx: 0, sw: 1, w: spW, h: spH, x: gx, y: cy, vx: g.rand(-70, 70) * U, vy: -g.rand(220, 280) * U, r: 0, vr: (Math.random() < 0.5 ? -1 : 1) * g.rand(4, 6), t: 0, life: 1.05 });
+      }
+    }
+    function updDebris(dt) {
+      if (!debris.length) return;
+      let j = 0;
+      for (let i = 0; i < debris.length; i++) {
+        const p = debris[i];
+        p.t += dt;
+        if (p.t >= p.life) continue;
+        p.vy += 1150 * L.U * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.r += p.vr * dt;
+        debris[j++] = p;
+      }
+      debris.length = j;
+    }
+    function drawDebris(g, c) {
+      for (let i = 0; i < debris.length; i++) {
+        const p = debris[i];
+        c.save();
+        c.globalAlpha = clamp((p.life - p.t) / 0.3, 0, 1);
+        c.translate(p.x, p.y); c.rotate(p.r);
+        if (p.cv) { const cw = p.cv.width, ch = p.cv.height; c.drawImage(p.cv, cw * p.sx, 0, cw * p.sw, ch, -p.w / 2, -p.h / 2, p.w, p.h); }
+        else { rr(c, -p.w / 2, -p.h / 2, p.w, p.h, p.w * 0.5); c.fillStyle = p.col; c.fill(); c.lineWidth = Math.max(1, 2 * L.U); c.strokeStyle = NAVY; c.stroke(); }
+        c.restore();
+      }
     }
     function steer(g, lane) {
       if (!S || !S.N) return;
@@ -786,22 +884,11 @@
       };
       lanesLines(S.N, S.nMix);
       if (S.nMix < 1 && S.Nold !== S.N) lanesLines(S.Nold, 1 - S.nMix);
-      // 起跑线（棋盘格）
+      // 起跑线 / 终点线（棋盘格），起跑线前面的路面上刷着“起点”
       const sd = S.startZ - S.z;
-      if (sd > BD[0] && sd < DFAR) {
-        for (let r = 0; r < 2; r++) {
-          const dA = sd + r * 0.22, dB = dA + 0.22;
-          const sA = D0 / dA, sB = D0 / dB;
-          const yA = L.hy + (L.yCar - L.hy) * sA, yB = L.hy + (L.yCar - L.hy) * sB;
-          const cA = L.cx + (xAtD(dA) - L.camX) * L.hw * sA, cB = L.cx + (xAtD(dB) - L.camX) * L.hw * sB;
-          const n = 10;
-          for (let q = 0; q < n; q++) {
-            c.fillStyle = (q + r) & 1 ? '#1d2233' : '#FFFFFF';
-            const f0 = -1 + 2 * q / n, f1 = -1 + 2 * (q + 1) / n;
-            c.beginPath(); c.moveTo(cA + f0 * L.hw * sA, yA); c.lineTo(cB + f0 * L.hw * sB, yB); c.lineTo(cB + f1 * L.hw * sB, yB); c.lineTo(cA + f1 * L.hw * sA, yA); c.closePath(); c.fill();
-          }
-        }
-      }
+      if (sd > BD[0] && sd < DFAR) { checkerLine(c, sd); roadWord(c, '起点', sd + 1.25); }
+      const fq = S.q;
+      if (fq && fq.last && (!fq.res || fq.res.ok)) { const fd = fq.z + FIN - S.z; if (fd > BD[0] && fd < DFAR) checkerLine(c, fd - 0.2); }
       c.fillStyle = fogGrad; c.fillRect(-20, L.hy - 2, w + 40, (L.yCar - L.hy) * 0.16 + 2);
       // 夜晚车灯光束
       if (T.night && g.state !== 'intro') {
@@ -817,6 +904,35 @@
         c.lineTo(x1 + L.hw * s1 * 0.5, y1); c.lineTo(L.carSX + L.carW * 0.35, L.yCar - L.carH * 0.4); c.closePath(); c.fill();
         c.restore();
       }
+    }
+
+    function checkerLine(c, sd) {
+      for (let r = 0; r < 2; r++) {
+        const dA = Math.max(BD[0], sd + r * 0.22), dB = dA + 0.22;
+        const sA = D0 / dA, sB = D0 / dB;
+        const yA = L.hy + (L.yCar - L.hy) * sA, yB = L.hy + (L.yCar - L.hy) * sB;
+        const cA = L.cx + (xAtD(dA) - L.camX) * L.hw * sA, cB = L.cx + (xAtD(dB) - L.camX) * L.hw * sB;
+        const n = 10;
+        for (let q = 0; q < n; q++) {
+          c.fillStyle = (q + r) & 1 ? '#1d2233' : '#FFFFFF';
+          const f0 = -1 + 2 * q / n, f1 = -1 + 2 * (q + 1) / n;
+          c.beginPath(); c.moveTo(cA + f0 * L.hw * sA, yA); c.lineTo(cB + f0 * L.hw * sB, yB); c.lineTo(cB + f1 * L.hw * sB, yB); c.lineTo(cA + f1 * L.hw * sA, yA); c.closePath(); c.fill();
+        }
+      }
+    }
+    /* 刷在路面上的大字（透视压扁） */
+    function roadWord(c, word, d) {
+      if (d <= BD[0] || d >= DFAR) return;
+      const s = D0 / d, y = L.hy + (L.yCar - L.hy) * s, x = L.cx + (xAtD(d) - L.camX) * L.hw * s;
+      const size = Math.round(L.hw * s * 0.5);
+      if (size < 6) return;
+      c.save();
+      c.translate(x, y); c.scale(1, 0.42);
+      c.font = '800 ' + size + 'px ' + ((HW.arcade && HW.arcade.fonts && HW.arcade.fonts.round) || F.sans);
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillStyle = 'rgba(255,255,255,.88)';
+      c.fillText(word, 0, 0);
+      c.restore();
     }
 
     /* ---------- 画：路边物件 ---------- */
@@ -1072,19 +1188,24 @@
         c.fillStyle = '#FF5A5F'; rr(c, x - sw * 0.46, T0 - sh * 0.2, sw * 0.92, sh * 0.95, sh * 0.3); c.fill(); c.stroke();
         c.drawImage(spr.cv, x - sw / 2, T0 - sh * 0.24, sw, sh);
       } else {
-        rr(c, L0, T0, bw, bh, bh * 0.25); c.fillStyle = '#FF5A5F'; c.fill(); c.stroke();
-        const spr = labelSpr('起点', 's');
-        const sw = bh * 3.2, sh = sw * spr.h / spr.w;
-        c.drawImage(spr.cv, x - sw / 2, T0 + bh / 2 - sh / 2, sw, sh);
-        // 起跑灯：3 盏红灯依次亮，开始时全绿
-        const it = S.introT, go = g.state !== 'intro';
-        for (let i = 0; i < 3; i++) {
-          const lx = x + (i - 1) * bh * 1.25, ly = T0 + bh + bh * 0.62;
-          rr(c, lx - bh * 0.5, ly - bh * 0.5, bh, bh, bh * 0.25); c.fillStyle = '#23252E'; c.fill(); c.stroke();
-          const on = go || it >= i * 0.62;
-          c.fillStyle = go ? '#3CFF6A' : on ? '#FF3B3B' : '#4A1E22';
-          c.beginPath(); c.arc(lx, ly, bh * 0.34, 0, TAU); c.fill();
-          if (on) { const gs = bh * 1.3; c.globalAlpha = 0.55; c.drawImage(glowSpr().cv, lx - gs, ly - gs, gs * 2, gs * 2); c.globalAlpha = 1; }
+        // 起点横梁上不写字：开场倒计时的说明文字正好盖在画面中间这一带（“起点”刷在路面上）
+        const tb = T0 + bh * 0.35, hb = bh * 0.5;
+        rr(c, L0, tb, bw, hb, hb * 0.4); c.fillStyle = '#FF5A5F'; c.fill(); c.stroke();
+        c.fillStyle = 'rgba(255,255,255,.85)';
+        for (let i = 1; i < 12; i += 2) c.fillRect(L0 + bw * i / 12, tb + hb * 0.3, bw / 12, hb * 0.4);
+        // 起跑灯挂在两根柱子上（竖排 3 盏）：跟着 3·2·1 依次亮红灯，“开始！”时全变绿
+        const it = S.introT, go = g.state !== 'intro' || it >= 1.86;
+        const lw2 = bh * 1.1, lh2 = bh * 3.2;
+        for (let side = -1; side <= 1; side += 2) {
+          const px = x + side * post, by2 = tb + hb * 0.6;
+          rr(c, px - lw2 / 2, by2, lw2, lh2, lw2 * 0.28); c.fillStyle = '#23252E'; c.fill(); c.stroke();
+          for (let i = 0; i < 3; i++) {
+            const ly = by2 + lh2 * (i + 0.5) / 3;
+            const on = go || it >= i * 0.62;
+            c.fillStyle = go ? '#3CFF6A' : on ? '#FF3B3B' : '#4A1E22';
+            c.beginPath(); c.arc(px, ly, lw2 * 0.32, 0, TAU); c.fill();
+            if (on) { const gs = lw2 * 1.1; c.globalAlpha = 0.55; c.drawImage(glowSpr().cv, px - gs, ly - gs, gs * 2, gs * 2); c.globalAlpha = 1; }
+          }
         }
       }
     }
@@ -1097,8 +1218,9 @@
       if (q && !q.gone) {
         const dq = q.res ? D0 - q.out * (D0 - dMin) * 0.95 : q.z - S.z;
         if (dq > dMin * 0.92 && dq < DFAR + 6) for (const op of q.opts) { op.d = dq; vis.push(op); }
-        if (q.last && !q.res) { S.finish.d = dq + 1.4; if (S.finish.d < DFAR) vis.push(S.finish); }
       }
+      // 终点拱门在最后一道门后面：答对冲门后赛车还要从它下面开过去
+      if (q && q.last && (!q.res || q.res.ok)) { S.finish.d = q.z + FIN - S.z; if (S.finish.d > dMin * 0.6 && S.finish.d < DFAR) vis.push(S.finish); }
       S.start.d = S.startZ - S.z + 0.3;
       if (S.start.d > dMin * 0.92 && S.start.d < DFAR) vis.push(S.start);
       CAR.d = D0; vis.push(CAR);
@@ -1140,6 +1262,7 @@
             break;
           }
           case 'gate': {
+            if (o.smashed) break;   // 已经被撞碎，由 drawDebris 画碎片
             let alpha = fade, grow = 1;
             if (q.res) {
               const isRight = o.idx === q.item.a, chosen = q.res.op === o;
@@ -1252,11 +1375,12 @@
       const tw = g.measure(tag, tfs, 'round') + 22;
       g.rrect(L.bx + 14, by - 11, tw, 22, 11, '#FF7A3D', NAVY, 2.5);
       g.text(tag, L.bx + 14 + tw / 2, by, { size: tfs, font: 'round', color: '#FFFFFF' });
-      const cur = q.res ? q.res.op : q.opts.find((o) => o.lane === S.lane);
+      // 没撞门前：预览当前车道的选项；撞门后（不论对错）一律把正确答案填进（　）里，用绿色标出
+      const cur = q.res ? (q.opts.find((o) => o.idx === q.item.a) || q.res.op) : q.opts.find((o) => o.lane === S.lane);
       const disp = qText(q, cur);
       const nl = wrapBal(g, disp, L.bw - 36, L.fsQ, 'kai').length;
       const ty = by + L.bh / 2 - (nl - 1) * L.lhQ / 2 + 1;
-      drawQLine(g, disp, cur && cur.fill ? cur.fill.ranges : null, L.bx + L.bw / 2, ty, L.fsQ, OPT[cur ? cur.col : 0]);
+      drawQLine(g, disp, cur && cur.fill ? cur.fill.ranges : null, L.bx + L.bw / 2, ty, L.fsQ, q.res ? GREEN : OPT[cur ? cur.col : 0]);
       // 印章（答对）
       if (S.stamp && q.res && q.res.ok) {
         const st = S.stamp, k = st.t < 0.22 ? 2.2 - 1.2 * (st.t / 0.22) : 1;
@@ -1296,13 +1420,13 @@
         if (L.mode === 'cols') {
           g.rrect(x0 + r.w / 2 - br, y0 - br * 0.9, br * 2, br * 1.8, br * 0.9, col.c, NAVY, 2);
           g.text(String(op.col + 1), x0 + r.w / 2, y0 + 0.5, { size: Math.round(br * 1.25), font: 'num', color: '#FFFFFF' });
-          const ls = wrapBal(g, op.text, r.w - 18, fs, f);
+          const ls = wrapBal(g, op.text, colTextW(r.w), fs, f);
           const y1 = y0 + 6 + r.h / 2 - (ls.length - 1) * L.lhO / 2;
           for (let i = 0; i < ls.length; i++) g.text(ls[i], 0, y1 + i * L.lhO, { size: fs, font: f, color: NAVY });
         } else {
           g.rrect(x0 + 10, -br, br * 2, br * 2, br, col.c, NAVY, 2);
           g.text(String(op.col + 1), x0 + 10 + br, 0.5, { size: Math.round(br * 1.25), font: 'num', color: '#FFFFFF' });
-          const ls = wrapBal(g, op.text, r.w - 100, fs, f);
+          const ls = wrapBal(g, op.text, rowTextW(r.w), fs, f);
           const y1 = -(ls.length - 1) * L.lhO / 2 + 1;
           for (let i = 0; i < ls.length; i++) g.text(ls[i], x0 + 18 + br * 2, y1 + i * L.lhO, { size: fs, font: f, color: NAVY, align: 'left' });
         }
@@ -1370,7 +1494,7 @@
       g.text('▶', L.carSX + dx, y, { size: 34, color: '#FFFFFF', stroke: NAVY, strokeW: 4, alpha: a });
       const fx = L.carSX + Math.sin(t * 2.4) * L.carW * 1.1;
       g.emoji('👆', fx, L.yCar - 6, 44, { alpha: a });
-      const msg = L.touch ? '左右滑动或点车道 换道' : '按 ← → 换车道';
+      const msg = L.touch ? '左右滑动或点车道来换道' : '按 ← → 换车道';
       const fs = Math.round(16 * L.U);
       const tw = g.measure(msg, fs, 'round') + 26;
       const cy = L.yCar - L.carH - 30;
@@ -1463,6 +1587,7 @@
         S.scenEnd = 1.5;
         genScenery(DFAR + 4);
         for (const p of puffs) p.on = false;
+        debris.length = 0;
         layout(g, true);
         lastDraw = 0;
         try { W.__hwRacer = { g, get S() { return S; }, get L() { return L; }, steer: (i) => steer(g, i), turbo: () => turbo(g), tap: (x, y) => tap(g, x, y) }; } catch (e) { /* ignore */ }
@@ -1480,6 +1605,7 @@
         if (S.boost > 0) { S.boost -= dt; vt = S.cruise * 1.85; }
         else if (S.turbo && S.q && !S.q.res) vt = S.cruise * 2.1;
         if (S.slow > 0) { S.slow -= dt; vt = S.cruise * 0.28; }
+        if (S.halt) vt = 0;   // 最后一颗心撞错：停车看讲解
         S.v += (vt - S.v) * Math.min(1, dt * (vt > S.v ? 2.2 : 3.5));
         advance(g, dt);
         updateObjs(g, dt);
@@ -1508,10 +1634,12 @@
           if (S.slow > 0) S.slow -= rdt;
           advance(g, rdt);
         }
+        updDebris(rdt);
         computeRoad(g);
         drawSky(g, c);
         drawRoad(g, c);
         drawWorld(g, c);
+        drawDebris(g, c);
         drawPuffs(g, c);
         drawSpeedLines(g, c);
         drawHint(g, c);

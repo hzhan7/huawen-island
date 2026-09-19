@@ -8,3 +8,4 @@ content/_parts/
 __pycache__/
 tools/node_modules/
 tools/package-lock.json
+build/_*

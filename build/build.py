@@ -13,6 +13,10 @@
 退出码：0 = 无错误；1 = 有错误（默认仍输出 dist，--strict 时不输出）；2 = 参数/环境致命问题。
 报告分节：构建信息 / 错误 / 警告 / 拼音待人工核对 / 拼音提示 / 笔顺缺字 / 条数统计。
 错误与警告每行带代码（如 [E-PY-COUNT]），便于 grep。
+3.0 新栏目（SPEC_V3 §3，content/ext_*.json）：recipes chains jg zuci menu menuwords bushou bushou_stats
+  同样校验必填字段 / 拼音格式与音节数 / pypinyin 交叉核对；另有 recipes 拆分复查（hanzi_chaizi，可选）、
+  zuci 的 bad 与 c 组词复查（题库整词 + pypinyin 词组库）、jg 覆盖与冲突、合成链、菜单颜色/量词一致性。
+  年级下以 _ 开头的键（如 _stats）是元数据：原样并入 HW_DATA、不校验；bushou / bushou_stats 也可以写成对象。
 """
 from __future__ import annotations
 
@@ -33,11 +37,16 @@ DEFAULT_ROOT = SCRIPT_DIR.parent
 
 # ---------------------------------------------------------------- 契约常量（SPEC §2）
 GRADES = ["p2", "p3", "p4", "p5", "p6"]
+# 1.0 的 13 个栏目 + 3.0 新栏目（SPEC_V3 §3，数据在 content/ext_*.json）
+EXT_COLUMNS = ["recipes", "chains", "jg", "zuci", "menu", "menuwords", "bushou", "bushou_stats"]
 COLUMNS = ["words", "chars", "quiz", "pick", "stories", "readaloud", "twisters",
-           "talk", "order", "passages", "build", "typo", "compose"]
+           "talk", "order", "passages", "build", "typo", "compose"] + EXT_COLUMNS
+# 可以不是数组、而是对象的栏目（{字: 部首} / {家族: 个数} 写法；以及任何以 _ 开头的元数据键）
+DICT_OK_COLUMNS = {"bushou", "bushou_stats"}
 TARGET = {"words": 50, "chars": 30, "quiz": 50, "pick": 20, "stories": 6, "readaloud": 8,
           "twisters": 5, "talk": 6, "order": 15, "passages": 4, "build": 15, "typo": 15,
-          "compose": 8}
+          "compose": 8, "recipes": 40, "zuci": 25}
+COUNT_RANGE = {"recipes": (40, 60), "zuci": (25, 30)}   # SPEC_V3 §3：每年级条数（栏目非空时才检查）
 FIELDS = {
     "words": {"w", "py", "s", "m"},
     "chars": {"c", "py", "bs", "jg", "words"},
@@ -52,7 +61,21 @@ FIELDS = {
     "build": {"base", "rad", "ans", "py", "hint", "opts"},
     "typo": {"s", "i", "bad", "good", "opts", "e"},
     "compose": {"kind", "prompt", "pattern", "scene", "desc", "min", "eg", "check"},
+    # ---- 3.0 新栏目
+    "recipes": {"a", "b", "ans", "py", "word", "chain"},
+    "chains": {"path", "show"},
+    "jg": {"c", "jg", "py", "w", "skip", "note"},
+    "zuci": {"c", "py", "ok", "bad"},
+    "menu": {"id", "name", "py", "emoji", "mw", "also", "kind", "base", "extra", "stack", "layers"},
+    "menuwords": {"k", "w", "py", "hex", "i", "n", "mw", "mwpy", "also"},
+    "bushou": {"c", "bs", "fam", "gf"},
+    "bushou_stats": {"fam", "n", "cs"},
 }
+ZUCI_OK_FIELDS = {"x", "w", "py"}
+MENU_PART_FIELDS = {"id", "name", "py", "emoji", "mw", "also", "color"}
+MENU_KIND = {"meal", "snack", "dessert", "drink"}
+MENUWORD_FIELDS = {"color": {"k", "w", "py", "hex"}, "pos": {"k", "w", "py", "i"},
+                   "num": {"k", "w", "py", "n"}, "mw": {"k", "n", "py", "mw", "mwpy", "also"}}
 QS_FIELDS = {"stories": {"q", "c", "a", "e", "k"}, "passages": {"k", "q", "c", "a", "e"}}
 QUIZ_T = ["拼音", "声调", "部首", "笔画", "笔顺", "量词", "近义词", "反义词", "词语搭配", "叠词",
           "多音字", "形近字", "同音字", "成语", "关联词", "标点", "修辞", "病句", "歇后语", "古诗",
@@ -98,6 +121,10 @@ def hz_list(s: str) -> list[str]:
     return HANZI_RE.findall(s)
 
 
+def clone_json(x):
+    return json.loads(json.dumps(x, ensure_ascii=False))
+
+
 def short(s, n=14) -> str:
     s = str(s).replace("\n", "⏎")
     return s if len(s) <= n else s[:n] + "…"
@@ -136,6 +163,17 @@ class Item:
                 label = f"{it.get('base')}+{it.get('rad')}={it.get('ans')}"
             if col == "order" and isinstance(it.get("ans"), str):
                 label = short(it["ans"])
+            if col == "recipes" and isinstance(it.get("ans"), str):
+                label = f"{it.get('a')}+{it.get('b')}={it.get('ans')}"
+            if col == "chains":
+                label = short(it.get("show") or "→".join(map(str, it.get("path") or [])))
+            if col == "jg" and isinstance(it.get("c"), str):
+                label = it["c"]
+            if col in ("menu", "menuwords", "bushou_stats"):
+                for k in ("name", "w", "n", "fam"):
+                    if isinstance(it.get(k), str) and it.get(k):
+                        label = short(it[k])
+                        break
         self.loc = f"{grade}.{col}[{idx}]{sub}「{label}」({src})"
 
     def err(self, code, msg):
@@ -193,6 +231,7 @@ class PinyinChecker:
         self.ok = False
         self._cache_run: dict[str, list] = {}
         self._cache_het: dict[str, set] = {}
+        self.phrases: set[str] = set()
         try:
             from pypinyin import Style, pinyin
             from pypinyin.contrib.tone_convert import to_normal, to_tone, to_tone3
@@ -215,6 +254,11 @@ class PinyinChecker:
                 self._sandhi = None
             import pypinyin
             self.version = pypinyin.__version__
+            try:  # 词组库：zuci 的 bad 复查用（它只收多音字相关的词，不是完整词表，所以只作旁证）
+                from pypinyin.phrases_dict import phrases_dict
+                self.phrases = set(phrases_dict)
+            except Exception:  # noqa: BLE001
+                self.phrases = set()
             self.ok = True
         except Exception as e:  # noqa: BLE001
             self.version = None
@@ -872,10 +916,371 @@ def v_compose(V: Item, it, pyc):
                 pos = k + len(f)
 
 
+# ---------------------------------------------------------------- 3.0 新栏目（SPEC_V3 §3）
+PART_RE = re.compile(f"[{HZ}⺀-⿟㇀-㇯]")   # 部件：汉字或 CJK 部首补充/康熙部首/笔画（⺮ 这类）
+ASCII_ID_RE = re.compile(r"[a-z][a-z0-9_]*")
+HEX_RE = re.compile(r"#[0-9A-Fa-f]{6}")
+_PY_DONE: set = set()      # 同一段文字+拼音+语境只核对一次（menu 各年级重复出现，免得待核对清单重复）
+LEXICON: dict[str, str] = {}   # 题库里出现过的整词 → 出处（zuci 的 bad 复查用），validate() 开头填
+
+
+def one_hz(V: Item, f: str, v, code="E-CHAR-SINGLE") -> str | None:
+    """v 必须是单个汉字。"""
+    if v is None:
+        return None
+    if len(v) != 1 or not HANZI_RE.match(v):
+        V.err(code, f"{f} 必须是单个汉字，实际「{v}」")
+        return None
+    return v
+
+
+def one_part(V: Item, f: str, v, code="E-PART-SINGLE") -> str | None:
+    """v 必须是单个部件（汉字或部首字符，如 氵 ⺮）。"""
+    if v is None:
+        return None
+    if len(v) != 1 or not PART_RE.match(v):
+        V.err(code, f"{f} 必须是单个汉字/部首，实际「{v}」")
+        return None
+    return v
+
+
+def hz_only(V: Item, f: str, v, code="E-NONHANZI") -> str | None:
+    if v is None:
+        return None
+    non = [ch for ch in v if not HANZI_RE.match(ch)]
+    if non:
+        V.err(code, f"{f}「{v}」只能是汉字，含 {non}")
+        return None
+    return v
+
+
+def opt_bool(V: Item, f: str, obj=None, pfx=""):
+    obj = V.it if obj is None else obj
+    if f in obj and not isinstance(obj[f], bool):
+        V.err("E-TYPE", f"{pfx}{f} 应为 true/false，实际 {obj[f]!r}")
+
+
+def opt_int(V: Item, f: str, required=True, obj=None, pfx="", lo=0):
+    obj = V.it if obj is None else obj
+    if f not in obj:
+        if required:
+            V.err("E-MISSING", f"缺少字段 {pfx}{f}")
+        return None
+    v = obj[f]
+    if type(v) is not int or v < lo:
+        V.err("E-TYPE", f"{pfx}{f} 应为 ≥{lo} 的整数，实际 {v!r}")
+        return None
+    return v
+
+
+def hz_strlist(V: Item, f: str, required=False, min_n=1, obj=None, pfx="") -> list[str] | None:
+    """单字数组（量词 also、zuci 的 bad 等）。"""
+    obj = V.it if obj is None else obj
+    if f not in obj and not required:
+        return None
+    lst = V.strlist(f, required=required, min_n=min_n, obj=obj, pfx=pfx)
+    if lst is None:
+        return None
+    bad = [x for x in lst if len(x) != 1 or not HANZI_RE.match(x)]
+    if bad:
+        V.err("E-CHAR-SINGLE", f"{pfx}{f} 每项必须是单个汉字，这些不是：{bad}")
+    if len(set(lst)) != len(lst):
+        V.warn("W-DUP-IN-LIST", f"{pfx}{f} 有重复 {sorted({x for x in lst if lst.count(x) > 1})}")
+    return lst
+
+
+def py_of(V: Item, pyc: PinyinChecker, field: str, text, py, contexts=()):
+    """拼音格式 + 音节数 + pypinyin 交叉核对（与 1.0 栏目同一套规则，结果进“拼音待人工核对”）。"""
+    if py is None:
+        return
+    sylls = pyc.split_check(V, field, py)
+    if not isinstance(text, str) or sylls is None:
+        return
+    n = len(hz_list(text))
+    if len(sylls) != n:
+        V.err("E-PY-COUNT", f"{field}「{py}」{len(sylls)} 个音节，「{text}」{n} 个汉字")
+        return
+    ctx = tuple(c for c in contexts if isinstance(c, str) and c)
+    key = (V.col, text, py, ctx)
+    if key in _PY_DONE:
+        return
+    _PY_DONE.add(key)
+    pyc.check(V, field, text, sylls, contexts=list(ctx))
+
+
+class SplitChecker:
+    """recipes 的 a+b=ans 用 hanzi_chaizi 复查一级拆分（可选依赖；没装就跳过）。
+    hanzi_chaizi 用传统部首写法（氵→水、辶→辵、月→肉），有时拆到二级（燥→火品木），有时按繁体拆（远→辵袁），
+    所以先把部首变体归一、再允许“部件自身再拆一层”；仍对不上的列成警告，人工看过没问题的写进 RECIPE_SPLIT_MANUAL。"""
+    VAR = {"氵": "水", "亻": "人", "扌": "手", "忄": "心", "⺗": "心", "讠": "言", "钅": "金", "饣": "食", "纟": "丝", "糸": "丝",
+           "艹": "草", "辶": "辵", "王": "玉", "冫": "冰", "礻": "示", "衤": "衣", "月": "肉", "犭": "犬", "攵": "攴", "刂": "刀",
+           "灬": "火", "⺮": "竹", "阜": "阝", "邑": "阝", "罒": "网", "丬": "爿", "牜": "牛", "苟": "茍", "⻊": "足", "户": "戶"}
+
+    def __init__(self):
+        try:
+            from hanzi_chaizi import HanziChaizi
+            self.hc = HanziChaizi()
+            self.ok = True
+        except Exception:  # noqa: BLE001
+            self.hc, self.ok = None, False
+        self._cache: dict[str, list] = {}
+
+    def comps(self, ch: str) -> list[str]:
+        if ch not in self._cache:
+            try:
+                q = self.hc.query(ch) if self.hc else None
+            except Exception:  # noqa: BLE001
+                q = None
+            self._cache[ch] = [self.VAR.get(x, x) for x in (q or [])]
+        return self._cache[ch]
+
+    def check(self, a: str, b: str, ans: str):
+        """返回 None = 对得上 / 无法判断；否则返回 hanzi_chaizi 的拆分（给报告用）。"""
+        c = self.comps(ans)
+        if not c:
+            return None
+        left = list(c)
+
+        def take(part):
+            p = self.VAR.get(part, part)
+            if p in left:
+                left.remove(p)
+                return True
+            sub = self.comps(part)   # 部件自身再拆一层（森=木+林、燥=火+喿）
+            if sub and all(sub.count(x) <= left.count(x) for x in set(sub)):
+                for x in sub:
+                    left.remove(x)
+                return True
+            return False
+        if take(a) and take(b):
+            return None
+        # 再按“拆到底”的部件比一次（燥 = 火+品+木，喿 = 口口口+木）
+        la, lb, lc = self.leaves(a), self.leaves(b), self.leaves(ans)
+        return None if sorted(la + lb) == sorted(lc) else c
+
+    def leaves(self, ch: str, depth: int = 0) -> list[str]:
+        ch = self.VAR.get(ch, ch)
+        sub = self.comps(ch) if depth < 4 else []
+        if not sub or sub == [ch]:
+            return [ch]
+        out = []
+        for x in sub:
+            out += self.leaves(x, depth + 1)
+        return out
+
+
+RECIPE_SPLIT_MANUAL = {   # hanzi_chaizi 对不上、人工核对过没问题的配方："a+b=ans" -> 理由
+    "辶+元=远": "简化字 远 = 辶 + 元；hanzi_chaizi 按繁体 遠 拆成 辵 + 袁",
+}
+SPLIT = SplitChecker()
+
+
+def v_recipes(V: Item, it, pyc):
+    a = one_part(V, "a", V.s("a"))
+    b = one_part(V, "b", V.s("b"))
+    ans = one_hz(V, "ans", V.s("ans"), code="E-RECIPE-ANS")
+    py, word = V.s("py"), V.s("word")
+    opt_bool(V, "chain")
+    if ans and ans in (a, b):
+        V.err("E-RECIPE-SELF", f"部件 a/b 不能就是 ans「{ans}」")
+    if word:
+        hz_only(V, "word", word, code="E-RECIPE-WORD")
+        if ans and ans not in word:
+            V.err("E-RECIPE-WORD", f"word「{word}」不含 ans「{ans}」")
+        if not 2 <= len(word) <= 4:
+            V.warn("W-WORD-LEN", f"word「{word}」{len(word)} 个字（常用词 2–4 字）")
+    py_of(V, pyc, "py", ans, py, contexts=[word])
+    if a and b and ans and SPLIT.ok:
+        got = SPLIT.check(a, b, ans)
+        key = f"{a}+{b}={ans}"
+        if got is not None and key not in RECIPE_SPLIT_MANUAL:
+            V.warn("W-RECIPE-SPLIT", f"hanzi_chaizi 把「{ans}」拆成 {got}，与 {key} 对不上（人工确认没问题就写进 build.py 的 RECIPE_SPLIT_MANUAL）")
+
+
+def v_chains(V: Item, it, pyc):
+    path = V.strlist("path", min_n=2)
+    show = V.s("show")
+    if path:
+        bad = [x for x in path if len(x) != 1 or not HANZI_RE.match(x)]
+        if bad:
+            V.err("E-CHAR-SINGLE", f"path 每项必须是单个汉字，这些不是：{bad}")
+        elif show:
+            pos = 0
+            for ch in path:
+                k = show.find(ch, pos)
+                if k < 0:
+                    V.warn("W-CHAIN-SHOW", f"show「{show}」没按顺序出现 path 里的「{ch}」")
+                    break
+                pos = k + 1
+
+
+def v_jg(V: Item, it, pyc):
+    c = one_hz(V, "c", V.s("c"))
+    jg, py, w = V.s("jg"), V.s("py"), V.s("w")
+    opt_bool(V, "skip")
+    note = V.s("note", required=False)
+    if jg and jg not in JG:
+        V.err("E-JG-VALUE", f"jg「{jg}」不在 {sorted(JG)}")
+    if it.get("skip") is True and not note:
+        V.warn("W-JG-NOTE", "标了 skip 却没写 note（为什么不典型）")
+    if w:
+        hz_only(V, "w", w, code="E-JG-WORD")
+        if c and c not in w:
+            V.err("E-JG-WORD", f"例词 w「{w}」不含「{c}」")
+    py_of(V, pyc, "py", c, py, contexts=[w])
+
+
+def v_zuci(V: Item, it, pyc):
+    c = one_hz(V, "c", V.s("c"))
+    py = V.s("py")
+    ok = it.get("ok")
+    xs, words = [], []
+    if "ok" not in it:
+        V.err("E-MISSING", "缺少字段 ok")
+    elif not isinstance(ok, list):
+        V.err("E-TYPE", "ok 应为数组")
+    else:
+        if len(ok) < 3:
+            V.err("E-ZUCI-OK", f"ok 至少 3 个，实际 {len(ok)}")
+        for j, o in enumerate(ok):
+            pfx = f"ok[{j}]."
+            if not isinstance(o, dict):
+                V.err("E-ITEM-TYPE", f"{pfx} 应为对象")
+                continue
+            V.unknown_fields(ZUCI_OK_FIELDS, obj=o, pfx=pfx)
+            x = one_hz(V, pfx + "x", V.s("x", obj=o, pfx=pfx))
+            w = hz_only(V, pfx + "w", V.s("w", obj=o, pfx=pfx), code="E-ZUCI-OK")
+            if x:
+                xs.append(x)
+                if x == c:
+                    V.err("E-ZUCI-OK", f"{pfx}x 就是 c「{c}」")
+            if w:
+                words.append(w)
+                if c and x and (c not in w or x not in w):
+                    V.err("E-ZUCI-OK", f"{pfx}w「{w}」应同时含 c「{c}」和 x「{x}」")
+                elif c and x and w not in (c + x, x + c):
+                    V.warn("W-ZUCI-OK-SHAPE", f"{pfx}w「{w}」不是 c+x 或 x+c（游戏里弹弓只拼两个字）")
+            py_of(V, pyc, pfx + "py", w, V.s("py", obj=o, pfx=pfx, required=False))
+        if len(set(xs)) != len(xs):
+            V.err("E-ZUCI-OK", f"ok 的 x 有重复 {sorted({x for x in xs if xs.count(x) > 1})}")
+    bad = hz_strlist(V, "bad", required=True, min_n=1)
+    if bad is not None:
+        if len(bad) < 5:
+            V.err("E-ZUCI-BAD", f"bad 至少 5 个，实际 {len(bad)}")
+        both = [x for x in bad if x in xs or x == c]
+        if both:
+            V.err("E-ZUCI-BAD", f"bad 里的 {both} 同时是 c 或 ok 的字")
+        if c:
+            for x in bad:
+                for w in (c + x, x + c):
+                    src = LEXICON.get(w) or ("pypinyin 词组库" if w in pyc.phrases else None)
+                    if src:
+                        V.warn("W-ZUCI-BAD-WORD", f"bad「{x}」与「{c}」能组成「{w}」（见 {src}），孩子选它会被判错")
+    py_of(V, pyc, "py", c, py, contexts=words)
+
+
+def menu_part(V: Item, o, pfx: str, pyc, ids: set):
+    if not isinstance(o, dict):
+        V.err("E-ITEM-TYPE", f"{pfx} 应为对象")
+        return
+    V.unknown_fields(MENU_PART_FIELDS, obj=o, pfx=pfx)
+    pid = V.s("id", obj=o, pfx=pfx)
+    if pid:
+        if not ASCII_ID_RE.fullmatch(pid):
+            V.warn("W-MENU-ID", f"{pfx}id「{pid}」应为小写英文/数字/下划线")
+        if pid in ids:
+            V.err("E-MENU-ID", f"{pfx}id「{pid}」在这道菜里重复")
+        ids.add(pid)
+    name = hz_only(V, pfx + "name", V.s("name", obj=o, pfx=pfx), code="E-MENU-NAME")
+    V.s("emoji", obj=o, pfx=pfx)
+    one_hz(V, pfx + "mw", V.s("mw", obj=o, pfx=pfx, required=False), code="E-MENU-MW")
+    hz_strlist(V, "also", obj=o, pfx=pfx)
+    V.s("color", obj=o, pfx=pfx, required=False)
+    py_of(V, pyc, pfx + "py", name, V.s("py", obj=o, pfx=pfx))
+
+
+def v_menu(V: Item, it, pyc):
+    mid, emoji = V.s("id"), V.s("emoji")
+    if mid and not ASCII_ID_RE.fullmatch(mid):
+        V.warn("W-MENU-ID", f"id「{mid}」应为小写英文/数字/下划线")
+    name = hz_only(V, "name", V.s("name"), code="E-MENU-NAME")
+    one_hz(V, "mw", V.s("mw"), code="E-MENU-MW")
+    hz_strlist(V, "also")
+    kind = V.s("kind", required=False)
+    if kind and kind not in MENU_KIND:
+        V.err("E-MENU-KIND", f"kind「{kind}」不在 {sorted(MENU_KIND)}")
+    opt_bool(V, "stack")
+    py_of(V, pyc, "py", name, V.s("py"))
+    ids: set = set()
+    for f in ("base", "extra", "layers"):
+        if f not in it:
+            if f != "layers":
+                V.err("E-MISSING", f"缺少字段 {f}")
+            continue
+        lst = it[f]
+        if not isinstance(lst, list):
+            V.err("E-TYPE", f"{f} 应为数组")
+            continue
+        for j, o in enumerate(lst):
+            menu_part(V, o, f"{f}[{j}].", pyc, ids)
+    if it.get("stack") is True:
+        if not (isinstance(it.get("layers"), list) and len(it["layers"]) >= 2):
+            V.err("E-MENU-LAYERS", "stack:true 的菜要有至少 2 种 layers")
+    elif isinstance(it.get("base"), list) and not it["base"]:
+        V.warn("W-MENU-BASE", "base 为空（不是叠层菜时应至少 1 样主料）")
+
+
+def v_menuwords(V: Item, it, pyc):
+    k = V.s("k")
+    if k not in MENUWORD_FIELDS:
+        if k:
+            V.err("E-MENUWORD-K", f"k「{k}」不在 {sorted(MENUWORD_FIELDS)}")
+        return
+    extra = sorted(set(it) - MENUWORD_FIELDS[k])
+    if extra:
+        V.warn("W-FIELD-UNKNOWN", f"k={k} 不该有字段 {extra}")
+    if k == "mw":
+        n = hz_only(V, "n", V.s("n"), code="E-MENU-NAME")
+        mw = one_hz(V, "mw", V.s("mw"), code="E-MENU-MW")
+        hz_strlist(V, "also")
+        py_of(V, pyc, "py", n, V.s("py"))
+        py_of(V, pyc, "mwpy", mw, V.s("mwpy"))
+        return
+    w = hz_only(V, "w", V.s("w"), code="E-MENUWORD-W")
+    py_of(V, pyc, "py", w, V.s("py"))
+    if k == "color":
+        hx = V.s("hex")
+        if hx and not HEX_RE.fullmatch(hx):
+            V.err("E-MENUWORD-HEX", f"hex「{hx}」应为 #RRGGBB")
+    elif k == "pos":
+        opt_int(V, "i")
+    elif k == "num":
+        opt_int(V, "n")
+
+
+def v_bushou(V: Item, it, pyc):
+    one_hz(V, "c", V.s("c"))
+    one_part(V, "bs", V.s("bs"), code="E-BUSHOU-BS")
+    V.s("fam", required=False)   # 没写 fam 时前端按 bs 归家族（{字: 部首} 写法就没有 fam）
+    one_part(V, "gf", V.s("gf", required=False), code="E-BUSHOU-BS")
+
+
+def v_bushou_stats(V: Item, it, pyc):
+    V.s("fam")
+    n = opt_int(V, "n")
+    cs = V.s("cs", required=False)   # {家族: 个数} 写法没有 cs
+    if cs:
+        hz_only(V, "cs", cs, code="E-BUSHOU-STATS")
+        if n is not None and n != len(cs):
+            V.warn("W-BUSHOU-STATS", f"n={n}，cs 却有 {len(cs)} 个字")
+
+
 VALIDATORS = {"words": v_words, "chars": v_chars, "quiz": v_quiz, "pick": v_pick,
               "stories": v_stories, "readaloud": v_readaloud, "twisters": v_twisters,
               "talk": v_talk, "order": v_order, "passages": v_passages, "build": v_build,
-              "typo": v_typo, "compose": v_compose}
+              "typo": v_typo, "compose": v_compose,
+              "recipes": v_recipes, "chains": v_chains, "jg": v_jg, "zuci": v_zuci,
+              "menu": v_menu, "menuwords": v_menuwords, "bushou": v_bushou, "bushou_stats": v_bushou_stats}
 
 
 def dup_key(col, it):
@@ -886,7 +1291,11 @@ def dup_key(col, it):
            "readaloud": lambda: g("title"), "twisters": lambda: g("text"), "talk": lambda: g("topic"),
            "order": lambda: g("ans"), "passages": lambda: g("title"),
            "build": lambda: (g("base"), g("ans")), "typo": lambda: g("s"),
-           "compose": lambda: g("prompt")}.get(col)
+           "compose": lambda: g("prompt"),
+           "recipes": lambda: (tuple(sorted(map(str, (g("a"), g("b"))))), g("ans")),
+           "chains": lambda: tuple(g("path") or ()), "jg": lambda: g("c"), "zuci": lambda: g("c"),
+           "menu": lambda: g("id"), "menuwords": lambda: (g("k"), g("w") if g("k") != "mw" else g("n")),
+           "bushou": lambda: g("c"), "bushou_stats": lambda: g("fam")}.get(col)
     if not key:
         return None
     try:
@@ -945,10 +1354,40 @@ def load_and_merge(files: list[Path], rep: Report):
                 rep.err("E-GRADE", f"{f.name}:{g}", "年级下必须是 {栏目: [...]} 对象")
                 continue
             for col, items in cols.items():
+                meta_key = col.startswith("_")
+                if meta_key:
+                    # 以 _ 开头 = 元数据（如 _stats）：原样并入 HW_DATA（数组接在后面、对象合并、其余后者覆盖），不当题目校验
+                    old = data[g].get(col)
+                    if old is None:
+                        data[g][col] = clone_json(items)
+                    elif isinstance(old, list) and isinstance(items, list):
+                        old.extend(clone_json(items))
+                    elif isinstance(old, dict) and isinstance(items, dict):
+                        old.update(clone_json(items))
+                    else:
+                        rep.warn("W-META-KEY", f"{f.name}:{g}.{col}", "与别的文件里的同名元数据键类型不同，用本文件的值覆盖")
+                        data[g][col] = clone_json(items)
+                    rep.info.append(f"元数据键 {f.name}:{g}.{col}（{type(items).__name__}）原样并入 HW_DATA，不校验")
+                    continue
                 if col not in COLUMNS:
                     rep.warn("W-COL-UNKNOWN", f"{f.name}:{g}", f"未定义的栏目「{col}」（仍然并入 HW_DATA）")
+                if isinstance(items, dict) and col in DICT_OK_COLUMNS:
+                    # {字: 部首} / {家族: 个数} 这类对象写法：原样并入（前端 parseBushou 两种都认），校验时逐键展开
+                    old = data[g].get(col)
+                    if old is None or (isinstance(old, list) and not old):
+                        data[g][col] = clone_json(items)
+                        origin[g][col] = f.name
+                    elif isinstance(old, dict):
+                        old.update(items)
+                        origin[g][col] = f"{origin[g].get(col)}+{f.name}"
+                    else:
+                        rep.err("E-COL-TYPE", f"{f.name}:{g}.{col}", "别的文件里这个栏目是数组、这里是对象，不能合并，本文件的忽略")
+                    continue
                 if not isinstance(items, list):
-                    rep.err("E-COL-TYPE", f"{f.name}:{g}.{col}", "栏目必须是数组，整栏忽略")
+                    rep.err("E-COL-TYPE", f"{f.name}:{g}.{col}", "栏目必须是数组" + ("或对象" if col in DICT_OK_COLUMNS else "") + "，整栏忽略")
+                    continue
+                if isinstance(data[g].get(col), dict):
+                    rep.err("E-COL-TYPE", f"{f.name}:{g}.{col}", "别的文件里这个栏目是对象、这里是数组，不能合并，本文件的忽略")
                     continue
                 data[g].setdefault(col, []).extend(items)
                 origin[g].setdefault(col, []).extend([f.name] * len(items))
@@ -964,16 +1403,156 @@ def load_and_merge(files: list[Path], rep: Report):
     return merged, origin
 
 
+def dict_col_items(col, obj: dict) -> list:
+    """对象写法的栏目展开成条目列表（只用于校验；HW_DATA 里保持原样）。_ 开头的键是元数据，跳过。"""
+    out = []
+    for k, v in obj.items():
+        if str(k).startswith("_"):
+            continue
+        if col == "bushou":
+            out.append({"c": k, "bs": v} if isinstance(v, str) else ({"c": k, **v} if isinstance(v, dict) else v))
+        elif col == "bushou_stats":
+            if isinstance(v, int):
+                out.append({"fam": k, "n": v})
+            elif isinstance(v, str):
+                out.append({"fam": k, "n": len(v), "cs": v})
+            else:
+                out.append({"fam": k, **v} if isinstance(v, dict) else v)
+        else:
+            out.append(v)
+    return out
+
+
+def is_meta_item(it) -> bool:
+    """数组里的元数据条目（如 bushou 里的 {"_stats": …}）：所有键都以 _ 开头。"""
+    return isinstance(it, dict) and bool(it) and all(str(k).startswith("_") for k in it)
+
+
+def build_lexicon(data):
+    """题库里出现过的“整词”（不是任意子串，免得“热闹|门口”被当成“闹门”）→ 出处。"""
+    LEXICON.clear()
+
+    def add(w, src):
+        if isinstance(w, str) and 2 <= len(w) <= 6 and all(HANZI_RE.match(ch) for ch in w):
+            LEXICON.setdefault(w, src)
+    for g in GRADES:
+        d = data[g]
+        L = lambda c: [x for x in (d.get(c) if isinstance(d.get(c), list) else []) if isinstance(x, dict)]  # noqa: E731
+        for x in L("words"):
+            add(x.get("w"), f"{g}.words")
+        for x in L("chars"):
+            for w in x.get("words") or []:
+                add(w, f"{g}.chars.words")
+        for x in L("pick"):
+            add(x.get("say"), f"{g}.pick")
+        for x in L("build"):
+            add(x.get("hint"), f"{g}.build.hint")
+        for x in L("readaloud"):
+            for hd in x.get("hard") or []:
+                if isinstance(hd, dict):
+                    add(hd.get("w"), f"{g}.readaloud.hard")
+        for x in L("jg"):
+            add(x.get("w"), f"{g}.jg.w")
+        for x in L("recipes"):
+            add(x.get("word"), f"{g}.recipes.word")
+        for x in L("zuci"):
+            for o in x.get("ok") or []:
+                if isinstance(o, dict):
+                    add(o.get("w"), f"{g}.zuci.ok")
+
+
+def validate_ext_grade(g, data, rep: Report):
+    """3.0 新栏目的年级级别检查：条数、jg 覆盖与冲突、合成链、菜单颜色/量词对得上。"""
+    d = data[g]
+    L = lambda c: [x for x in (d.get(c) if isinstance(d.get(c), list) else []) if isinstance(x, dict) and not is_meta_item(x)]  # noqa: E731
+    for col, (lo, hi) in COUNT_RANGE.items():
+        n = len(L(col))
+        if n and not lo <= n <= hi:
+            rep.warn("W-COUNT", f"{g}.{col}", f"{n} 条（SPEC_V3：每年级 {lo}–{hi} 条）")
+    # jg：覆盖本年级 words 与 chars 的全部汉字；与 chars.jg 的标注冲突
+    jg = L("jg")
+    if jg:
+        have = {x.get("c") for x in jg}
+        need = []
+        for x in L("words"):
+            need += hz_list(x.get("w") or "")
+        for x in L("chars"):
+            need += hz_list(x.get("c") or "")
+        miss = [ch for ch in dict.fromkeys(need) if ch not in have]
+        if miss:
+            rep.warn("W-JG-COVER", f"{g}.jg", f"本年级 words/chars 里有 {len(miss)} 个字没有结构标注：{''.join(miss[:60])}{'…' if len(miss) > 60 else ''}")
+        cj = {x.get("c"): x.get("jg") for x in L("chars") if isinstance(x.get("c"), str)}
+        for x in jg:
+            c = x.get("c")
+            if c in cj and x.get("skip") is not True and isinstance(x.get("jg"), str) and cj[c] and cj[c] != x["jg"]:
+                rep.warn("W-JG-CONFLICT", f"{g}.jg「{c}」", f"jg 标「{x['jg']}」，chars 里标「{cj[c]}」（游戏会弃用有冲突的字）")
+    # recipes / chains：chain:true 的字要真能继续合成；chains 的每一步都要有对应配方（本年级及以下）
+    recs = []
+    for k in GRADES[:GRADES.index(g) + 1]:
+        dk = data[k]
+        recs += [x for x in (dk.get("recipes") if isinstance(dk.get("recipes"), list) else []) if isinstance(x, dict)]
+    parts = {x.get("a") for x in recs} | {x.get("b") for x in recs}
+    for x in L("recipes"):
+        if x.get("chain") is True and x.get("ans") not in parts:
+            rep.warn("W-RECIPE-CHAIN", f"{g}.recipes「{x.get('a')}+{x.get('b')}={x.get('ans')}」", "标了 chain:true，但本年级及以下没有用它当部件的配方")
+    for x in L("chains"):
+        path = x.get("path")
+        if not (isinstance(path, list) and len(path) >= 2 and all(isinstance(p, str) for p in path)):
+            continue
+        for j, ch in enumerate(path):
+            ok = any(r.get("ans") == ch and (j == 0 or path[j - 1] in (r.get("a"), r.get("b"))) for r in recs)
+            if not ok:
+                how = "没有合成它的配方" if j == 0 else f"没有用「{path[j - 1]}」合成它的配方"
+                rep.warn("W-CHAIN-BROKEN", f"{g}.chains「{'→'.join(path)}」", f"第 {j + 1} 步「{ch}」{how}（本年级及以下 recipes）")
+                break
+    # menu：配料颜色要在 menuwords 的颜色词里；菜名的量词与 menuwords 的量词表一致
+    menu, mws = L("menu"), L("menuwords")
+    if menu and mws:
+        colors = {x.get("w") for x in mws if x.get("k") == "color"}
+        mwtab = {}
+        for x in mws:
+            if x.get("k") == "mw" and isinstance(x.get("n"), str):
+                mwtab.setdefault(x["n"], set()).add(x.get("mw"))
+        for m in menu:
+            for f in ("base", "extra", "layers"):
+                for o in m.get(f) or []:
+                    if isinstance(o, dict) and isinstance(o.get("color"), str) and colors and o["color"] not in colors:
+                        rep.warn("W-MENU-COLOR", f"{g}.menu「{m.get('name')}」", f"{o.get('name')} 的颜色「{o['color']}」不在 menuwords 颜色词里")
+            nm = m.get("name")
+            if isinstance(nm, str) and nm in mwtab and m.get("mw") not in mwtab[nm]:
+                rep.warn("W-MENU-MW", f"{g}.menu「{nm}」", f"量词「{m.get('mw')}」与 menuwords 里的 {sorted(mwtab[nm])} 不一致")
+    # bushou_stats 与 bushou 对得上
+    bs, st = L("bushou"), L("bushou_stats")
+    if bs and st:
+        fam = {}
+        for x in bs:
+            if isinstance(x.get("fam"), str) and isinstance(x.get("c"), str):
+                fam.setdefault(x["fam"], []).append(x["c"])
+        for s in st:
+            f, n = s.get("fam"), s.get("n")
+            if isinstance(f, str) and type(n) is int and len(fam.get(f, [])) != n:
+                rep.warn("W-BUSHOU-STATS", f"{g}.bushou_stats「{f}」", f"n={n}，bushou 里 fam=「{f}」的字有 {len(fam.get(f, []))} 个")
+
+
 def validate(data, origin, rep: Report, pyc: PinyinChecker):
+    build_lexicon(data)
     for g in GRADES:
         for col, items in data[g].items():
+            if col.startswith("_"):
+                continue   # 元数据键，不是题目
+            src_of = None
+            if isinstance(items, dict):
+                src_of = origin[g].get(col) if isinstance(origin[g].get(col), str) else "?"
+                items = dict_col_items(col, items)
             fn = VALIDATORS.get(col)
             seen = {}
             for i, it in enumerate(items):
-                V = Item(rep, g, col, i, it, origin[g][col][i])
+                V = Item(rep, g, col, i, it, src_of or origin[g][col][i])
                 if not isinstance(it, dict):
                     V.err("E-ITEM-TYPE", f"题目必须是对象，实际 {type(it).__name__}")
                     continue
+                if is_meta_item(it):
+                    continue   # {"_stats": …} 这类元数据条目
                 if fn is None:
                     continue
                 V.unknown_fields(FIELDS[col])
@@ -988,6 +1567,7 @@ def validate(data, origin, rep: Report, pyc: PinyinChecker):
                     else:
                         seen[k] = i
         # 年级级别
+        validate_ext_grade(g, data, rep)
         gn = int(g[1])
         quiz = [q for q in data[g]["quiz"] if isinstance(q, dict)]
         region = sum(1 for q in quiz if q.get("t") == "地区词")
@@ -1206,7 +1786,9 @@ def fmt_bytes(n: int) -> str:
 
 
 def stats_table(data) -> list[str]:
-    cols = list(data[GRADES[0]].keys())
+    cols = []
+    for g in GRADES:
+        cols += [c for c in data[g] if c not in cols and not c.startswith("_")]
     w = max(len(c) for c in cols) + 2
     lines = ["栏目".ljust(w - 2) + "".join(g.rjust(10) for g in GRADES) + "    目标/年级",
              "-" * (w + 10 * len(GRADES) + 12)]
@@ -1217,7 +1799,8 @@ def stats_table(data) -> list[str]:
             t = TARGET.get(c)
             cell = f"{n}/{t}" + ("*" if t and n < t else " ") if t else f"{n} "
             row += cell.rjust(10)
-        lines.append(row + f"    {TARGET.get(c, '-')}")
+        rng = COUNT_RANGE.get(c)
+        lines.append(row + f"    {f'{rng[0]}–{rng[1]}' if rng else TARGET.get(c, '-')}")
     lines.append("（* = 未达 SPEC 目标条数）")
     lines.append("")
     lines.append("quiz 题型分布：")
@@ -1334,6 +1917,8 @@ def main(argv=None) -> int:
     t0 = time.time()
     rep = Report()
     pyc = PinyinChecker(rep)
+    rep.info.append("recipes 拆分复查：" + ("hanzi_chaizi 可用（W-RECIPE-SPLIT）" if SPLIT.ok else "hanzi_chaizi 不可用，跳过（.venv/bin/pip install hanzi_chaizi）")
+                    + f"；zuci 的 bad 复查：题库整词 + pypinyin 词组库 {len(pyc.phrases)} 条")
     files = resolve_inputs(root, args.content_glob, rep)
     if not files:
         rep.err("E-INPUT", "输入", "没有任何题库文件")
@@ -1353,6 +1938,16 @@ def main(argv=None) -> int:
         js[n] = check_js_part(n, read_part(parts_dir, n, rep), rep)
     data_js = f"<script>window.HW_DATA = {js_embed(data)};</script>"
     strokes_js = f"<script>window.HW_STROKES = {js_embed(strokes)};</script>"
+    # 笔顺数据来自 hanzi-writer-data（Make Me a Hanzi，Arphic Public License）：分发时须附许可全文
+    _apl = root / "licenses" / "ARPHICPL-hanzi-writer-data.txt"
+    license_js = ""
+    if _apl.is_file():
+        _t = _apl.read_text("utf-8").replace("</", "<\\/")
+        license_js = ('<script type="text/plain" id="license-hanzi-writer-data">\n'
+                      "笔顺数据 hanzi-writer-data 2.0.1（https://github.com/chanind/hanzi-writer-data ，源自 Make Me a Hanzi），"
+                      "按 Arphic Public License 分发，许可全文如下：\n\n" + _t + "\n</script>")
+    else:
+        rep.warn("W-LICENSE", "licenses", f"缺少 {_apl}，页面里没有附 Arphic 许可全文")
     de_tab = tts_de_table(data)
     de_keys = sorted(k for k, (v, _) in de_tab.items() if v == "de")
     rep.info.append(f"TTS“地”修正：共 {len(de_tab)} 种上下文，读 de {len(de_keys)} 种，读 dì {len(de_tab) - len(de_keys)} 种")
@@ -1363,6 +1958,7 @@ def main(argv=None) -> int:
         ("hanzi-writer 3.7.3 <script src>", f'<script src="{HW_CDN}"></script>'),
         ('<div id="app">', '<div id="app"></div>'),
         ("HW_DATA", data_js),
+        ("Arphic 许可（笔顺数据）", license_js),
         ("HW_STROKES", strokes_js),
         ("HW_TTS_DE", tts_js),
     ]

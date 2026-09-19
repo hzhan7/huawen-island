@@ -21,7 +21,8 @@
   const bare = (py) => String(py || '').toLowerCase().replace(/[ǖǘǚǜü]/g, 'v').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
   const clampN = (v, a, b) => (v < a ? a : v > b ? b : v);
   const pairsFor = (lv) => PAIRS[clampN(lv - 1, 0, PAIRS.length - 1)];
-  const peekFor = (lv) => Math.max(1.0, 2.8 - 0.2 * (lv - 1));
+  // 偷看时长：2.8 → 1 秒；P2/P3 小朋友读拼音慢，多给 0.6 / 0.3 秒
+  const peekFor = (lv, gn) => Math.max(1.0, 2.8 - 0.2 * (lv - 1)) + Math.max(0, 4 - (gn || 3)) * 0.3;
   function timeFor(lv, pairs, gradeNum) {
     const per = clampN(12 - 0.5 * (lv - 1) + (6 - (gradeNum || 3)) * 0.8, 7, 16);
     return Math.round(pairs * per + 10);
@@ -39,11 +40,15 @@
       if (!k || seenPy.has(k) || seenW.has(w)) return;
       seenPy.add(k); seenW.add(w); out.push(it);
     };
+    const inReview = !!(g.hasReview && g.hasReview('words') > 0);
+    // 错题重练：交来的错题（核心最多给 10 个）全部上桌，别因为第 1 关只有 6 对就漏练几个
+    if (inReview) n = 12;   // tryAdd 读的就是这个 n
     const first = g.items('words', n) || [];
     first.forEach(tryAdd);
-    if (!g.isReview && out.length < n) {
-      g.shuffle((g.G && g.G.words) || []).forEach(tryAdd);
-    }
+    g.reviewN = inReview ? out.length : 0;
+    // 错题只有 1–3 个时一盘只剩 2–6 张牌，根本不像翻牌游戏——用本年级其它词补到至少 5 对（错题一定都在盘上）
+    if (inReview) n = Math.max(out.length, 5);
+    if (out.length < n) g.shuffle((g.G && g.G.words) || []).forEach(tryAdd);
     return out;
   }
 
@@ -63,16 +68,21 @@
     } else {
       const syl = cd.item.py.trim().split(/\s+/);
       let fs = Math.round(clampN(Math.min(w * 0.2, h * 0.2), 12, 30));
-      const maxW = w * 0.86;
+      const maxW = w * 0.9;
       const w1 = g.measure(syl.join(' '), fs, 'py');
-      if (w1 <= maxW) { cd.lines = [syl.join(' ')]; cd.fs = fs; return; }
-      if (w1 * 0.8 <= maxW || syl.length < 2) { cd.lines = [syl.join(' ')]; cd.fs = Math.max(11, Math.floor(fs * maxW / w1)); return; }
-      const half = Math.ceil(syl.length / 2);
+      if (w1 <= maxW || syl.length < 2) { cd.lines = [syl.join(' ')]; cd.fs = w1 <= maxW ? fs : Math.max(11, Math.floor(fs * maxW / w1)); return; }
+      // 放不下一行：比较“一行缩小”和“拆两行”哪个字更大（四字成语的拼音拆两行通常大得多）
+      const fs1 = Math.floor(fs * maxW / w1);
+      // 三音节 ABB 词（liàng jīng jīng 亮晶晶）按 A | BB 断，其它三音节（zì xíng chē）按 AB | C 断
+      const half = syl.length === 3 && bare(syl[1]) === bare(syl[2]) ? 1 : Math.ceil(syl.length / 2);
       const l1 = syl.slice(0, half).join(' '), l2 = syl.slice(half).join(' ');
-      cd.lines = syl.length > 1 ? [l1, l2] : [syl[0]];
-      const wid = Math.max(g.measure(l1, fs, 'py'), syl.length > 1 ? g.measure(l2, fs, 'py') : 0);
-      if (wid > maxW) fs = Math.max(11, Math.floor(fs * maxW / wid));
-      cd.fs = fs;
+      const wid = Math.max(g.measure(l1, fs, 'py'), g.measure(l2, fs, 'py'));
+      const fs2 = Math.min(wid > maxW ? Math.floor(fs * maxW / wid) : fs, Math.floor(h * 0.27));
+      // 2–3 个音节的词（shāng liang / pàng hū hū）拆成两行像两个词——只有一行太小才拆；成语（4 音节）照常 2+2
+      const minOne = syl.length === 2 ? 14 : syl.length === 3 ? 16 : 1e9;
+      const split = fs1 < minOne && fs2 > fs1 * 1.06;
+      if (split) { cd.lines = [l1, l2]; cd.fs = Math.max(11, fs2); }
+      else { cd.lines = [syl.join(' ')]; cd.fs = Math.max(11, fs1); }
     }
   }
 
@@ -163,7 +173,8 @@
   function moveCard(g, cd, x1, y1, dur, o) {
     o = o || {};
     if (cd.mvTw) cd.mvTw.cancel();
-    const mv = { k: 0, x0: cd.x, y0: cd.y, x1, y1, arc: o.arc || 0, r0: cd.rot || 0, r1: o.rot1 || 0, s0: cd.sc, s1: o.s1 == null ? 1 : o.s1, slot: !!o.slot, chest: !!o.chest, perp: !!o.perp };
+    const mv = { k: 0, x0: cd.x, y0: cd.y, x1, y1, arc: o.arc || 0, r0: cd.rot || 0, r1: o.rot1 || 0, s0: cd.sc, s1: o.s1 == null ? 1 : o.s1, slot: !!o.slot, chest: !!o.chest, perp: !!o.perp,
+      lo: o.perp ? (cd.w || 60) / 2 + 4 : -1e9, hi: o.perp ? g.w - (cd.w || 60) / 2 - 4 : 1e9 };
     cd.mv = mv;
     cd.mvTw = g.tween(mv, { k: 1 }, dur, o.ease || 'outCubic', () => {
       cd.mv = null; cd.mvTw = null;
@@ -181,6 +192,7 @@
     if (m.perp) {   // 垂直于运动方向的弧：两张牌对调时绕着彼此转半圈
       const dx = m.x1 - m.x0, dy = m.y1 - m.y0, len = Math.hypot(dx, dy) || 1;
       cd.x += (dy / len) * off; cd.y -= (dx / len) * off;
+      cd.x = clampN(cd.x, m.lo, Math.max(m.lo, m.hi));   // 靠边的牌绕圈时别被甩出屏幕
     } else cd.y -= off;
     cd.rot = m.r0 + (m.r1 - m.r0) * k;
     cd.sc = m.s0 + (m.s1 - m.s0) * k;
@@ -264,17 +276,23 @@
       c.save();
       c.lineWidth = 1.2 * s; c.setLineDash([4 * s, 4 * s]);
       c.strokeStyle = isW ? 'rgba(232,69,60,.28)' : 'rgba(47,143,224,.3)';
+      const n = cd.lines.length, lh = cd.fs * (isW ? 1.12 : 1.3);
+      const y0 = -(n - 1) * lh / 2 + h * 0.04;
       c.beginPath();
       if (isW) { c.moveTo(-w / 2 + 8 * s, 0); c.lineTo(w / 2 - 8 * s, 0); c.moveTo(0, -h / 2 + 8 * s); c.lineTo(0, h / 2 - 8 * s); }
-      else { const q = cd.fs * 0.55; c.moveTo(-w / 2 + 8 * s, -q); c.lineTo(w / 2 - 8 * s, -q); c.moveTo(-w / 2 + 8 * s, q); c.lineTo(w / 2 - 8 * s, q); }
+      else {
+        // 拼音四线格的中间一格：每行拼音的 x 高度上下各一条虚线（小写字母坐在格子里，声调和 l/j/g 伸出去）
+        for (let i = 0; i < n; i++) {
+          const yy = y0 + i * lh;
+          for (const q of [-0.19, 0.31]) { c.moveTo(-w / 2 + 7 * s, yy + q * cd.fs); c.lineTo(w / 2 - 7 * s, yy + q * cd.fs); }
+        }
+      }
       c.stroke();
       c.restore();
       const tg = Math.max(9, Math.round(Math.min(w, h) * 0.12));
       c.beginPath(); c.arc(-w / 2 + tg * 1.15, -h / 2 + tg * 1.15, tg * 0.8, 0, TAU);
       c.fillStyle = isW ? '#E8453C' : '#2F8FE0'; c.fill();
       g.text(isW ? '词' : '拼', -w / 2 + tg * 1.15, -h / 2 + tg * 1.2, { size: tg, font: 'round', color: '#FFFFFF' });
-      const n = cd.lines.length, lh = cd.fs * (isW ? 1.12 : 1.3);
-      const y0 = -(n - 1) * lh / 2 + h * 0.04;
       for (let i = 0; i < n; i++) {
         if (isW) g.text(cd.lines[i], 0, y0 + i * lh, { size: cd.fs, font: 'kai', color: NAVY, maxW: w * 0.9 });
         else g.text(cd.lines[i], 0, y0 + i * lh, { size: cd.fs, font: 'py', color: '#16498F', maxW: w * 0.9 });
@@ -293,9 +311,14 @@
     const ch = L.chest, s = ch.s;
     const since = t - (g.chestHitT || -9);
     const bump = since < 0.45 ? Math.sin(since / 0.45 * Math.PI) * (1 - since / 0.45) : 0;
-    const bw = 80 * s, bh = 48 * s, op = clampN(g.chestOpen || 0, 0, 1.2);
+    const bw = 80 * s, bh = 48 * s, op0 = clampN(g.chestOpen || 0, 0, 1.2);
+    // 倒计时里宝箱一阵一阵地抖：牌在里面等着飞出来
+    const rph = t % 1.1, rattle = g.stage === 'ready' && rph < 0.45 ? Math.sin(t * 38) * 0.08 : 0;
+    const hop = rattle ? Math.sin(rph / 0.45 * Math.PI) * 7 * s : 0;
+    const op = rattle ? Math.max(op0, 0.35 * Math.sin(rph / 0.45 * Math.PI)) : op0;
     c.save();
-    c.translate(ch.x, ch.y + 18 * s);
+    c.translate(ch.x, ch.y + 18 * s - hop);
+    if (rattle) c.rotate(rattle);
     c.scale(1 + bump * 0.16, 1 - bump * 0.12);
     c.translate(0, -18 * s);
     c.fillStyle = 'rgba(20,30,70,.25)'; c.beginPath(); c.ellipse(0, bh * 0.52, bw * 0.62, 9 * s, 0, 0, TAU); c.fill();
@@ -334,6 +357,10 @@
     const p = L.panda, s = L.s;
     const hs = t - g.pd.hopT, ss = t - g.pd.sadT;
     let y = p.y - Math.abs(Math.sin(t * 2.6)) * 3 * s, rot = Math.sin(t * 1.3) * 0.06, sqx = 1, sqy = 1;
+    if ((g.feverK || 0) > 0.3 && !(hs >= 0 && hs < 0.7)) {   // 连击中：熊猫跟着蹦迪
+      y = p.y - Math.abs(Math.sin(t * 7)) * 12 * s * g.feverK;
+      rot = Math.sin(t * 7) * 0.18 * g.feverK;
+    }
     if (hs >= 0 && hs < 0.7) {
       const k = hs / 0.7;
       y -= Math.sin(k * Math.PI) * 34 * s;
@@ -448,11 +475,11 @@
   function drawBanner(g, c, L, t) {
     const b = g.banner;
     if (!b) return;
-    const age = t - b.t0;
-    if (age > 1.35) { g.banner = null; return; }
+    const age = t - b.t0, dur = b.dur || 1.35;
+    if (age > dur) { g.banner = null; return; }
     const s = L.s;
     const pop = age < 0.3 ? g.ease.outBack(age / 0.3) : 1;
-    const a = age > 1.05 ? (1.35 - age) / 0.3 : 1;
+    const a = age > dur - 0.3 ? (dur - age) / 0.3 : 1;
     const cx = g.w / 2, cy = L.panel.y + L.panel.h * 0.5;
     const fw = Math.round(clampN(46 * s, 34, 64)), fp = Math.round(clampN(22 * s, 16, 30));
     const tw = Math.max(g.measure(b.w, fw, 'kai'), g.measure(b.py, fp, 'py'));
@@ -461,13 +488,27 @@
     c.globalAlpha = clampN(a, 0, 1);
     c.translate(cx, cy); c.scale(pop, pop); c.rotate(Math.sin(age * 9) * 0.02 * (1 - Math.min(1, age)));
     g.rrect(-bw / 2, -bh / 2 + 6 * s, bw, bh, 24 * s, 'rgba(29,43,83,.55)');
-    g.rrect(-bw / 2, -bh / 2, bw, bh, 24 * s, '#FFFBEF', NAVY, 3.5 * s);
-    g.rrect(-bw / 2 + 6 * s, -bh / 2 + 6 * s, bw - 12 * s, bh - 12 * s, 18 * s, null, '#FFC928', 2.5 * s);
+    g.rrect(-bw / 2, -bh / 2, bw, bh, 24 * s, b.bad ? '#FFF4F1' : '#FFFBEF', NAVY, 3.5 * s);
+    g.rrect(-bw / 2 + 6 * s, -bh / 2 + 6 * s, bw - 12 * s, bh - 12 * s, 18 * s, null, b.bad ? '#FF7A70' : '#FFC928', 2.5 * s);
     g.text(b.py, 0, -bh / 2 + 14 * s + fp * 0.65, { size: fp, font: 'py', color: '#16498F', maxW: bw - 40 * s });
     g.text(b.w, 0, bh / 2 - 12 * s - fw * 0.62, { size: fw, font: 'kai', color: NAVY, maxW: bw - 40 * s });
-    g.emoji('⭐', -bw / 2 + 4 * s, -bh / 2 + 4 * s, 30 * s, { rot: age * 3 });
-    g.emoji('⭐', bw / 2 - 4 * s, -bh / 2 + 4 * s, 26 * s, { rot: -age * 3 });
+    if (b.bad) {
+      // 真答错时：告诉孩子正确的一对（“记一记”小标签），不是庆祝的星星
+      const tf = Math.round(clampN(15 * s, 13, 20)), tl = g.measure('记一记', tf, 'round') + 22 * s, th = tf + 12 * s;
+      g.rrect(-tl / 2, -bh / 2 - th * 0.55, tl, th, th / 2, '#E8453C', NAVY, 2.4 * s);
+      g.text('记一记', 0, -bh / 2 - th * 0.55 + th / 2 + 1, { size: tf, font: 'round', color: '#FFFFFF' });
+    } else {
+      g.emoji('⭐', -bw / 2 + 4 * s, -bh / 2 + 4 * s, 30 * s, { rot: age * 3 });
+      g.emoji('⭐', bw / 2 - 4 * s, -bh / 2 + 4 * s, 26 * s, { rot: -age * 3 });
+    }
     c.restore();
+  }
+  /* 横幅盖在牌桌正中：孩子一点屏幕就让它快速淡出（点击照常穿透去翻牌），别挡着找牌 */
+  function hurryBanner(g) {
+    const b = g.banner;
+    if (!b) return;
+    const dur = b.dur || 1.35, age = nowS() - b.t0;
+    if (age > 0.25 && age < dur - 0.18) b.t0 = nowS() - (dur - 0.18);
   }
 
   /* ---------------- 主绘制 ---------------- */
@@ -479,8 +520,20 @@
     const P = L.panel;
     g.rrect(P.x, P.y + 5 * s, P.w, P.h, 22 * s, 'rgba(20,40,90,.16)');
     g.rrect(P.x, P.y, P.w, P.h, 22 * s, 'rgba(255,250,235,.28)', 'rgba(255,255,255,.75)', 3 * s);
+    // 连击 ≥3：牌桌边框变成流动的彩虹灯带（越连越亮），断连就慢慢熄灭
+    const fever = (g.stage === 'play' || g.stage === 'clear') && g.combo >= 3 ? Math.min(1, 0.55 + g.combo * 0.08) : 0;
+    g.feverK = (g.feverK || 0) + (fever - (g.feverK || 0)) * 0.08;
+    if (g.feverK > 0.02) {
+      c.save();
+      c.globalAlpha = g.feverK * (0.7 + 0.3 * Math.sin(t * 7));
+      rrPath(c, P.x - 4 * s, P.y - 4 * s, P.w + 8 * s, P.h + 8 * s, 25 * s);
+      c.lineWidth = 9 * s; c.strokeStyle = 'hsl(' + ((345 + 55 * (0.5 + 0.5 * Math.sin(t * 5))) % 360 | 0) + ',100%,58%)'; c.stroke();
+      c.setLineDash([16 * s, 14 * s]); c.lineDashOffset = -t * 90 * s;
+      c.lineWidth = 3.5 * s; c.strokeStyle = '#FFFFFF'; c.stroke();
+      c.restore();
+    }
     if (g.stage === 'play' && g.timeLeft < 10) {   // 快没时间：牌桌边框红光一闪一闪
-      c.save(); c.globalAlpha = 0.35 + 0.35 * Math.sin(t * 10);
+      c.save(); c.globalAlpha = 0.45 + 0.4 * Math.sin(t * 10);
       g.rrect(P.x - 3 * s, P.y - 3 * s, P.w + 6 * s, P.h + 6 * s, 24 * s, null, '#FF3B3B', 7 * s);
       c.restore();
     }
@@ -506,7 +559,12 @@
       drawCard(g, c, cd, t, L);
     }
     for (const cd of lifted) if (!cd.mv) drawCard(g, c, cd, t, L);
-    for (const cd of lifted) if (cd.mv) drawCard(g, c, cd, t, L);
+    for (const cd of lifted) {
+      if (!cd.mv) continue;
+      // 飞回宝箱的牌拖一条金色星尘尾巴
+      if (cd.mv.chest && t - (cd.trT || 0) > 0.03) { cd.trT = t; g.burst(cd.x, cd.y, { kind: 'dot', color: cd.kind === 'w' ? '#FFE45C' : '#9FE3FF', n: 2 }); }
+      drawCard(g, c, cd, t, L);
+    }
     // 键盘光标
     if (g.kbd && g.stage === 'play') {
       const sl = L.slots[g.kcur];
@@ -593,7 +651,7 @@
   function startPeek(g) {
     const L = g.L;
     g.stage = 'peek';
-    g.peekMax = peekFor(g.level); g.peekLeft = g.peekMax + 0.35;
+    g.peekMax = peekFor(g.level, g.gradeNum); g.peekLeft = g.peekMax + 0.35;
     const wave = (cd) => ((L.slots[cd.slot].c + L.slots[cd.slot].r) * 0.04);
     g.cards.forEach((cd) => setFlip(g, cd, 1, 0.3, wave(cd) + 0.001));
     g.sfx('flip');
@@ -619,12 +677,37 @@
     return null;
   }
   const cardInSlot = (g, i) => g.cards.find((cd) => cd.slot === i && !cd.gone && !cd.matched) || null;
+  /* 键盘：从槽 i 往 k 方向走一格（行尾换行），返回新槽号（走不动 = 原值） */
+  function stepSlot(g, i, k) {
+    const L = g.L, n = g.cards.length, cur = L.slots[i] || L.slots[0];
+    let r = cur.r, cc = cur.c;
+    if (k === 'left') cc--; else if (k === 'right') cc++; else if (k === 'up') r--; else r++;
+    r = clampN(r, 0, L.rows - 1);
+    const inRow = r === L.rows - 1 ? n - r * L.cols : L.cols;
+    if (cc < 0) { if (r > 0 && k === 'left') { r--; cc = L.cols - 1; } else cc = 0; }
+    else if (cc > inRow - 1) { if (k === 'right' && r < L.rows - 1) { r++; cc = 0; } else cc = inRow - 1; }
+    const rowIn = r === L.rows - 1 ? n - r * L.cols : L.cols;
+    return clampN(r * L.cols + Math.min(cc, rowIn - 1), 0, n - 1);
+  }
+  /* 光标停在已收走的空位上 → 挪到离它最近、还在桌上的牌 */
+  function kbdFix(g) {
+    if (!g.L || cardInSlot(g, g.kcur)) return;
+    const L = g.L, s0 = L.slots[g.kcur] || L.slots[0];
+    let best = -1, bd = 1e9;
+    for (const cd of g.cards) {
+      if (cd.matched || cd.gone) continue;
+      const sl = L.slots[cd.slot];
+      const d = Math.hypot(sl.x - s0.x, (sl.y - s0.y) * 1.2);
+      if (d < bd) { bd = d; best = cd.slot; }
+    }
+    if (best >= 0) g.kcur = best;
+  }
 
   function tapCard(g, cd) {
     if (g.stage !== 'play' || g.state !== 'play' || g.lock > 0 || !cd) return false;
     if (cd.matched || cd.gone || !cd.placed || cd.mv || cd.swapping || cd.up) return false;
     g.idleT = 0; g.hintOn = false; g.tapsEver = (g.tapsEver || 0) + 1;
-    if (g.open.length >= 2) resolvePending(g);
+    if (g.open.length >= 2) { resolvePending(g); if (g.stage !== 'play' || g.state !== 'play') return false; }
     setFlip(g, cd, 1, 0.26);
     g.sfx('flip');
     g.open.push(cd);
@@ -638,6 +721,8 @@
       a.matched = b.matched = true;
       g.open = [];
       g.matchedN++;
+      // 最后一对：立刻停表、停猴子、停输入（否则 0.27 秒的翻牌动画里时间可能恰好走完 → 全配完却判“时间到”）
+      if (g.matchedN >= g.rounds) { g.stage = 'clear'; g.hintOn = false; }
       g.after(0.27, () => doMatch(g, a, b));
       return;
     }
@@ -659,9 +744,29 @@
     const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
     g.pd.sadT = nowS();
     if (p.knewB) {
+      // 屏幕上也告诉孩子正确的一对（错题本里的 note 同样写明）
+      g.banner = { w: a.item.w, py: a.item.py, t0: nowS(), dur: 2.1, bad: true };
+      if (g.grace > 0) {
+        // 前 3 关第一次“翻过的牌又翻错”只警告不扣心：先让孩子知道这条规则，下次才真扣
+        g.grace--;
+        g.combo = 0;
+        g.sfx('bad'); g.shake(6);
+        g.float('⚠ 小心', b.x, b.y - b.h * 0.3, { color: '#FFE45C', size: 34 });   // 飘在“翻过的那张”上
+        bubble(g, '这张翻过哦！下次要扣心啦', 2.4);
+        g.say(a.item.w, { caption: a.item.py });
+        return;
+      }
       g.wrong(a.item, noteFor(a, b), mx, my);
       bubble(g, '这张翻过呀，再想想～', 2);
-      if (g.state === 'over') { g.stage = 'over'; revealAll(g, 0.5); }
+      if (g.state === 'play') g.say(a.item.w, { caption: a.item.py });
+      if (g.state === 'over') {
+        // 心没了：别让 1.05 秒后的“翻回去”定时器把这对错牌又盖上（结束画面要能看到答案）
+        g.stage = 'over';
+        if (p.tm) p.tm.cancel();
+        if (g.pend === p) g.pend = null;
+        g.open = [];
+        revealAll(g, 0.2);
+      }
     } else {
       g.combo = 0;
       g.sfx('bad');
@@ -674,9 +779,10 @@
     const p = g.pend;
     g.pend = null;
     if (p) {
-      if (!p.fed) feedback(g, p);
       if (p.fb) p.fb.cancel();
       if (p.tm) p.tm.cancel();
+      if (!p.fed) feedback(g, p);
+      if (g.stage === 'over') return;   // 这一下扣光了心：牌保持翻开
       if (!p.a.matched) setFlip(g, p.a, 0, 0.24);
       if (!p.b.matched) setFlip(g, p.b, 0, 0.24);
     }
@@ -705,6 +811,7 @@
     }
     g.right(it, mx, my);
     if (g.state === 'over') g.stage = 'over';
+    if (g.kbd) kbdFix(g);   // 键盘光标别停在刚收走的空位上
     g.after(0.5, () => flyToChest(g, a));
     g.after(0.6, () => flyToChest(g, b));
   }
@@ -726,7 +833,7 @@
 
   function useGlasses(g) {
     if (g.stage !== 'play' || g.state !== 'play' || g.glasses <= 0 || g.lock > 0 || g.monk) return false;
-    if (g.pend) resolvePending(g);
+    if (g.pend) { resolvePending(g); if (g.stage !== 'play' || g.state !== 'play') return false; }
     g.glasses--; g.lock = 1.6; g.glT = nowS(); g.idleT = 0; g.hintOn = false;
     g.sfx('power'); g.flash('#D6F4FF');
     const list = g.cards.filter((cd) => !cd.matched && !cd.gone && !cd.up && cd.placed && !cd.mv);
@@ -766,13 +873,29 @@
     return true;
   }
 
+  /* 点到小猴子正在调包的牌：翻不了，但要告诉孩子为什么（不然以为坏了） */
+  function monkeyBusy(g) {
+    if (nowS() - (g.busyT || 0) < 1.2) return;
+    g.busyT = nowS();
+    g.sfx('tick');
+    bubble(g, '等小猴子换完再翻！', 1.4);
+  }
+
   function timeUp(g) {
     g.stage = 'over';
     const L = g.L;
-    g.float('⏰ 时间到！', g.w / 2, L.panel.y + L.panel.h * 0.45, { color: '#FFE45C', size: 46, life: 1.8 });
-    if (g.pend) resolvePending(g);
-    revealAll(g, 0.001);
-    g.lose();
+    // 时间到不算答错：取消待处理的翻错（不扣心、不记错题），只把牌翻回去
+    const p = g.pend;
+    g.pend = null; g.open = [];
+    if (p) { if (p.fb) p.fb.cancel(); if (p.tm) p.tm.cancel(); }
+    g.hintOn = false; g.kbd = false;
+    g.sfx('bad'); g.shake(6);
+    g.float('⏰ 时间到！', g.w / 2, L.panel.y + L.panel.h * 0.45, { color: '#FFE45C', size: 46, life: 2.2 });
+    bubble(g, '看，它们原来在这儿！', 2.4);
+    g.pd.sadT = nowS();
+    // 先把没配上的牌一波翻开让孩子看清答案，再进结束画面（结束遮罩一出来画面就糊了）
+    revealAll(g, 0.15);
+    g.after(1.5, () => g.lose());
   }
   /* 结束时把没配上的牌全部翻开，让孩子看到答案 */
   function revealAll(g, delay) {
@@ -797,14 +920,15 @@
         g.stage = 'ready';
         g.open = []; g.pend = null; g.lock = 0; g.matchedN = 0;
         g.timeMax = timeFor(g.level, g.rounds, g.gradeNum); g.timeLeft = g.timeMax; g.lastTick = -1;
-        g.peekMax = peekFor(g.level); g.peekLeft = g.peekMax;
+        g.peekMax = peekFor(g.level, g.gradeNum); g.peekLeft = g.peekMax;
         g.glasses = glassesFor(g.level); g.glT = -9;
         g.chestOpen = 0; g.chestHitT = -9; g.chestN = 0; g.flyN = 0;
         g.monkeyT = monkeyGap(g.level) ? 9 : 0; g.monk = null;
         g.hintOn = false; g.hintCard = null; g.idleT = 0; g.hov = null;
+        g.grace = g.level <= 3 ? 1 : 0;
         g.kbd = false; g.kcur = 0;
         g.pd = { hopT: -9, sadT: -9 };
-        g.bub = null; g.banner = null;
+        g.bub = null; g.banner = null; g.feverK = 0; g.earlyT = 0;
         g.L = null;
         layout(g);
         bubble(g, g.level >= 5 ? '小心调皮的小猴子！' : '准备好了吗？', 3);
@@ -830,12 +954,22 @@
       down(g, p) {
         if (!g.L) return;
         g.kbd = false;
+        if (g.stage === 'play') hurryBanner(g);
         const b = g.L.glass;
         if (g.hitCircle(p, b.x, b.y, b.r * 1.3)) { if (!useGlasses(g) && g.glasses <= 0) bubble(g, '透视用完啦～', 1.4); return; }
         const pd = g.L.panda;
         if (g.hitCircle(p, pd.x, pd.y, pd.size * 0.6)) { g.pd.hopT = nowS(); g.sfx('jump'); bubble(g, g.pick(['加油！', '你能行！', '词语配拼音哦～']), 1.4); return; }
         const cd = cardAt(g, p);
-        if (cd) { tapCard(g, cd); g.kcur = cd.slot; }
+        if (!cd) return;
+        if (g.stage === 'peek' || g.stage === 'deal') {
+          // 偷看 / 发牌时点牌：不翻，但要有反应（不然孩子以为坏了）
+          if (nowS() - (g.earlyT || 0) > 1.2) { g.earlyT = nowS(); bubble(g, g.stage === 'peek' ? '先记住位置，马上就能翻！' : '牌还在发哦～', 1.6); }
+          if (!cd.mv) { cd.shake = 0.5; g.tween(cd, { shake: 0 }, 0.35, 'outQuad'); }
+          return;
+        }
+        if (tapCard(g, cd)) g.kcur = cd.slot;
+        else if (g.stage === 'play' && cd.up && !cd.matched && g.open.length === 1) { cd.shake = 0.4; g.tween(cd, { shake: 0 }, 0.3, 'outQuad'); }
+        else if (g.stage === 'play' && cd.swapping) monkeyBusy(g);
       },
       move(g, p) {
         if (!g.L) return;
@@ -847,26 +981,46 @@
       },
       key(g, k) {
         if (!g.L) return;
-        const L = g.L, n = g.cards.length;
-        const cur = L.slots[g.kcur] || L.slots[0];
+        const n = g.cards.length;
         if (k === 'left' || k === 'right' || k === 'up' || k === 'down') {
-          if (!g.kbd) { g.kbd = true; return; }
-          let r = cur.r, cc = cur.c;
-          if (k === 'left') cc--; else if (k === 'right') cc++; else if (k === 'up') r--; else r++;
-          r = clampN(r, 0, L.rows - 1);
-          const inRow = r === L.rows - 1 ? n - r * L.cols : L.cols;
-          if (cc < 0) { if (r > 0 && k === 'left') { r--; cc = L.cols - 1; } else cc = 0; }
-          else if (cc > inRow - 1) { if (k === 'right' && r < L.rows - 1) { r++; cc = 0; } else cc = inRow - 1; }
-          const rowIn = r === L.rows - 1 ? n - r * L.cols : L.cols;
-          g.kcur = clampN(r * L.cols + Math.min(cc, rowIn - 1), 0, n - 1);
-          g.sfx('tick');
+          if (!g.kbd) { g.kbd = true; kbdFix(g); return; }
+          if (k === 'up' || k === 'down') {
+            // 上下：去那个方向最近一行里、横向离得最近的牌（正下方那张已经收走时也能走过去，不会卡住）
+            const L = g.L, cur0 = L.slots[g.kcur] || L.slots[0];
+            let best = -1, bd = 1e9;
+            for (const cd of g.cards) {
+              if (cd.matched || cd.gone) continue;
+              const sl = L.slots[cd.slot], dr = sl.r - cur0.r;
+              if (k === 'down' ? dr <= 0 : dr >= 0) continue;
+              const d = Math.abs(dr) * 1e4 + Math.abs(sl.x - cur0.x);
+              if (d < bd) { bd = d; best = cd.slot; }
+            }
+            if (best >= 0) { g.kcur = best; g.sfx('tick'); }
+            return;
+          }
+          // 左右：跳过已经收走的空位，一直往这个方向找（行尾接下一行），找到还在桌上的牌才停
+          let cur = g.kcur;
+          for (let i = 0; i < n; i++) {
+            const nx = stepSlot(g, cur, k);
+            if (nx === cur) break;
+            cur = nx;
+            if (cardInSlot(g, cur)) { g.kcur = cur; g.sfx('tick'); return; }
+          }
           return;
         }
-        if (k === 'space' || k === 'enter') { g.kbd = true; tapCard(g, cardInSlot(g, g.kcur)); return; }
-        if (k === 'e' || k === 'E') useGlasses(g);
+        if (k === 'space' || k === 'enter') {
+          // 第一次按键只亮出光标（不然不知道翻的是哪张）；光标停在空位上时先跳到最近的牌
+          if (!g.kbd) { g.kbd = true; kbdFix(g); if (g.stage === 'play') bubble(g, '方向键选牌，空格翻开！', 2); return; }
+          if (!cardInSlot(g, g.kcur)) { kbdFix(g); return; }
+          const kc = cardInSlot(g, g.kcur);
+          if (tapCard(g, kc)) hurryBanner(g);
+          else if (g.stage === 'play' && kc.swapping) monkeyBusy(g);
+          return;
+        }
+        if (k === 'e' || k === 'E' || k === 'g' || k === 'G') useGlasses(g);
       },
       resize(g) { if (g.cards) layout(g); },
-      end(g) { g.monk = null; }
+      end(g) { g.monk = null; g.pend = null; if (W.__hwMemory === g) W.__hwMemory = null; }
     };
   }
 

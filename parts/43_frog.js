@@ -189,11 +189,15 @@
   }
 
   /* ================= 规格 ================= */
+  function touchOnly() {
+    try { return !!(W.matchMedia && W.matchMedia('(hover: none) and (pointer: coarse)').matches); } catch (e) { return false; }
+  }
   function makeSpec() {
     return {
       maxLevel: 10, lives: 3, rounds: 3, music: 'calm', sky: null,
       intro: '先听电台讲故事，再跳上写着正确答案的荷叶过河！',
-      controls: '点荷叶跳 · ←→ 选、空格跳 · 数字键直接选 · R 重听题目',
+      // 手机/平板上别写一串键盘键位（孩子看不懂，还占两行）
+      controls: touchOnly() ? '点荷叶跳过去 · 听故事时点飞虫加分' : '点荷叶或按 1–4 跳 · ←→ 选、空格跳 · R 重听题目',
       init(g) { initLevel(g); },
       play(g) { startRadio(g); },
       update(g, dt) { update(g, dt); },
@@ -275,6 +279,7 @@
         }
         let tw = 0;
         p.lines.forEach((ln) => { tw = Math.max(tw, g.measure(ln, fs, 'kai', 700)); });
+        p.tw = tw;
         p.h = p.lines.length * L.padLh + 26 * s;
         p.w = Math.max(tw + 38 * s, p.h * 1.3, 92 * s);
         maxH = Math.max(maxH, p.h); minW = Math.min(minW, p.w);
@@ -289,16 +294,21 @@
         let x = -gw / 2;
         pads.forEach((p) => { p.slot = x + p.w / 2; p.row = r; x += p.w + gapX; });
         const mw = pads.reduce((a, p) => Math.min(a, p.w), 1e9);
-        // 漂动幅度：1–2 关荷叶始终整片留在屏幕里（字不被切）；3–4 关稍微探出边缘；5 关起探出更多（更难点）
+        // 漂动幅度：1–2 关荷叶始终整片留在屏幕里；3 关起叶边可以探出屏幕（更难点），
+        // 但**字永远不出屏**——孩子要读得到整句选项（P6 长选项漂到边上被切成半句 = 没法作答）
         const base = (w - gw) / 2 - 6 * s;
-        const amp = g.level <= 2 ? Math.max(16 * s, base)
-          : g.level <= 4 ? Math.max(24 * s, base + mw * 0.14)
-          : Math.max(26 * s, base + 6 * s + mw * (pads.length === 1 ? 0.2 : 0.28));
+        let textL = 1e9, textR = -1e9;
+        pads.forEach((p) => { textL = Math.min(textL, p.slot - p.tw / 2); textR = Math.max(textR, p.slot + p.tw / 2); });
+        const ampText = Math.min(w / 2 + textL, w / 2 - textR) - 8;
+        const want = g.level <= 2 ? base : g.level <= 4 ? base + mw * 0.14 : base + 6 * s + mw * (pads.length === 1 ? 0.2 : 0.28);
+        const floor = g.level <= 2 ? 16 * s : g.level <= 4 ? 24 * s : 26 * s;
+        const amp = Math.max(Math.min(floor, Math.max(8 * s, ampText)), Math.min(want, ampText));
         return { pads, gw, amp, yOff: two ? (r ? rowSep / 2 : -rowSep / 2) : 0, cx: w / 2 };
       });
       let num = 1;
       lane.rows.forEach((row) => row.pads.forEach((p) => { p.num = num++; }));
       lane.band = two ? rowSep + maxH : maxH;
+      lane.maxH = maxH;
       maxBand = Math.max(maxBand, lane.band);
     });
     L.maxBand = maxBand;
@@ -359,7 +369,35 @@
     const F = g.F, L = F.L;
     if (F.phase === 'radio') return L.camR;
     if (F.phase === 'toThrone' || F.phase === 'done') return L.camT;
-    return L.laneY(clamp(F.camQi || 0, 0, F.lanes.length - 1)) - L.focusY;
+    const qi = clamp(F.camQi || 0, 0, F.lanes.length - 1);
+    let y = L.laneY(qi) - L.focusY;
+    // 答错后的“提示”框挂在题目横幅下面，会压住上排选项 → 镜头下移，把这条河道让出来；
+    // 但最多只移到“河道最下沿 + 青蛙脚下的落脚点”都还在屏幕里（小屏手机 360×640 会不够）——
+    // 不够的部分由提示框自己收起成小“提示”签来让路（见 update 里的 T.over / T.open）
+    const T = F.tip, lane = F.lanes[qi];
+    if (T && T.qi === qi && F.phase === 'river' && lane && lane.rows.length) {
+      const tb = tipBox(g);
+      let top = 1e9, bot = -1e9;
+      lane.rows.forEach((r) => { top = Math.min(top, r.yOff); bot = Math.max(bot, r.yOff); });
+      const need = tb.y + tb.h + 12 * L.s - (L.focusY + top - lane.maxH / 2 - 4 * L.s);
+      const room = Math.min(g.h - 10 * L.s - (L.focusY + bot + lane.maxH / 2), g.h - 8 * L.s - (L.focusY + L.gap + 14 * L.s));
+      const sh = need > 0 ? Math.max(0, Math.min(need, room)) : 0;
+      T.over = need - sh;                  // > 0：展开时仍会盖住上排荷叶
+      y -= sh;
+    }
+    return y;
+  }
+  function tipBox(g) {
+    const F = g.F, L = F.L, us = L.us, T = F.tip;
+    const fs = Math.round(17 * us), lh = Math.round(fs * 1.34);
+    const lines = T ? g.wrapText(T.text, L.banW - 66 * us, fs, 'kai', 700).slice(0, 3) : [];
+    const chipW = Math.round(g.measure('提示 ▾', Math.round(15 * us), 'round') + 62 * us), chipH = Math.round(34 * us);
+    return { x: L.banX, y: L.top + 10 * us, w: L.banW, h: lines.length * lh + 22 * us, fs, lh, lines, chipW, chipH };
+  }
+  /* 提示框 / 收起的提示签：当前（按 T.open 插值）的矩形 */
+  function tipRect(g) {
+    const T = g.F.tip, tb = tipBox(g), o = T ? clamp(T.open, 0, 1) : 1;
+    return { x: tb.x, y: tb.y, w: lerp(tb.chipW, tb.w, o), h: lerp(tb.chipH, tb.h, o), tb, o };
   }
 
   /* ================= 位置 ================= */
@@ -513,6 +551,12 @@
       if (f.t > f.dur + 0.1) F.fish.splice(i, 1);
     }
     if (fg.party && fg.mode === 'sit') fg.mouth = 0.6;
+    // 小屏：提示框展开时会压住选项 → 青蛙游回来、可以再跳之后 3 秒自动收成“提示”小签（点一下再展开）
+    const T = F.tip;
+    if (T && F.phase === 'river' && T.qi === F.qi && !F.busy && T.over > 4 && T.open > 0.99 && !T.tw) {
+      T.t += dt;
+      if (T.t > 3.2) { T.tw = g.tween(T, { open: 0 }, 0.35, 'inOutQuad', () => { T.tw = null; }); }
+    }
   }
 
   /* ================= 电台 ================= */
@@ -520,6 +564,9 @@
     const F = g.F;
     if (!F || F.empty) return;
     g.music('calm');
+    // 声音列表是异步加载的：选关时还没有、倒计时后有了（或反过来）→ 开播前再确认一次
+    const tts = ttsUsable(g);
+    if (tts !== F.tts) { F.tts = tts; layout(g); moveLanes(g, 0); F.cam.y = camTarget(g); }
     const R = F.radio;
     // 这个故事刚才已经完整听过（重玩本关 / 错题重练抽到同一篇）：一开始就给“过河去！”，想再听也可以接着听
     if (HEARD.has(R.key)) { R.heard = true; R.goK = 0; g.tween(R, { goK: 1 }, 0.55, 'outBack'); }
@@ -539,7 +586,8 @@
   function spawnFly(g) {
     const F = g.F, L = F.L, s = L.s, B = F.bug;
     B.spawnN++;
-    const gold = B.spawnN >= 3 && Math.random() < 0.22;
+    const gold = B.spawnN >= 3 && !B.lastGold && Math.random() < 0.18;
+    B.lastGold = gold;
     // 活动区（屏幕坐标）：标题牌下面 ~ 底部按钮上面；存世界坐标 = 屏幕 + 镜头
     const top = L.ribY + 40 * s, bot = L.goY - L.goH / 2 - 30 * s;
     const cy = (bot - top > 80 * s ? g.rand(top + 36 * s, bot - 36 * s) : (top + bot) / 2) + F.cam.y;
@@ -559,10 +607,20 @@
       if (R.k >= F.sents.length) { R.on = false; R.k = F.sents.length; radioDone(g); return; }
       sentPulse(g);
       if (F.tts) {
-        const k = R.k;
+        const k = R.k, t0 = clock(), len = Array.from(F.sents[k]).length;
         g.say(F.sents[k], { caption: '' }).then(() => {
           if (my !== R.pid || g.F !== F) return;
           const intr = g.state === 'pause';
+          // 朗读“秒完”（有 zh 声音但引擎其实没出声：iOS 没解锁 / 声音包坏了）：先重读一次，
+          // 连着两次都秒完就改成逐句字幕——否则整篇故事几秒钟“播完”，孩子一个字也没听到就要答题
+          const quick = !intr && clock() - t0 < Math.min(0.8, 0.06 * len + 0.2);
+          if (quick) {
+            R.fast = (R.fast || 0) + 1;
+            if (R.fast >= 2) { R.fast = 0; F.tts = false; layout(g); moveLanes(g, 0); }
+            g.after(0.25, () => { if (my === R.pid && F.phase === 'radio') step(); });
+            return;
+          }
+          R.fast = 0;
           g.after(intr ? 0.15 : 0.4, () => { if (my !== R.pid || F.phase !== 'radio') return; if (!intr) R.k = k + 1; step(); });
         });
       } else {
@@ -689,10 +747,15 @@
       g.burst(o.x, o.y - F.cam.y, { kind: 'water', n: 5 });
     });
     F.frog.mouth = 1; g.tween(F.frog, { mouth: 0 }, 0.8, 'inQuad');
-    g.float(g.pick(['答对啦！', '真棒！', '好耳朵！', '稳稳的！']), sp.x, sp.y - 86 * s, { color: '#B6FF8A', size: 30 });
+    const first = !lane.pads.some((o) => o.bad);           // 这一题没有落过水 = 一次跳对（+10 奖励）
+    const last = F.qi + 1 >= F.qs.length;
+    // 飘字只出一个总分：以前“一次跳对！+10”和引擎的“+10/+20”叠在一起，像加了两次
+    g.float(first ? (last ? '一次跳对！+10' : '一次跳对！') : g.pick(['答对啦！', '真棒！', '好耳朵！', '稳稳的！']), clamp(sp.x, 105 * s, g.w - 105 * s), sp.y - 86 * s, { color: first ? '#FFE45C' : '#B6FF8A', size: 30 });
+    if (first) g.addScore(10);
     F.qi++;
-    if (F.qi < F.qs.length) {
-      g.right(F.st, sp.x, sp.y - 24 * s);
+    if (!last) {
+      const c1 = g.combo + 1, mult = c1 >= 10 ? 4 : c1 >= 6 ? 3 : c1 >= 3 ? 2 : 1;   // 与引擎 g.right 的连击倍率一致
+      g.right(F.st, sp.x, sp.y - 24 * s, '+' + (10 * mult + (first ? 10 : 0)));
       g.after(1.0, () => { if (g.state === 'play') startLane(g, F.qi); });
     } else {
       g.burst(sp.x, sp.y, { kind: 'star', n: 16 });
@@ -721,8 +784,18 @@
       g.ring(p.x, p.y - 20 * s, '#FFE45C', 160 * s);
       g.flash('#FFF6C0');
       g.sfx('power');
-      g.float('到对岸啦！', p.x, p.y - 140 * s, { color: '#FFE45C', size: 42, life: 1.8 });
-      g.right(F.st, p.x, p.y - 60 * s);
+      g.float('到对岸啦！', clamp(p.x, 110 * s, g.w - 110 * s), p.y - 140 * s, { color: '#FFE45C', size: 42, life: 1.8 });
+      // 先让青蛙戴着王冠在荷花宝座上蹦跶一会儿（烟花 + 花瓣雨），再记最后一题 → 引擎结算
+      // （以前落地同一帧就 g.right 通关，0.5 秒后结算遮罩盖上来，孩子根本看不到“到对岸”的庆祝）
+      for (let i = 0; i < 3; i++) {
+        g.after(0.28 + i * 0.3, () => {
+          const fx = g.w * (0.22 + 0.28 * i) + g.rand(-20, 20) * s, fy = g.hudTop + g.rand(40, 120) * s;
+          g.burst(fx, fy, { kind: i === 1 ? 'star' : 'confetti', n: 22, color: ['#FF6FA8', '#FFE45C', '#8FE3FF'][i] });
+          g.ring(fx, fy, ['#FF6FA8', '#FFE45C', '#8FE3FF'][i], 70 * s);
+          g.sfx('pop');
+        });
+      }
+      g.after(1.25, () => { if (g.state === 'play') g.right(F.st, p.x, p.y - 60 * s); });
     });
   }
   function onWrong(g, pad, sp) {
@@ -754,7 +827,7 @@
     g.wrong(F.st, note, sp.x, sp.y - 30 * s);
     if (g.state !== 'play') return;          // 心没了：引擎进入失败结算，青蛙留在水里
     // 电台小提示：把题库里的讲解 e（故事原句）亮出来，游回去后读一遍，再跳一次
-    F.tip = { text: ex || '再想想：故事里是怎么说的？', say: !!ex, said: false, qi: pad.lane, k: 0 };
+    F.tip = { text: ex || '再想想：故事里是怎么说的？', say: !!ex, said: false, qi: pad.lane, k: 0, open: 1, t: 0, over: 0 };
     g.tween(F.tip, { k: 1 }, 0.45, 'outBack');
     g.tween(fg.S, { k: 1 }, 1.15, 'inOutQuad', () => hopBack(g, to));
   }
@@ -789,6 +862,12 @@
       if (dx <= pd.w / 2 + 8 * s && dy <= pd.h / 2 + 10 * s) { const d = dx + dy; if (d < bd) { bd = d; best = pd; } }
     });
     return best;
+  }
+  function hitSunk(g, p) {
+    const F = g.F, lane = F.lanes[F.qi], cam = F.cam.y;
+    if (!lane || lane.state !== 'active') return false;
+    return lane.pads.some((pd) => !pd.gone && !pd.bad && !pd.dock && !tappable(g, pd) &&
+      Math.abs(p.x - pd.x) <= pd.w / 2 + 8 && Math.abs(p.y - (pd.y - cam)) <= pd.h / 2 + 10);
   }
   function hitFuture(g, p) {
     const F = g.F, cam = F.cam.y;
@@ -830,11 +909,22 @@
       return;
     }
     if (F.phase === 'river') {
+      const T = F.tip;
+      if (T && T.qi === F.qi && T.k > 0.5 && !T.tw) {
+        const r = tipRect(g);
+        if (g.hitRect(p, r.x, r.y - 10 * L.us, r.w, r.h + 10 * L.us)) {
+          if (T.open < 0.5) { T.t = 0; T.tw = g.tween(T, { open: 1 }, 0.3, 'outBack', () => { T.tw = null; }); g.sfx('flip'); return; }
+          if (T.over > 4) { T.tw = g.tween(T, { open: 0 }, 0.3, 'inOutQuad', () => { T.tw = null; }); g.sfx('flip'); return; }
+        }
+      }
       if (hitSpk(g, p)) { sayQ(g); g.sfx('tick'); F.spkBump = 1; g.tween(F, { spkBump: 0 }, 0.4, 'outQuad'); return; }
       if (F.busy) return;
       const pad = hitPad(g, p);
       if (pad) jumpToPad(g, pad);
-      else if (hitFuture(g, p)) {
+      else if (hitSunk(g, p)) {
+        // 点到正在下潜 / 还没冒出来的荷叶：告诉孩子“等一下”，别让他以为点不动（卡住了）
+        if (!F.sunkT || F.T - F.sunkT > 0.9) { F.sunkT = F.T; g.float('等它浮上来！', clamp(p.x, 80 * s, g.w - 80 * s), p.y - 30 * s, { color: '#DDF6FF', size: 22 }); g.sfx('bubble'); }
+      } else if (hitFuture(g, p)) {
         if (!F.futT || F.T - F.futT > 1.2) { F.futT = F.T; g.float('先跳近处这一排！', p.x, p.y - 30 * s, { color: '#FFFFFF', size: 22 }); g.sfx('tick'); }
       } else { const fp = frogScreen(g); if (g.hitCircle(p, fp.x, fp.y - L.fs * 0.45, L.fs * 0.6)) { F.frog.sx = 1.2; F.frog.sy = 0.8; g.tween(F.frog, { sx: 1, sy: 1 }, 0.4, 'outElastic'); g.sfx('bubble'); } }
     }
@@ -869,11 +959,11 @@
     if (f.gold) g.sfx('coin');
     const sx = f.x, sy = f.y - F.cam.y;
     g.burst(sx, sy, { kind: f.gold ? 'star' : 'dot', color: '#FFE45C', n: f.gold ? 14 : 9 });
-    // 连吃越多越值钱：5 → 7 → 9 … 最多 15；金萤火虫 20
-    const pts = f.gold ? 20 : 5 + 2 * Math.min(B.streak - 1, 5);
+    // 连吃越多越值钱：5 → 6 → 7 … 最多 10；金萤火虫 15（答题才是大头：答对 10×连击倍率，一次跳对再 +10）
+    const pts = f.gold ? 15 : 5 + Math.min(B.streak - 1, 5);
     g.addScore(pts, sx, sy - 20 * s);
     const lbl = f.gold ? '金萤火虫！' : B.streak >= 2 ? '连吃×' + B.streak + '！' : g.pick(['好吃！', '啊呜！', '吧唧！']);
-    g.float(lbl, sx, sy - 54 * s, { color: f.gold ? '#FFE45C' : B.streak >= 3 ? '#FFB547' : '#FFD0E0', size: B.streak >= 3 || f.gold ? 26 : 22 });
+    g.float(lbl, clamp(sx, 70 * s, g.w - 70 * s), sy - 54 * s, { color: f.gold ? '#FFE45C' : B.streak >= 3 ? '#FFB547' : '#FFD0E0', size: B.streak >= 3 || f.gold ? 26 : 22 });
     if (f.gold || B.streak % 3 === 0) g.ring(sx, sy, f.gold ? '#FFE45C' : '#FFB547', 60 * s);
   }
   function onKey(g, k) {
@@ -1737,7 +1827,10 @@
         }
       } else if (!R.heard && F.phase === 'radio' && g.state === 'play' && !R.cap) {
         const ty = L.goY;
-        const tip = R.on ? '竖起耳朵听故事… 听完就过河！' : '准备收听…';
+        const flyNow = F.flies.some((f) => !f.eaten && !f.leave);
+        const tip = !R.on ? '准备收听…'
+          : (flyNow && (F.bug.n === 0 || Math.floor(F.T / 4) % 2 === 1)) ? '边听边点小飞虫，让青蛙吃掉！'
+            : '竖起耳朵听故事… 听完就过河！';
         g.rrect(w / 2 - Math.min(w * 0.44, 190 * us), ty - 20 * s, Math.min(w * 0.88, 380 * us), 40 * s, 20 * s, 'rgba(29,43,83,.55)');
         g.text(tip, w / 2, ty, { size: Math.round(17 * us), font: 'round', color: '#FFFFFF', maxW: Math.min(w * 0.84, 360 * us) });
       }
@@ -1770,6 +1863,40 @@
         g.emoji('🔊', 0, 0, L.spkR * 1.05);
         c.restore();
       }
+    }
+    // —— 答错后的电台小提示（题库讲解 e）——
+    const T = F.tip;
+    if (T && F.phase === 'river' && T.qi === F.qi && T.k > 0.01) {
+      const R2 = tipRect(g), tb = R2.tb, o = R2.o, bx = R2.x, bw = R2.w, bh = R2.h, by = R2.y;
+      const fs = tb.fs, lines = tb.lines, lh = tb.lh;
+      const k = clamp(T.k, 0, 1.2);
+      c.save();
+      c.globalAlpha = clamp(T.k, 0, 1);
+      c.translate(bx + bw / 2, by); c.scale(0.85 + 0.15 * k, 0.85 + 0.15 * k); c.translate(-(bx + bw / 2), -by);
+      g.rrect(bx, by + 4 * us, bw, bh, Math.min(14 * us, bh / 2), 'rgba(29,43,83,.45)');
+      g.rrect(bx, by, bw, bh, Math.min(14 * us, bh / 2), '#EFFFE6', '#2E7D32', 2.6 * us);
+      if (o > 0.55) {
+        const a0 = c.globalAlpha; c.globalAlpha = a0 * clamp((o - 0.55) / 0.45, 0, 1);
+        g.emoji('📻', bx + 25 * us, by + bh / 2, 26 * us);
+        lines.forEach((ln, i) => {
+          g.text(ln, bx + 48 * us, by + 11 * us + lh * (i + 0.5), { size: fs, font: 'kai', weight: 700, color: '#1B4D2A', align: 'left', maxW: bw - 60 * us });
+        });
+        if (T.over > 4) {           // 右上角小签“收起”：点提示框任意处都能收起，这里只是告诉孩子可以点
+          const cl = '收起 ▴', cfs = Math.round(12 * us), cw = g.measure(cl, cfs, 'round') + 16 * us;
+          g.rrect(bx + bw - 12 * us - cw, by - 10 * us, cw, 20 * us, 10 * us, '#FFFFFF', '#2E7D32', 2 * us);
+          g.text(cl, bx + bw - 12 * us - cw / 2, by + 1, { size: cfs, font: 'round', color: '#2E7D32' });
+        }
+        c.globalAlpha = a0;
+      } else if (o < 0.3) {
+        g.emoji('📻', bx + 20 * us, by + bh / 2, 20 * us);
+        g.text('提示 ▾', bx + 36 * us, by + bh / 2 + 1, { size: Math.round(15 * us), font: 'round', color: '#1B4D2A', align: 'left' });
+      }
+      if (o > 0.3) {
+        const tg = '提示', tfs = Math.round(13 * us), tw = g.measure(tg, tfs, 'round') + 18 * us;
+        g.rrect(bx + 12 * us, by - 10 * us, tw, 20 * us, 10 * us, '#3CCB5A', NAVY, 2 * us);
+        g.text(tg, bx + 12 * us + tw / 2, by + 1, { size: tfs, font: 'round', color: '#FFFFFF' });
+      }
+      c.restore();
     }
     // —— 第一题手指提示 ——
     if (F.hint && F.phase === 'river' && !F.busy) {

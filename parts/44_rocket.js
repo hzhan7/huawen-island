@@ -30,6 +30,7 @@
   const rnd = (a, b) => a + Math.random() * (b - a);
   const nowMs = () => (W.performance && performance.now ? performance.now() : Date.now());
   let MIC_DENIED = false;   // 本页会话里请求失败/被拒过一次，就不再请求（不重复弹窗）
+  const TAP_LAG = 0.06;     // 节拍模式的输入延迟补偿（秒）
 
   const DEST = [
     { name: '月亮', key: 'moon' }, { name: '火星', key: 'mars' }, { name: '土星', key: 'saturn' }, { name: '木星', key: 'jupiter' }
@@ -109,12 +110,57 @@
     for (const r of cl) {
       const m = hanIn(list, r.a, r.b);
       if (!cur) { cur = { a: r.a, b: r.b, end: r.end, n: m }; continue; }
-      if (cur.n < minL && cur.n + m <= maxL && (!cur.end || cur.n < 4)) { cur.b = r.b; cur.end = r.end; cur.n += m; }
+      // 不到 minL 就继续并；已经够长但还差一个很短的收句（“青的多，|红的少。”“……贴春联、|挂灯笼。”）也并进来（可以超出 maxL 3 个字），让一轮尽量在句号处收住
+      const tail = !cur.end && r.end && m <= 4;
+      if (((cur.n < minL && cur.n + m <= maxL) || (tail && cur.n + m <= maxL + 3)) && (!cur.end || cur.n < 4)) { cur.b = r.b; cur.end = r.end; cur.n += m; }
       else { out.push(cur); cur = { a: r.a, b: r.b, end: r.end, n: m }; }
     }
     if (cur) {
       const last = out[out.length - 1];
       if (last && cur.n < Math.min(4, minL) && last.n + cur.n <= maxL + 3) { last.b = cur.b; last.n += cur.n; last.end = cur.end; } else out.push(cur);
+    }
+    // 只有两三个字的碎句（“此刻，”“星期天，”；高年级连“抬头一看，”也算）单独成一轮太敷衍、也不成意思：
+    // 句中的碎句并进后一句（“此刻，他们是不是……”），句末的碎句并回前一句；合并后最多 maxL+4 字
+    const tiny = Math.max(4, Math.ceil(minL / 2));   // P2–P4：≤3 字；P5–P6：≤4 字
+    for (let i = 0; i < out.length; i++) {
+      const r = out[i];
+      if (r.n >= tiny || out.length < 2) continue;
+      const nx = out[i + 1], pv = out[i - 1];
+      if (nx && !r.end && r.n + nx.n <= maxL + 4) { nx.a = r.a; nx.n += r.n; out.splice(i, 1); i--; }
+      else if (pv && !pv.end && pv.n + r.n <= maxL + 4) { pv.b = r.b; pv.n += r.n; pv.end = r.end; out.splice(i, 1); i--; }
+      else if (nx && r.n + nx.n <= maxL + 4) { nx.a = r.a; nx.n += r.n; out.splice(i, 1); i--; }
+    }
+    return out;
+  }
+  /* 绕口令关选句：尽量整首读完（别把“四是四，十是十，”留个上半句就过关）。
+     放得下（最多多出 1 句）就整首放，放不下就换下一首；第一首就超过 4 句的长绕口令只读前几句、尽量停在句号上；
+     最后不足 3 句时，从没用上的那几首里挑最短的接着补 */
+  function pickTwisters(items, minL, maxL, want) {
+    const sets = [];
+    for (const it of items) {
+      const list = charList(it.text, it.py, null);
+      const rs = phraseRanges(list, minL, maxL).filter((r) => hanIn(list, r.a, r.b) > 0);
+      if (rs.length) sets.push({ it, list, rs });
+    }
+    const out = [], used = new Set();
+    const cut = (rs, n) => { rs = rs.slice(0, n); let j = rs.length; while (j > 1 && !rs[j - 1].end) j--; return rs[j - 1].end ? rs.slice(0, j) : rs; };
+    for (const x of sets) {
+      const room = want - out.length;
+      if (room <= 0) break;
+      let rs = x.rs;
+      if (rs.length > room && !(out.length && rs.length <= room + 1)) {
+        if (out.length) continue;
+        rs = cut(rs, want);
+      }
+      used.add(x);
+      for (const r of rs) out.push({ x, r });
+    }
+    const rest = sets.filter((x) => !used.has(x)).sort((p, q) => p.rs.length - q.rs.length);
+    for (const x of rest) {
+      if (out.length >= 3) break;
+      // 补句时整首放得下（最多 6 句）就整首放；否则只读到句号
+      const rs = out.length + x.rs.length <= want + 2 ? x.rs : cut(x.rs, want - out.length);
+      for (const r of rs) out.push({ x, r });
     }
     return out;
   }
@@ -125,17 +171,20 @@
     return { item, src, title, text: chars.map((c) => c.ch).join(''), chars, hans, nHan: hans.length, hasPy: chars.some((c) => !!c.py), cell: 40, lineH: 60, br: 7, spring: { x: 0, landY: 0 }, lastT: 0 };
   }
   /* 断行：优先在标点后断，其次各行均匀；行首不放标点 */
-  function smartLines(chars, cols) {
+  /* cap = 一行能放几格（可以带小数）；句末标点可以“挂”出去 0.6 格（见 lineW），算行数时按 0.4 格计 */
+  function smartLines(chars, cap) {
     const lines = [], n = chars.length, BRK = '，。！？、；：”’）》…—';
+    const cols = Math.max(3, Math.floor(cap + 1e-6));
+    const hang = n > 1 && NO_START.includes(chars[n - 1].ch) ? 0.6 : 0;
     let i = 0;
     while (i < n) {
-      const rem = n - i;
-      if (rem <= cols) { lines.push(chars.slice(i)); break; }
-      const nl = Math.ceil(rem / cols);
-      let take = Math.ceil(rem / nl);
+      const rem = n - i, remE = rem - hang;
+      if (remE <= cap + 1e-6) { lines.push(chars.slice(i)); break; }
+      const nl = Math.ceil((remE - 1e-6) / cap);
+      let take = Math.min(cols, Math.ceil(remE / nl));
       for (let k = Math.min(cols, rem - 1); k >= Math.max(2, Math.ceil(cols * 0.45)); k--) {
         // 标点处断行，但不能因此多出一行
-        if (BRK.includes(chars[i + k - 1].ch) && !NO_START.includes(chars[i + k].ch) && rem - k <= (nl - 1) * cols) { take = k; break; }
+        if (BRK.includes(chars[i + k - 1].ch) && !NO_START.includes(chars[i + k].ch) && remE - k <= (nl - 1) * cap + 1e-6) { take = k; break; }
       }
       while (i + take < n && NO_START.includes(chars[i + take].ch)) take++;
       lines.push(chars.slice(i, i + take)); i += take;
@@ -156,6 +205,9 @@
     }
     return lines;
   }
+
+  /* 一行占几格：行尾的标点可以“挂”出去半格，不算宽 */
+  function lineW(l) { let n = l.length; if (n > 1 && NO_START.includes(l[n - 1].ch)) n -= 0.6; return n; }
 
   /* ================= 麦克风（音量 → 推力） ================= */
   function micStart(P) {
@@ -377,6 +429,8 @@
       L.padY = top + area * 0.86;
       L.flyY = top + area * 0.77;
       L.STAGE = Math.max(640, area * 2.1);
+      L.groundY = splitY - Math.max(34 * s, area * 0.17);   // 登陆后星球表面的高度
+      L.flagX = L.rx + clamp(L.rh * 0.78, 60 * s, w * 0.3);
       const m = 12 * s;
       L.headY = splitY + 9 * s; L.headH = 28 * s;
       if (wide) {
@@ -407,27 +461,29 @@
       let cell = L.maxCell, lines = null, lineH = 0;
       const n = ph.chars.length;
       const one = Math.min(L.maxCell, Math.floor(W0 / n));   // 一行放得下且字够大 → 单行（卡拉OK 最好读）
-      if (one >= (L.wide ? 40 : 34) * s && one * (ph.hasPy ? 2.0 : 1.55) <= H0) {
+      // 单行最好读，但字不能太小：带拼音时拼音只有字号的 1/3，手机上单行至少 42px 的格子（拼音约 14px）
+      const minOne = (L.wide ? 40 : 36) * s + (ph.hasPy ? 6 * s : 0);
+      if (one >= minOne && one * (ph.hasPy ? 2.0 : 1.55) <= H0) {
         cell = one; lineH = cell * (ph.hasPy ? 2.0 : 1.55); lines = [ph.chars.slice()];
       } else {
         let best = null;
         for (; cell >= 18; cell -= 2) {
           const lh = cell * (ph.hasPy ? 2.0 : 1.55);
-          const cols = Math.max(3, Math.floor(W0 / cell));
-          const ls = smartLines(ph.chars, cols);
-          if (ls.length * lh <= H0 && ls.every((l) => l.length * cell <= W0 + cell * 1.1)) {
-            if (!best || ls.length < best.lines.length) best = { cell, lh, lines: ls };   // 字号小一点能少一行就少一行
+          const ls = smartLines(ph.chars, Math.max(3, W0 / cell));
+          if (ls.length * lh <= H0 && ls.every((l) => lineW(l) * cell <= W0 + 2)) {
+            // 字号小一点（≤14%）能少一行就少一行；再小就不换——少一行不值得把字（尤其拼音）缩得看不清
+            if (!best || (ls.length < best.lines.length && cell >= best.cell * 0.86)) best = { cell, lh, lines: ls };
             if (cell < best.cell * 0.86 || ls.length === 1) break;
           }
         }
         if (best) { cell = best.cell; lineH = best.lh; lines = best.lines; }
-        else { cell = 18; lineH = cell * (ph.hasPy ? 2.0 : 1.55); lines = smartLines(ph.chars, Math.max(3, Math.floor(W0 / cell))); }
+        else { cell = 18; lineH = cell * (ph.hasPy ? 2.0 : 1.55); lines = smartLines(ph.chars, Math.max(3, W0 / cell)); }
       }
       const totalH = lines.length * lineH;
       let y = L.sy0 + 5 * s + Math.max(0, (H0 - totalH) / 2);
       const br = clamp(cell * 0.16, 5, 10);
       lines.forEach((ln, li) => {
-        const lw = ln.length * cell;
+        const lw = lineW(ln) * cell;   // 行尾挂着的标点不参与居中
         let x = (L.sx0 + L.sx1) / 2 - lw / 2 + cell / 2;
         for (const c of ln) {
           c.x = x; c.line = li;
@@ -478,27 +534,42 @@
       if ((src === 'ra' && raPool.length) || (src === 'tw' && twPool.length)) {
         const col = src === 'tw' ? 'twisters' : 'readaloud';
         const items = (g.items(col, src === 'tw' ? 3 : 2) || []).filter(src === 'tw' ? validTW : validRA);
-        for (let k = 0; k < items.length && phrases.length < want; k++) {
+        if (src === 'tw') for (const q of pickTwisters(items, minL, maxL, want)) phrases.push(makePhrase(q.x.list, q.r, q.x.it, 'tw', '绕口令'));
+        for (let k = 0; src === 'ra' && k < items.length && phrases.length < want; k++) {
           const it = items[k];
-          const list = charList(it.text, src === 'tw' ? it.py : null, src === 'ra' ? it.hard : null);
+          const list = charList(it.text, null, it.hard);
           const rs = phraseRanges(list, minL, maxL).filter((r) => hanIn(list, r.a, r.b) > 0);
           let start = 0;
-          if (src === 'ra' && k === 0 && rs.length > want) {
-            const cands = [0];
-            for (let i = 1; i + want <= rs.length; i++) if (rs[i - 1].end) cands.push(i);
-            start = cands[Math.floor(Math.random() * cands.length)];
+          if (k === 0 && rs.length > want) {
+            // 从一句话的开头读起；尽量也在一句话的结尾收住（别停在“抬头一看，”这种半句上）
+            const cands = [], full = [];
+            for (let i = 0; i + want <= rs.length; i++) {
+              if (i > 0 && !rs[i - 1].end) continue;
+              cands.push(i);
+              if (rs[i + want - 1].end) full.push(i);
+            }
+            const pool = full.length ? full : cands.length ? cands : [0];
+            start = pool[Math.floor(Math.random() * pool.length)];
           }
-          for (let i = start; i < rs.length && phrases.length < want; i++) phrases.push(makePhrase(list, rs[i], it, src, src === 'tw' ? '绕口令' : (it.title || '朗读')));
+          let stop = rs.length;
+          if (k > 0) {   // 第一篇不够 4 句、从第二篇开头补：补到句号为止，别停在半句上
+            stop = Math.min(rs.length, want - phrases.length);
+            let j = stop; while (j > 1 && !rs[j - 1].end) j--;
+            if (rs[j - 1].end) stop = j;
+          }
+          for (let i = start; i < stop && phrases.length < want; i++) phrases.push(makePhrase(list, rs[i], it, src, it.title || '朗读'));
         }
       }
       R.phrases = phrases; R.src = src;
-      g.rounds = Math.max(1, Math.min(want, phrases.length));
+      g.rounds = Math.max(1, phrases.length);
       const cps = [1.6, 1.8, 2.0, 2.2, 2.4][gn - 2] * (1 + 0.075 * (lv - 1)) * (src === 'tw' ? 1.06 : 1);
       R.cps = cps; R.beat = 1 / cps;
       R.ci = clamp(R.beat, 0.42, 0.7);
-      R.perfW = Math.min(0.11, R.beat * 0.3);
-      R.goodW = Math.min(0.22, R.beat * 0.46);
-      R.pass = Math.min(0.7, 0.5 + 0.025 * (lv - 1));
+      // 判定窗：前几关更宽松（P2 第 1 关 ±0.26 秒算“好”），之后收紧；及格线 45% → 70%
+      const ease = lv <= 2 ? 0.04 : lv <= 4 ? 0.02 : 0;
+      R.perfW = Math.min(0.11 + ease * 0.5, R.beat * 0.3);
+      R.goodW = Math.min(0.22 + ease, R.beat * 0.46);
+      R.pass = Math.min(0.7, 0.45 + 0.028 * (lv - 1));
       R.autoDemo = lv <= 2;
       R.rings = lv <= 6;
       R.dest = destFor(lv);
@@ -506,8 +577,8 @@
     function genWorld(g) {
       const R = g.rk, lv = g.level;
       const cl = [];
-      for (let i = 0; i < 12; i++) cl.push({ u: rnd(0.76, 0.92), x: (i + rnd(0, 0.7)) / 12, s: rnd(1.1, 1.8), d: rnd(0.9, 1.3), a: 0.96, v: rnd(4, 10) });
-      for (let i = 0; i < 16; i++) cl.push({ u: rnd(0.16, 1.6), x: Math.random(), s: rnd(0.45, 1.1), d: rnd(0.5, 1.05), a: 0.8, v: rnd(6, 18) });
+      for (let i = 0; i < 12; i++) cl.push({ u: rnd(0.76, 0.92), x: (i + rnd(0, 0.7)) / 12, s: rnd(1.1, 1.8), d: rnd(0.9, 1.3), a: 0.96, v: rnd(7, 16) });
+      for (let i = 0; i < 16; i++) cl.push({ u: rnd(0.16, 1.6), x: Math.random(), s: rnd(0.45, 1.1), d: rnd(0.5, 1.05), a: 0.8, v: rnd(10, 30) * (i % 3 ? 1 : -1) });
       for (let i = 0; i < 6; i++) cl.push({ u: rnd(1.7, 2.3), x: Math.random(), s: rnd(0.8, 1.4), d: 0.6, a: 0.3, v: rnd(2, 5) });
       cl.sort((a, b) => a.d - b.d);
       R.clouds = cl;
@@ -524,8 +595,8 @@
         L: null, phrases: [], idx: 0, cur: null, src: 'ra', ph: 'intro', phT: 0, cT: 0, rt: 0, rtEnd: 0,
         fuel: 0, hits: 0, streak: 0, lastHitRt: -9, lastVoice: -9, totalHits: 0,
         stage: 0, climb: 0, climbT: 0, alt: 0, cam: 0, fly: 'read', flame: 0, kick: 0, thrust: 0, sputter: 0, boostV: 0,
-        launched: false, armA: 0, flag: false, clock: 0, lastNow: 0, lastY0: null,
-        puffs: [], meteors: [], metT: 2, orbs: [], banners: [],
+        launched: false, armA: 0, flag: false, landed: false, landK: 0, flagK: 0, stampT: 0, stampPct: 0, stampLabel: '', clock: 0, lastNow: 0, lastY0: null,
+        puffs: [], meteors: [], metT: 2, orbs: [], banners: [], picks: [],
         cardIn: 1, cardDur: 1, cardOut: 0, cardShake: 0, btnPress: 0, spkPress: 0, demoing: false, demoTok: 0, readyWait: 1,
         started: false, micOn: false, fuelFull: false, readFlash: 0, tipDone: false, ball: { x: 0, y: 0, sq: 1 }
       };
@@ -564,7 +635,7 @@
       R.cardDur = 0.5 + R.cur.chars.length * 0.03;
       if (noAnim) R.cardIn = 1;
       else { R.cardIn = 0; g.tween(R, { cardIn: 1 }, R.cardDur, 'linear'); }
-      R.readyWait = retry ? 0.9 : (R.idx === 0 ? 1.5 : 1.0);
+      R.readyWait = retry ? 0.9 : (R.idx === 0 ? 1.5 : 1.0) + Math.min(0.8, R.cur.nHan * 0.04);   // 长句多给一点预读时间（点🔥可以提前开始）
       R.demoing = false; R.demoTok++;
       if (R.autoDemo && !retry && ttsOk()) playDemo(g);
     }
@@ -602,7 +673,8 @@
       R.btnPress = 1;
       if (R.ph === 'ready') { startCount(g); return; }
       if (R.ph !== 'run') return;
-      const ph = R.cur, rt = R.rt;
+      // 判定时间往后挪 TAP_LAG 秒：触屏/蓝牙键盘有延迟，孩子又多半是“看到球落下才点”，偏晚比偏早常见得多
+      const ph = R.cur, rt = R.rt - TAP_LAG;
       let best = null, bd = 1e9;
       for (const c of ph.hans) {
         if (c.st) continue;
@@ -647,9 +719,13 @@
       const R = g.rk, L = R.L, s = L.s, ph = R.cur;
       R.fuel = clamp(R.fuel - 0.4 / ph.nHan, 0, 1);
       R.streak = 0;
+      // 狂点时反馈要节流：否则 30 个“没对准”叠在一起糊成一团黑字、哑火声连成一片
+      const now = R.clock;
+      if (now - (R.misT || -9) < 0.3) return;
+      R.misT = now;
       g.sfx('chomp');
       const b = R.ball;
-      g.float(R.rt < ph.t0 - R.goodW ? '还没到' : '没对准', b.x, b.y - 26 * s, { color: '#D6E2FF', size: 16 * s, life: 0.6 });
+      g.float(R.rt - TAP_LAG < ph.t0 - R.goodW ? '还没到' : '没对准', clamp(b.x, L.sx0 + 40 * s, L.sx1 - 40 * s), Math.max(b.y - 26 * s, L.sy0 + 16 * s), { color: '#D6E2FF', size: 16 * s, life: 0.6 });
       R.puffs.push({ x: L.fireX + rnd(-10, 10), y: L.fireY - L.fireR * 0.6, vx: rnd(-30, 30), vy: -rnd(40, 80), r: 8 * s, gr: 30 * s, age: 0, life: 0.6, col: 180, screen: true });
     }
     function miss(g, c) {
@@ -666,8 +742,9 @@
     }
     function rocketPos(g, out) {
       const R = g.rk, L = R.L;
-      const yb = Ymap(R, R.alt, 1);
-      out.x = L.rx + (R.alt > 0.004 ? Math.sin(R.clock * 1.1) * 3 * L.s : 0);
+      let yb = Ymap(R, R.alt, 1);
+      if (R.landed) yb = lerp(L.groundY - L.rh * 0.85, L.groundY + 2 * L.s, R.landK);   // 星球表面：从上方反推减速落下
+      out.x = L.rx + (R.alt > 0.004 && !(R.landed && R.landK >= 1) ? Math.sin(R.clock * 1.1) * 3 * L.s * (R.landed ? 1 - R.landK : 1) : 0);
       out.yb = yb; out.cy = yb - L.rh * 0.4;
       return out;
     }
@@ -681,23 +758,47 @@
       g.sfx('power'); g.after(0.18, () => g.sfx('whoosh'));
       g.shake(5);
       R.boostV = 1;
+      // 冲刺路上摆一串星星，火箭冲过去一颗颗吃掉（叮叮叮 + 加分）——冲刺不只是看，还有收获
+      R.picks.length = 0;
+      const np = 3 + (R.fuel >= 0.92 ? 2 : R.fuel >= 0.75 ? 1 : 0);
+      const u0 = R.alt + (L.rh * 0.9) / L.STAGE + 0.06, u1 = R.stage + 1.08;
+      for (let i = 0; i < np; i++) R.picks.push({ u: u0 + ((u1 - u0) * i) / Math.max(1, np - 1), dx: (i % 2 ? 1 : -1) * rnd(4, 14) * L.s, ph: rnd(0, TAU), got: false });
       R.cardOut = 0; g.tween(R, { cardOut: 1 }, 0.7, 'linear');
       const to = R.stage + 1;
       rocketPos(g, RP);
-      if (!last) g.right(ph.item, RP.x, RP.cy - L.rh * 0.2, label);
-      else g.float(label, RP.x, RP.cy - L.rh * 0.45, { color: '#FFE45C', size: 32 * L.s });
-      g.after(last ? 0.75 : 0.45, () => {
-        if (to <= 3) { banner(g, STAGE_TXT[to - 1], { dur: 1.2 }); g.sfx('star'); }
-      });
+      // 飘字压在火箭身上往上飘（1 秒内飘不到横幅那一行），和“冲出云层！”横幅错开，不叠成一团
+      const fy = RP.cy + L.rh * 0.12;
+      if (!last) g.right(ph.item, RP.x, fy, label);
+      else g.float(label, RP.x, fy - 34, { color: '#FFE45C', size: 32 * L.s });
+      // 里程碑横幅等冲到位（飘字和“连击×3！”都淡掉了）再出，免得三行大字叠在一起
+      if (to <= 3) g.after(1.1, () => { banner(g, STAGE_TXT[to - 1], { dur: 1.3 }); g.sfx('star'); });
       g.tween(R, { alt: to }, last ? 1.6 : 1.2, 'inOutQuad', () => {
         R.stage = to; R.alt = to; R.climb = 0; R.climbT = 0; R.fly = 'read';
-        if (last) {
-          R.flag = true; R.ph = 'done';
-          banner(g, '到达' + R.dest.name + '！', { dur: 2.5, size: 40 });
+        if (last) land(g, ph);
+        else { R.idx++; readyPhrase(g, false); }
+      });
+    }
+    /* 登陆仪式：白光一闪切到星球表面 → 火箭反推减速落地 → 扬起尘土、插旗、横幅 → 1 秒后才算通关（结算面板随后出现） */
+    function land(g, ph) {
+      const R = g.rk, L = R.L, s = L.s;
+      R.ph = 'land'; R.fly = 'land'; R.landed = true; R.landK = 0; R.flagK = 0;
+      g.flash('#FFFFFF'); g.sfx('whoosh');
+      g.tween(R, { landK: 1 }, 1.05, 'outQuad', () => {
+        R.ph = 'done'; R.fly = 'landed'; R.flag = true;
+        rocketPos(g, RP);
+        g.shake(7); g.sfx('pop'); g.after(0.12, () => g.sfx('star'));
+        for (let i = 0; i < 16; i++) {
+          const sd = i % 2 ? 1 : -1;
+          R.puffs.push({ x: RP.x + sd * rnd(4, L.rh * 0.3), y: L.groundY - rnd(0, 8 * s), vx: sd * rnd(80, 240), vy: -rnd(10, 60), r: rnd(5, 10) * s, gr: rnd(14, 30) * s, age: 0, life: rnd(0.6, 1.1), col: 214 });
+        }
+        g.tween(R, { flagK: 1 }, 0.5, 'outBack');
+        banner(g, '到达' + R.dest.name + '！', { dur: 2.8, size: 40 });
+        g.burst(L.flagX, L.groundY - 30 * s, { kind: 'star', n: 18 });
+        g.ring(RP.x, L.groundY, '#FFFFFF', 120 * s);
+        g.after(1.05, () => {
           rocketPos(g, RP);
-          g.burst(RP.x, RP.cy - L.rh * 0.55, { kind: 'star', n: 24 });
-          g.right(ph.item, RP.x, RP.cy - L.rh * 0.2, '🚩 登陆！');
-        } else { R.idx++; readyPhrase(g, false); }
+          g.right(ph.item, RP.x, RP.cy + L.rh * 0.12, '🚩 登陆！');
+        });
       });
     }
     function noteFor(R, ph) {
@@ -753,12 +854,14 @@
       const onPad = R.stage === 0 && R.alt < 0.004;
       let ft;
       if (R.fly === 'boost') ft = 1;
+      else if (R.fly === 'land') ft = 0.75 - 0.35 * R.landK;   // 反推减速
+      else if (R.fly === 'landed') ft = 0;
       else if (R.fly === 'fall') ft = R.sputter > 0 && Math.random() < 0.25 ? 0.4 : 0;
-      else if (onPad) ft = R.kick * 0.9;
+      else if (onPad) ft = Math.max(R.kick * 0.9, R.ph === 'count' ? 0.2 + 0.1 * Math.sin(R.clock * 40) : 0);   // 倒数时先点着小火苗
       else if (R.ph === 'run') ft = Math.max(0.3, R.kick, R.micOn ? R.thrust : 0);
       else if (R.ph === 'done') ft = 0.35;
       else ft = 0.3;
-      if (g.state === 'over' && R.ph !== 'done' && R.fly !== 'boost') ft = R.fly === 'fall' ? ft : 0;
+      if (g.state === 'over' && R.ph !== 'done' && R.fly !== 'boost' && R.fly !== 'land') ft = R.fly === 'fall' ? ft : 0;
       R.flame += (ft - R.flame) * Math.min(1, dt * 12);
       R.kick = Math.max(0, R.kick - dt * 2.2);
       R.sputter = Math.max(0, R.sputter - dt);
@@ -804,6 +907,20 @@
         p.r += p.gr * dt;
       }
       if (R.puffs.length > 140) R.puffs.splice(0, R.puffs.length - 140);
+      // 冲刺星星：火箭头碰到就吃掉
+      if (R.picks.length) {
+        rocketPos(g, RP);
+        const nose = R.alt + (L.rh * 0.9) / S;
+        for (const p of R.picks) {
+          if (p.got || nose < p.u) continue;
+          p.got = true;
+          const py = Ymap(R, p.u, 1);
+          g.burst(RP.x + p.dx, py, { kind: 'star', n: 7 });
+          g.sfx('coin');
+          if (g.state === 'play') g.addScore(2);
+        }
+        if (R.picks.every((p) => p.got)) R.picks.length = 0;
+      }
       // 流星
       const f = R.cam / 4;
       if (f > 0.42) {
@@ -933,17 +1050,14 @@
         }
       }
       // 目的地星球：接近时从上方降下来
-      {
+      if (R.landed) drawSurface(g, c, R, t);
+      else {
         const pr = Math.min(w * 0.36, (wh - g.hudTop) * 0.46);
         const noseY = L.flyY - L.rh;
         const k = smooth((R.cam - 2.55) / 1.45);
         if (k > 0) {
           const pcy = lerp(-pr * 1.3, noseY - pr * 1.04, k);
           drawPlanet(c, R.dest.key, w / 2 + (1 - k) * w * 0.12, pcy, pr, t, 3 * s);
-          if (R.flag) {
-            const fx = w / 2 + pr * 0.32, fy = pcy + Math.sqrt(Math.max(0, pr * pr - (pr * 0.32) * (pr * 0.32)));
-            g.emoji('🚩', fx + 10 * s, fy - 20 * s, 40 * s, { rot: Math.sin(t * 3) * 0.08 });
-          }
         }
       }
       // 地面（发射台）
@@ -955,10 +1069,20 @@
       }
       // 火箭
       rocketPos(g, RP);
-      let rot = R.alt > 0.004 ? Math.sin(R.clock * 1.3) * 0.035 : 0;
+      let rot = R.alt > 0.004 ? Math.sin(R.clock * 1.3) * 0.035 * (R.landed ? 1 - R.landK : 1) : 0;
       if (R.fly === 'fall') rot += Math.sin(R.clock * 30) * 0.06 * Math.max(R.sputter, 0.3);
-      const jig = R.fly === 'boost' ? Math.sin(R.clock * 60) * 1.5 * s : 0;
+      const jig = R.fly === 'boost' ? Math.sin(R.clock * 60) * 1.5 * s : R.ph === 'count' && R.alt < 0.004 ? Math.sin(R.clock * 70) * 1.3 * s : 0;   // 倒数时在发射台上抖
       drawRocket(g, c, RP.x + jig, RP.yb, L.rh, rot, R.flame, avatar, R.clock);
+      if (R.landed && R.flag) drawFlag(g, c, R, t);
+      // 冲刺星星
+      for (const p of R.picks) {
+        if (p.got) continue;
+        const py = Ymap(R, p.u, 1);
+        if (py < -30 || py > wh + 30) continue;
+        const px = L.rx + p.dx, k = 1 + 0.12 * Math.sin(t * 8 + p.ph);
+        c.globalAlpha = 0.35; c.fillStyle = '#FFF3A0'; c.beginPath(); c.arc(px, py, 20 * s * k, 0, TAU); c.fill(); c.globalAlpha = 1;
+        g.emoji('⭐', px, py, 30 * s * k, { rot: Math.sin(t * 3 + p.ph) * 0.3 });
+      }
       // 近处的云（挡在火箭前面）
       for (const cl of R.clouds) {
         if (cl.d < 1.05) continue;
@@ -1022,6 +1146,63 @@
       c.fillStyle = 'rgba(255,255,255,.45)'; c.beginPath(); c.ellipse(-r * 0.4, -r * 0.45, r * 0.22, r * 0.34, -0.4, 0, TAU); c.fill();
       c.restore();
     }
+    /* 登陆后的星球表面：大圆弧地平线 + 陨石坑/岩石 + 远处小小的地球 + 插上的旗 */
+    function drawSurface(g, c, R, t) {
+      const L = R.L, w = g.w, s = L.s, gy = L.groundY;
+      const R2 = Math.max(w * 0.95, 380 * s), cx = w / 2, cy = gy + R2;
+      // 远处的地球
+      const ex = w * 0.8, ey = g.hudTop + 70 * s, er = 20 * s;
+      const eg = c.createRadialGradient(ex - er * 0.3, ey - er * 0.3, 1, ex, ey, er);
+      eg.addColorStop(0, '#9FE3FF'); eg.addColorStop(1, '#2E7FD8');
+      c.fillStyle = 'rgba(120,200,255,.22)'; c.beginPath(); c.arc(ex, ey, er * 1.5, 0, TAU); c.fill();
+      c.fillStyle = eg; c.beginPath(); c.arc(ex, ey, er, 0, TAU); c.fill();
+      c.fillStyle = 'rgba(80,190,110,.85)';
+      c.beginPath(); c.ellipse(ex - er * 0.25, ey - er * 0.1, er * 0.35, er * 0.5, 0.4, 0, TAU); c.fill();
+      c.beginPath(); c.ellipse(ex + er * 0.45, ey + er * 0.35, er * 0.25, er * 0.2, 0, 0, TAU); c.fill();
+      c.lineWidth = 2 * s; c.strokeStyle = NAVY; c.beginPath(); c.arc(ex, ey, er, 0, TAU); c.stroke();
+      const key = R.dest.key;
+      if (key === 'saturn') {   // 站在土星上抬头：光环像一座桥横跨天空
+        c.save(); c.lineCap = 'round';
+        c.strokeStyle = 'rgba(246,220,160,.55)'; c.lineWidth = 22 * s;
+        c.beginPath(); c.ellipse(cx, gy + 30 * s, w * 0.62, (gy - g.hudTop) * 0.62, -0.18, Math.PI * 1.02, Math.PI * 1.98); c.stroke();
+        c.strokeStyle = 'rgba(255,240,200,.75)'; c.lineWidth = 6 * s;
+        c.beginPath(); c.ellipse(cx, gy + 30 * s, w * 0.62, (gy - g.hudTop) * 0.62, -0.18, Math.PI * 1.02, Math.PI * 1.98); c.stroke();
+        c.restore();
+      }
+      drawPlanet(c, key, cx, cy, R2, t * 0.2, 4 * s);
+      // 表面细节（只画在露出来的那一截上）
+      c.save();
+      c.beginPath(); c.arc(cx, cy, R2, 0, TAU); c.clip();
+      if (key === 'saturn' || key === 'jupiter') {   // 气态行星的彩色条纹
+        const bc = key === 'jupiter' ? ['rgba(160,80,40,.35)', 'rgba(255,255,255,.3)'] : ['rgba(160,110,50,.3)', 'rgba(255,255,255,.28)'];
+        for (let i = 0; i < 3; i++) { c.strokeStyle = bc[i % 2]; c.lineWidth = (10 - i * 2) * s; c.beginPath(); c.arc(cx, cy, R2 - (16 + i * 20) * s, Math.PI * 1.05, Math.PI * 1.95); c.stroke(); }
+      }
+      const pits = [[0.12, 16, 6], [0.3, 30, 9], [0.62, 22, 7], [0.83, 34, 11], [0.47, 44, 5], [0.95, 14, 5], [0.05, 40, 8]];
+      for (const q of pits) {
+        const px = q[0] * w, py = gy + q[1] * s, pw = q[2] * 2.6 * s, ph = q[2] * 0.9 * s;
+        c.fillStyle = 'rgba(0,0,0,.16)'; c.beginPath(); c.ellipse(px, py, pw, ph, 0, 0, TAU); c.fill();
+        c.fillStyle = 'rgba(255,255,255,.28)'; c.beginPath(); c.ellipse(px, py + ph * 0.45, pw * 0.8, ph * 0.45, 0, 0, Math.PI); c.fill();
+      }
+      c.restore();
+    }
+    /* 旗子：落地后从地里弹出来，迎风飘（画在火箭和尘土之后，不被烟挡住） */
+    function drawFlag(g, c, R, t) {
+      const L = R.L, s = L.s, gy = L.groundY;
+      if (R.flag) {
+        const k = clamp(R.flagK, 0, 1.2), fx = L.flagX, fy = gy + 6 * s;
+        const ph2 = 52 * s * k;
+        c.strokeStyle = NAVY; c.lineWidth = 3 * s; c.lineCap = 'round';
+        c.beginPath(); c.moveTo(fx, fy); c.lineTo(fx, fy - ph2); c.stroke();
+        if (k > 0.3) {
+          const wv = Math.sin(t * 5) * 3 * s, top = fy - ph2, fw = 34 * s * Math.min(1, k), fh = 22 * s * Math.min(1, k);
+          c.fillStyle = '#EF3340';
+          c.beginPath(); c.moveTo(fx, top); c.quadraticCurveTo(fx + fw * 0.5, top - 4 * s + wv, fx + fw, top + wv * 0.5);
+          c.lineTo(fx + fw, top + fh + wv * 0.5); c.quadraticCurveTo(fx + fw * 0.5, top + fh - 4 * s + wv, fx, top + fh); c.closePath(); c.fill();
+          c.lineWidth = 2 * s; c.stroke();
+          g.emoji(avatar, fx + fw * 0.5, top + fh * 0.5 + wv * 0.3, fh * 0.8);
+        }
+      }
+    }
     function drawGround(g, c, R, t) {
       const L = R.L, w = g.w, s = L.s, wh = L.splitY;
       const gy = Ymap(R, 0, 1);
@@ -1057,6 +1238,10 @@
           c.stroke();
         }
         c.globalAlpha = 1;
+        // 海上的船：帆船往右、货轮往左（新加坡港口）
+        const sp = w + 160 * s;
+        g.emoji('⛵', ((t * 26 * s) % sp) - 80 * s, hz + 12 * s + Math.sin(t * 2) * 1.5 * s, 26 * s, { rot: Math.sin(t * 1.6) * 0.06 });
+        g.emoji('🚢', sp - 80 * s - ((t * 12 * s + w * 0.35) % sp), hz + 6 * s, 30 * s);
       }
       // 小岛 + 发射台
       c.fillStyle = '#F3D38A';
@@ -1136,7 +1321,7 @@
         const n = g.rounds;
         let dx = 12 * s + tw0 + 16 * s;
         for (let i = 0; i < n; i++) {
-          const done = i < g.done || (R.ph === 'done'), cur = i === R.idx && !done;
+          const done = i < g.done || R.ph === 'done' || R.ph === 'land', cur = i === R.idx && !done;
           const r = (cur ? 8 : 6.5) * s * (cur ? 1 + 0.12 * Math.sin(t * 6) : 1);
           c.fillStyle = done ? '#FFC928' : cur ? '#FF7A3D' : '#E3D7B8';
           c.beginPath(); c.arc(dx, hy, r, 0, TAU); c.fill();
@@ -1174,7 +1359,7 @@
     }
     function drawChars(g, c, R, ph) {
       const L = R.L, s = L.s, cell = ph.cell, t = R.clock;
-      const run = R.ph === 'run', rt = run ? R.rt : R.ph === 'result' || R.ph === 'done' ? R.rtEnd : -1;
+      const run = R.ph === 'run', rt = run ? R.rt : R.ph === 'result' || R.ph === 'done' || R.ph === 'land' ? R.rtEnd : -1;
       const csz = Math.round(cell * 0.84), psz = Math.round(cell * 0.33);
       // 接近圈：提示下一个字
       let next = null;
@@ -1249,7 +1434,7 @@
       else if (R.ph === 'count') g.text('预备——', mx, my, { size: Math.round(15 * s), font: 'round', color: '#FFE45C' });
       else if (run && R.rt < ph.t0 + 0.45) g.text('读！', mx, my, { size: Math.round(17 * s), font: 'round', color: '#7CFF8A' });
       // 结算印章：燃料百分比
-      if ((R.ph === 'result' && R.fly === 'boost') || R.ph === 'done') {
+      if ((R.ph === 'result' && R.fly === 'boost') || R.ph === 'done' || R.ph === 'land') {
         const k = clamp(R.stampT / 0.35, 0, 1), sc = outBack(k);
         const cy = (L.sy0 + L.sy1) / 2;
         c.save(); c.translate(mx, cy - 8 * s); c.scale(sc, sc); c.rotate(-0.05);
@@ -1287,7 +1472,7 @@
       }
       out.x = x; out.y = y; out.sq = sq; out.h = clamp(hgt, 0, 1);
       out.gx = x; out.gy = (y + hgt * cell * 0.6) + ph.br * 0.9;
-      if (R.ph === 'run' || R.ph === 'result' || R.ph === 'done') out.gy = y + ph.br * 0.9 + hgt * cell * 0.5;
+      if (R.ph === 'run' || R.ph === 'result' || R.ph === 'done' || R.ph === 'land') out.gy = y + ph.br * 0.9 + hgt * cell * 0.5;
       return out;
     }
     function drawFire(g, c, R) {
@@ -1445,7 +1630,7 @@
             if (c.t - R.rt > win) break;
             if (R.micOn && Math.abs(R.rt - c.t) <= mw) { c.vf += dt; if (m && m.voiced) c.vv += dt; }
             if (!c.lit && R.rt >= c.t) { c.lit = true; c.pop = Math.max(c.pop, 0.55); }
-            if (R.rt > c.t + win) {
+            if (R.rt > c.t + win + (R.micOn ? 0 : TAP_LAG)) {
               if (R.micOn && c.vf > 0 && c.vv / c.vf >= 0.3) judge(g, c, 2, 'mic');
               else miss(g, c);
             }

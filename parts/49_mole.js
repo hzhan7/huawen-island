@@ -24,6 +24,16 @@
   const isHan = (ch) => /[㐀-鿿豈-﫿]/.test(ch);
   const str = (v) => (v == null ? '' : String(v));
   const PUNCT = /[，。！？、；：“”‘’（）《》〈〉【】…—·,.!?;:()"'\s]/;
+  const OPEN = /[“‘（《〈【(]/;                           // 开引号 / 开括号：只能放行首，不能留在行尾
+  const noStart = (ch) => PUNCT.test(ch) && !OPEN.test(ch);   // 不能放在行首的标点
+  // 讲解条换行：引擎 wrapText 只管“行首不放句号逗号”，开引号会孤零零挂在行尾（实测“…上面是“久”的“ / 灸”是针灸”），挪到下一行行首
+  function fixOpenQuotes(lines) {
+    const out = lines.slice();
+    for (let i = 0; i + 1 < out.length; i++) {
+      while (out[i].length > 1 && OPEN.test(out[i].slice(-1))) { out[i + 1] = out[i].slice(-1) + out[i + 1]; out[i] = out[i].slice(0, -1); }
+    }
+    return out;
+  }
   const outBack = (t) => { const s = 1.9, u = t - 1; return u * u * ((s + 1) * u + s) + 1; };
   const inQuad = (t) => t * t;
 
@@ -61,6 +71,22 @@
     c.closePath();
   }
 
+  let LEX = null;                 // 题库词表（全年级 words.w 与 chars.words，2–4 字）：只用来避免把词拆到两行
+  function lexicon() {
+    if (LEX) return LEX;
+    LEX = new Set();
+    try {
+      const all = W.HW_DATA && typeof W.HW_DATA === 'object' ? W.HW_DATA : {};
+      const add = (x) => { x = str(x); const k = Array.from(x).length; if (k >= 2 && k <= 4) LEX.add(x); };
+      for (const gr in all) {
+        const G = all[gr] || {};
+        (Array.isArray(G.words) ? G.words : []).forEach((w) => add(w && w.w));
+        (Array.isArray(G.chars) ? G.chars : []).forEach((c) => (c && Array.isArray(c.words) ? c.words : []).forEach(add));
+      }
+    } catch (e) { /* ignore */ }
+    return LEX;
+  }
+
   HW.register({
     id: 'mole', skill: 'write', kind: 'arcade', name: '打地鼠找错字', icon: '🔨',
     blurb: '敲举着错字的地鼠，再敲出正确的字', cols: ['typo'],
@@ -81,22 +107,52 @@
         const N = Math.max(5, M.maxN);
         let lines = 1, fs = Math.min(46 * u, innerW / (N + 0.6));
         if (fs < 30) { lines = 2; fs = Math.min(42 * u, innerW / (Math.ceil(N / 2) + 0.8)); }
-        if (fs < 21) { lines = 3; fs = Math.min(36 * u, innerW / (Math.ceil(N / 3) + 0.8)); }
+        if (fs < 25) { lines = 3; fs = Math.min(30 * u, innerW / (Math.ceil(N / 3) + 0.8)); }   // 窄屏长句（P6 23 字 @360px）宁可 3 行也别小于 25px
+        // 矮屏（横屏手机 667×375 / 740×360：画布只露出 ~320px）：两行木牌 + 说明条就占满了，地洞被挤到屏幕外
+        // （实测 P6 667×375 只露出字牌和地鼠脑袋）。矮屏一律一行，字小一点（≥18px）也要把地洞留在屏幕里
+        const avail = visibleH(g) - g.hudTop;
+        if (lines > 1 && avail < 420) {
+          const f1 = Math.min(46 * u, innerW / (N + 0.3));
+          if (f1 >= 18) { lines = 1; fs = f1; }
+        }
         fs = Math.max(16, Math.floor(fs));
         const lh = Math.round(fs * 1.3);
         const sh = frame * 2 + padY * 2 + lh * lines;
         M.sg = { x: (w - sw) / 2, y: g.hudTop + 8 * u, w: sw, h: sh, frame, padX, padY, fs, lh, lines,
           perLine: Math.ceil(N / lines), innerW, pivotY: g.hudTop - 40 * u };
         M.stripY = M.sg.y + sh + 8 * u;
-        M.stripH = Math.round(40 * u);
+        M.pillH = Math.round(40 * u);
+        // 讲解条会长到 2–3 行（P5/P6 讲解 20–31 字，手机上要换行）：按本关最长的讲解预留高度，
+        // 否则讲解条盖住第一排地鼠的字牌（实测 390 宽 P5“情不自禁”那条盖掉半个“进”）
+        const tfs = Math.round(17 * u), tmax = Math.min(w - 30 * u, 700) - 50 * u;
+        let tl = 1;
+        for (const t of (M.list || [])) {
+          const e = str(t && t.e);
+          if (e) tl = Math.max(tl, Math.min(3, g.wrapText(e, tmax, tfs, 'kai').length));
+        }
+        M.stripH = Math.round(Math.max(M.pillH, tl * tfs * 1.3 + 14 * u));
+      }
+      // 画布真正露在屏幕里的高度：引擎把画布高度夹在 ≥480，横屏手机（844×390）只露出 ~338px，
+      // 画布又是 touch-action:none 划不动页面 → 下排地鼠既看不到也敲不到。地洞只摆在看得见的范围里。
+      function visibleH(g) {
+        try {
+          const cv = g.c && g.c.canvas;
+          if (!cv || !cv.getBoundingClientRect) return g.h;
+          const top = cv.getBoundingClientRect().top + (W.scrollY || W.pageYOffset || 0);
+          const vh = (W.visualViewport && W.visualViewport.height) || W.innerHeight || g.h;
+          const v = Math.floor(vh - top);
+          return v >= 260 && v < g.h ? v : g.h;
+        } catch (e) { return g.h; }
       }
       function layoutField(g) {
-        const w = g.w, h = g.h, u = M.u;
+        const w = g.w, h = visibleH(g), u = M.u;
+        M.visH = h;
         const fT = M.stripY + M.stripH + 10 * u, fB = h - 6 * u;
-        const FH = Math.max(160, fB - fT);
+        const FH = Math.max(110, fB - fT);
         const fw = Math.min(w - 8 * u, 1120);
         const n = M.P.holes;
-        const cands = n === 6 ? [[3, 3], [2, 2, 2]] : [[3, 3, 3], [4, 5]];
+        // 候选排法；横屏矮屏幕时一排摆开（地鼠更大，数字 1–9 也正好对应键盘一排）
+        const cands = n === 6 ? [[3, 3], [2, 2, 2], [6]] : [[3, 3, 3], [4, 5], [9]];
         let best = null;
         for (const rows of cands) {
           const R = rows.length, kMax = Math.max.apply(null, rows);
@@ -132,20 +188,24 @@
         layoutField(g);
         if (M.item) setSentence(g);
       }
-      // 分行：先按行数均分，断点优先落在标点后面（“很近，/走路…”而不是“…很近，走/路…”），行首不放标点
+      // 分行：先按行数均分，断点优先落在标点后面（“很近，/走路…”而不是“…很近，走/路…”），行首不放标点；
+      // 尽量别把词拆开（实测 P2“小明再图书 / 馆里看书。”）：M.brkPen[k] = 在第 k 个字前断行的额外代价
       function splitLines(cs, per) {
         const n = cs.length, L = Math.max(1, Math.ceil(n / per));
         if (L <= 1) return [cs.map((_, i) => i)];
-        const brk = [0];
+        const pen = M.brkPen || [];
+        const brk = [0], cap = per + 3;          // 一行最多比均分多 3 字（多出来的由 setSentence 缩字号兜住）
         for (let j = 1; j < L; j++) {
-          const t = Math.round(n * j / L), lo = brk[brk.length - 1] + 1;
+          const prev = brk[brk.length - 1], left = L - j + 1;
+          const t = prev + Math.round((n - prev) / left);
           let best = -1, bd = 1e9;
-          for (let k = Math.max(lo, t - 3); k <= Math.min(n - 1, t + 3); k++) {
-            if (PUNCT.test(cs[k]) || k - brk[brk.length - 1] > per + 1 || (j === L - 1 && n - k > per + 1)) continue;
-            const d = Math.abs(k - t) + (PUNCT.test(cs[k - 1]) ? 0 : 2.5);
+          for (let k = Math.max(prev + 1, t - 4); k <= Math.min(n - 1, t + 4); k++) {
+            if (noStart(cs[k]) || OPEN.test(cs[k - 1]) || k - prev > cap || n - k > cap * (left - 1)) continue;
+            const after = noStart(cs[k - 1]) || OPEN.test(cs[k]);
+            const d = after ? Math.abs(k - t) * 0.5 - 1 : Math.abs(k - t) + 4 + (pen[k] || 0);   // 标点后断最优先（“跑完步，/ 我们坐在…”）
             if (d < bd) { bd = d; best = k; }
           }
-          if (best < 0) { best = Math.max(lo, t); while (best < n - 1 && PUNCT.test(cs[best])) best++; }
+          if (best < 0) { best = Math.max(prev + 1, t); while (best < n - 1 && (noStart(cs[best]) || OPEN.test(cs[best - 1]))) best++; }
           brk.push(best);
         }
         brk.push(n);
@@ -153,22 +213,53 @@
         for (let j = 0; j + 1 < brk.length; j++) { const a = []; for (let i = brk[j]; i < brk[j + 1]; i++) a.push(i); if (a.length) out.push(a); }
         return out;
       }
+      // 断在词中间的代价：题库词表（words.w / chars.words，全年级）里的词、叠字（轻轻 / 干干净净）、粘着前字的“的了们子…”
+      function breakPenalty(sent, fixedSent) {
+        const lex = lexicon(), n = sent.length, pen = new Array(n + 1).fill(0);
+        for (const S of [sent, fixedSent]) {
+          for (let a = 0; a < n - 1; a++) {
+            for (let len = 4; len >= 2; len--) {
+              if (a + len > n) continue;
+              if (lex.has(S.slice(a, a + len).join(''))) { for (let k = a + 1; k < a + len; k++) pen[k] = Math.max(pen[k], 6); break; }
+            }
+          }
+        }
+        for (let k = 1; k < n; k++) {
+          if (sent[k] === sent[k - 1] && isHan(sent[k])) pen[k] = Math.max(pen[k], 5);
+          if (/[的地得了着过们子吗呢吧么]/.test(sent[k])) pen[k] = Math.max(pen[k], 3);
+          // 词表外的词（咖啡、可以…）靠虚词找边界：在“的了们里…”之后、“在和把被都就很要会…”之前断，多半是词与词之间
+          // （实测“…在咖 / 啡店里…”“…清澈地可 / 以看见…”）
+          if (!pen[k] && (/[的地了着过们里上下后时]/.test(sent[k - 1]) || /[在和与跟把被从向对给让是就都也还又很真要能会可]/.test(sent[k]))) pen[k] = -3;
+        }
+        return pen;
+      }
       function setSentence(g) {
-        const sg = M.sg, cs = M.chars, per = sg.perLine;
-        const lines = splitLines(cs, per);
-        let cw = sg.fs * 1.02;
-        const longest = Math.max.apply(null, lines.map((l) => l.length));
-        const room = sg.w - sg.frame * 2 - 8 * M.u;
-        if (longest * cw > room) cw = room / longest;
-        let lh = sg.lh;
-        const roomH = sg.h - sg.frame * 2 - 4 * M.u;
+        const sg = M.sg, cs = M.chars, n = cs.length, u = M.u;
+        const room = sg.innerW + 4 * u;                    // 左右各留出木牌内边距（贴着木框太挤）
+        const roomH = sg.h - sg.frame * 2 - 4 * u;
+        // 这一句用几行：木牌按本关最长的句子定高；短句少排一行时字号仍 ≥28px 或不小于 9 成，就少排一行
+        // （实测 P2 10 个字的句子被拆成两行，还把“图书馆”拆开了）
+        const maxL = Math.max(1, sg.lines);
+        let pick = null;
+        for (let L = 1; L <= maxL; L++) {
+          const lines = splitLines(cs, Math.ceil(n / L));
+          const longest = Math.max.apply(null, lines.map((l) => l.length));
+          const fs = Math.floor(Math.min(46 * u, roomH / (lines.length * 1.24), room / (longest * 1.02)));
+          const cand = { lines, fs };
+          if (!pick || (fs > pick.fs / 0.9 && pick.fs < 28)) pick = cand;   // 少一行能有 ≥28px 就少排一行：短句一行读起来最顺
+        }
+        const lines = pick.lines;
+        M.fsQ = Math.max(14, pick.fs);
+        const cw = M.fsQ * 1.02;
+        let lh = Math.round(M.fsQ * 1.3);
         if (lines.length * lh > roomH) lh = roomH / lines.length;
+        M.lhQ = lh;
         const top = sg.y + sg.h / 2 - lines.length * lh / 2;
         M.cells = [];
         M.cellW = cw;
         lines.forEach((ln, li) => {
           let x = g.w / 2 - ln.length * cw / 2 + cw / 2;
-          ln.forEach((i) => { M.cells[i] = { x, y: top + li * lh + lh / 2 + sg.fs * 0.02 }; x += cw; });
+          ln.forEach((i) => { M.cells[i] = { x, y: top + li * lh + lh / 2 + M.fsQ * 0.02, li }; x += cw; });
         });
       }
 
@@ -178,6 +269,8 @@
         M.qi = qi; M.item = it; M.advancing = false; M.waitNext = false;
         M.chars = Array.from(it.s);
         M.bad = str(it.bad); M.good = str(it.good); M.bi = it.i;
+        const fixedS = M.chars.slice(); fixedS[M.bi] = M.good;
+        M.brkPen = breakPenalty(M.chars, fixedS);
         // 第一步干扰字：句子里其它汉字（去掉所有与错字相同的字）
         const d1 = [], seen = new Set([M.bad]);
         M.chars.forEach((ch, i) => { if (isHan(ch) && !seen.has(ch)) { seen.add(ch); d1.push({ ch, near: Math.abs(i - M.bi) <= 4 }); } });
@@ -203,14 +296,28 @@
         if (M.tip && M.tip.kind === 'warn') M.tip = null;     // 上一步的“再找找”别挡住新一步的说明条
         M.firstT = M.tut;
         g.sfx(ph === 1 ? 'whoosh' : 'flip');
+        // 教学题（第 1–2 关第 1 题）：有中文朗读就用声音说一遍玩法（P2 孩子不一定读得懂说明条）；
+        // 没有朗读时不调 g.say——引擎的拼音字幕条会盖住木牌上的句子
+        if (M.tut) {
+          let ok = false;
+          try { ok = !!(g.ctx && g.ctx.tts && g.ctx.tts.ok); } catch (e) { ok = false; }
+          if (ok) g.say(ph === 1 ? '找一找，哪个字写错了？敲举着它的地鼠！' : '再敲出正确的字！');
+        }
       }
       function nextQuestion(g) {
         if (g.state !== 'play') return;
         if (M.nextTm) { M.nextTm.cancel(); M.nextTm = null; }
         M.waitNext = false;
+        if (M.lastQ || g.done >= g.rounds) {          // 最后一题的讲解看完了 → 过关
+          M.lastQ = false;
+          if (M.tip) { M.tip.t = 9; M.tip.d = 10; }  // 讲解条留着陪到结算面板出来（否则露出“② 敲出正确的字！”）
+          g.win();
+          return;
+        }
         const qi = M.qi + 1;
         if (qi >= M.list.length || M.advancing) return;
         M.advancing = true;
+        hideAll(g);
         g.sfx('whoosh');
         g.tween(M.drop, { y: -(M.sg.y + M.sg.h + 60) }, 0.3, 'inQuad', () => {
           if (g.state !== 'play') return;
@@ -268,7 +375,8 @@
         }
         const up = P.upT * g.rand(0.85, 1.15) * (kind === 'bomb' ? 1.25 : kind === 'gold' ? 0.8 : 1);
         hole.m = { kind, ch, target, feint, ph: M.ph, st: 'rise', t: 0, pe: 0, pe0: 0, upT: up, riseT: P.riseT, hideT: 0.2,
-          sx: 1, sy: 1, shx: 0, blink: g.rand(0.8, 3), silent: false, born: M.clk, fuse: 0, id: ++M.mid };
+          sx: 1, sy: 1, shx: 0, blink: g.rand(0.8, 3), silent: false, born: M.clk, fuse: 0, id: ++M.mid,
+          warn: kind === 'bomb' && (M.bombsShown = (M.bombsShown || 0) + 1) <= 2 };   // 本关头两颗炸弹头上写“别敲！”
         g.burst(hole.x, hole.y, { kind: 'dot', color: '#A0703F', n: 6 });
         g.sfx('pop');
       }
@@ -328,7 +436,9 @@
         const top = m.kind === 'bomb' ? Y - 10 * s : Y - 70 * s;
         return x >= h.x - 44 * s && x <= h.x + 44 * s && y >= top && y <= h.y + 26 * s;
       }
-      function hittable(m) { return m && !m.silent && m.pe > 0.33 && (m.st === 'rise' || m.st === 'up' || m.st === 'hide'); }
+      // 已经敲过的地鼠（晕倒缩回 / 坏笑缩回 / 金地鼠缩回）不能再敲：实测孩子对着刚敲对的地鼠 0.63 秒后补一锤，
+      // 它正在缩回、没被 hideAll 静音 → 被当成“敲错”扣心，还把答对的题记进错题本（金地鼠则能重复 +30）
+      function hittable(m) { return m && !m.silent && !m.whacked && m.pe > 0.33 && (m.st === 'rise' || m.st === 'up' || m.st === 'hide'); }
       function swing(g, x, y, touch) {
         const H = M.ham;
         H.x = x; H.y = y; H.alpha = 1; H.touch = !!touch; H.fade = 0.5;
@@ -364,7 +474,7 @@
         const m = h.m;
         const up = m && hittable(m);
         const x = h.x, y = up ? (m.kind === 'bomb' ? moleTopY(h, m) + 30 * h.s : moleTopY(h, m) - 36 * h.s) : h.y;
-        swing(g, x, y, false);
+        swing(g, x, y, true);            // 键盘敲完也像触屏一样落锤后淡出：举着的锤子会一直悬在第一排上方、挡住木牌上的句子
         if (up) onHit(g, h, m, x, y); else ground(g, x, h.y);
       }
       function ground(g, x, y) {
@@ -385,7 +495,9 @@
           g.shake(18); g.flash('#FFF3C4'); g.sfx('crash');
           g.combo = 0;
           g.float('💥', h.x, by - 20 * s, { size: 56 });
-          g.addScore(-20, h.x, by - 40 * s);
+          g.addScore(-20);                                   // 引擎飘字是金色（像奖励），扣分自己飘红字
+          g.float('-20', h.x + 36 * s, by - 44 * s, { color: '#FF5A5F', size: 30 });
+          if (!M.tip || M.tip.kind !== 'e') tip('那是炸弹！别敲，扣 20 分', 'warn', 1.8);
           return;
         }
         if (m.kind === 'gold') {
@@ -398,6 +510,9 @@
           return;
         }
         const it = M.item;
+        if (M.ph !== 1 && M.ph !== 2) {                     // 两步之间（红圈 / 飞字 / 讲解）：只是敲了一下，不算对错
+          m.whacked = false; ground(g, x, y); return;
+        }
         if (M.ph === 1 && m.ch === M.bad) {                 // ① 找到错字
           m.st = 'hit'; m.t = 0;
           M.ph = 0; M.found = true; M.hint = false;
@@ -438,7 +553,17 @@
           // 字飞到木牌上、盖章之后才 g.right：最后一题 right 会立刻结算，这样孩子能看完“改对”的动画
           g.tween(M.fly, { t: 1 }, 0.5, 'inOutQuad', () => {
             M.fixed = true; M.fly = null;
-            g.right(it, Math.max(70, Math.min(g.w - 70, cell.x)), M.sg.y + M.sg.h + 40 * M.u);   // 金币从木牌下沿迸出
+            // 金币从敲中的地鼠身上迸出（放在木牌下沿会盖住讲解条）。
+            // 引擎把“连击×N！”飘字固定画在 g.hudTop+70——正好压在木牌的句子上（实测盖住刚改好的字）；
+            // 调用期间把 hudTop 临时指到草地顶部，让它飘在草地上方（g.right 里只有这一处读 hudTop，调用完马上还原）
+            const ht = g.hudTop;
+            g.hudTop = Math.round(M.fieldTop - 30 * M.u);
+            // 最后一题：g.right 会立刻通关，0.5 秒后结算面板就把讲解条糊掉了——最后一题的讲解孩子从来看不到。
+            // 调用期间把 rounds 临时 +1（同步还原，HUD 看不到），金币/连击照常；等讲解读完（或点一下）再 g.win()
+            const last = g.done + 1 >= g.rounds;
+            const r0 = g.rounds;
+            if (last) g.rounds = r0 + 1;
+            try { g.right(it, h.x, Y - 40 * s); } finally { g.hudTop = ht; g.rounds = r0; }
             M.fall = { x: cell.x, y: cell.y, vy: -320, vx: g.rand(-90, 90), rot: 0, vr: g.rand(-7, 7), a: 1, sc: 1 };
             M.stamp = 0; g.tween(M, { stamp: 1 }, 0.45, 'outBack');
             g.burst(cell.x, cell.y + M.drop.y, { kind: 'star', color: '#7CF29B', n: 14 });
@@ -450,14 +575,25 @@
             const dur = Math.max(2.6, Math.min(5.2, 1.2 + eLen * 0.12));
             if (eLen) tip(str(it.e), 'e', dur);
             if (g.state === 'play') {
-              M.waitNext = true; M.waitT = 0;
-              M.nextTm = g.after(eLen ? Math.max(1.7, dur - 0.7) : 1.7, () => { M.nextTm = null; nextQuestion(g); });
+              M.waitNext = true; M.waitT = 0; M.lastQ = last;
+              const hold = last ? (eLen ? Math.max(1.8, dur - 0.9) : 1.2) : (eLen ? Math.max(1.7, dur - 0.7) : 1.7);
+              M.nextTm = g.after(hold, () => { M.nextTm = null; nextQuestion(g); });
             }
           });
           return;
         }
         // 敲错
         m.st = 'laugh'; m.t = 0;
+        if (M.clk - M.hurtAt < 1.1) {
+          // 连敲保护：刚扣过心 1.1 秒内再敲错，只做鬼脸不再扣心（实测乱点一下，0.7 秒就把 3 颗心全扣光直接失败）
+          g.combo = 0;
+          g.burst(h.x, Y - 30 * s, { kind: 'ink', color: '#3A2A5A', n: 8 });
+          g.float('哈哈', h.x + 40 * s, Y - 60 * s, { color: '#FFD6E0', size: 24 });
+          g.shake(4); g.sfx('bad');
+          if (!M.tip || M.tip.kind !== 'e') tip('慢一点！先读木牌上的句子，再敲', 'warn', 2);
+          return;
+        }
+        M.hurtAt = M.clk;
         M.wrongQ++;
         const note = M.ph === 1
           ? '“' + it.s + '”里错的是「' + M.bad + '」，应改为「' + M.good + '」；你敲了「' + m.ch + '」'
@@ -476,7 +612,7 @@
       function comboCheer(g) {       // 第①步也算连击：3 连、每 5 连给一次大字喝彩（g.right 只在偶数连击时被调用，自己补上）
         const c = g.combo;
         if (c === 3 || (c >= 5 && c % 5 === 0)) {
-          g.float('连击×' + c + '！', g.w / 2, g.hudTop + 70, { color: c >= 10 ? '#E3B3FF' : '#FFB347', size: 38, life: 1.3 });
+          g.float('连击×' + c + '！', g.w / 2, M.fieldTop + 40 * M.u, { color: c >= 10 ? '#E3B3FF' : '#FFB347', size: 38, life: 1.3 });   // 画在草地上方，别压住木牌上的句子
           g.sfx('combo');
         }
       }
@@ -524,6 +660,15 @@
         const h = free[Math.floor(Math.random() * free.length)];
         h.m = newMole('peek', { upT: 0.6 + Math.random() * 0.7 });
         g.burst(h.x, h.y, { kind: 'dot', color: '#A0703F', n: 5 });
+      }
+      function idlePeek(g, dt) {        // 看讲解的这几秒：地鼠偶尔探头张望（不能敲，点一下 = 下一题），画面别停住
+        M.peekT = (M.peekT == null ? 0.2 : M.peekT) - dt;
+        if (M.peekT > 0) return;
+        M.peekT = 0.55 + Math.random() * 0.6;
+        if (M.holes.some((h) => h.m)) return;
+        const h = M.holes[Math.floor(Math.random() * M.holes.length)];
+        h.m = newMole('peek', { upT: 0.7 + Math.random() * 0.5 });
+        g.burst(h.x, h.y, { kind: 'dot', color: '#A0703F', n: 4 });
       }
       function overTick(g, dt) {        // 过关：所有地鼠一波接一波跳出来欢呼；失败：地鼠探头做鬼脸
         if (!M.endFx) {
@@ -624,11 +769,21 @@
           c.restore();
         }
       }
-      function drawKeyBadge(g, h) {
+      function drawKeyBadge(g, c, h) {
         const s = h.s, x = h.x + 46 * s * 1.18, y = h.y + 15 * s * 1.9;
+        // 数字角标画在最上层；但前排地鼠的字牌正好盖在这里时把角标调淡，别挡住字牌上的字（实测“3”压住“屋”的左半边）
+        let a = 1;
+        for (const o of M.holes) {
+          const m = o.m;
+          if (o === h || !m || m.pe < 0.2 || m.kind === 'cheer' || m.kind === 'peek') continue;
+          const os = o.s, top = o.y - m.pe * 80 * os - 67 * os, bot = o.y - m.pe * 80 * os - 4 * os;
+          if (x + 10 * s > o.x - 37 * os && x - 10 * s < o.x + 37 * os && y + 9 * s > top && y - 9 * s < bot) { a = 0.18; break; }
+        }
+        c.save(); c.globalAlpha = a;
         g.rrect(x - 12 * s, y - 11 * s + 2 * s, 24 * s, 22 * s, 7 * s, 'rgba(29,43,83,.55)');
         g.rrect(x - 12 * s, y - 11 * s, 24 * s, 22 * s, 7 * s, 'rgba(255,251,239,.92)', NAVY, 2 * s);
         g.text(String(h.idx + 1), x, y + 1, { size: Math.round(15 * s), font: 'num', color: NAVY });
+        c.restore();
       }
       function drawPlacard(g, c, m, s, fs) {
         const pw = 72 * s, ph = 60 * s, px = -pw / 2, py = -66 * s;
@@ -748,6 +903,7 @@
           ell(c, 0, 36 * s, 44 * s * pul, 44 * s * pul, '#FF4A3D');
           c.globalAlpha = 1;
           g.emoji('💣', 0, 36 * s, 80 * s, { rot: Math.sin(M.clk * 5) * 0.12 });
+          if (m.warn) g.text('别敲！', 0, -14 * s + Math.sin(M.clk * 8) * 2 * s, { size: Math.round(19 * s), font: 'round', color: '#FFFFFF', stroke: '#B3261E', strokeW: 3.5 * s });
         } else {
           const fs = Math.round(44 * s);
           if (m.kind === 'cheer' || m.kind === 'peek') { drawMoleBody(g, c, m, s, h); c.restore(); return; }
@@ -789,9 +945,14 @@
         const s = Math.max(0.8, Math.min(1.35, M.ms)) * 1.05;
         const L = 92 * s, hw = 32 * s, hl = 62 * s;
         const fire = g.combo >= 5;
-        c.save();
-        c.globalAlpha = H.alpha;
         const fl = H.flip ? -1 : 1;
+        // 举锤姿势的锤头在光标上方 ~130px：鼠标停在第一排地鼠上 / 键盘敲完第一排，锤子正好悬在木牌的句子上（实测 1280 宽盖住“家”）。
+        // 锤头进到木牌/说明条范围就变半透明，句子始终看得清
+        const hx0 = H.x + fl * (L - L * Math.cos(H.a)), hy0 = H.y - hl / 2 - L * Math.sin(H.a);
+        const signB = M.stripY + M.stripH + 4 * M.u;
+        const over = hy0 - hl / 2 < signB && hx0 > M.sg.x - hw && hx0 < M.sg.x + M.sg.w + hw;
+        c.save();
+        c.globalAlpha = H.alpha * (over ? 0.32 : 1);
         c.translate(H.x + fl * L, H.y - hl / 2);
         c.scale(fl, 1);
         c.rotate(H.a);
@@ -853,11 +1014,11 @@
         }
         // 句子
         if (M.item) {
-          const cs = M.chars, fs = sg.fs;
+          const cs = M.chars, fs = M.fsQ || sg.fs;
           const bc = M.cells[M.bi];
           if (bc && M.ph === 1 && M.hint && M.wrongQ + M.escapes > 0) {      // 提示：错字所在格轻轻发亮
             c.globalAlpha = 0.3 + 0.25 * Math.sin(t * 6);
-            ell(c, bc.x, bc.y, M.cellW * 0.62, sg.lh * 0.5, '#FFE45C'); c.globalAlpha = 1;
+            ell(c, bc.x, bc.y, M.cellW * 0.62, (M.lhQ || sg.lh) * 0.5, '#FFE45C'); c.globalAlpha = 1;
           }
           for (let i = 0; i < cs.length; i++) {
             const cl = M.cells[i];
@@ -874,7 +1035,7 @@
             }
             if (M.found && !M.fixed && M.circ > 0) {
               c.strokeStyle = '#E02424'; c.lineWidth = 3.5 * u; c.lineCap = 'round';
-              c.beginPath(); c.ellipse(bc.x, bc.y, M.cellW * 0.62, sg.lh * 0.5, -0.2, -Math.PI / 2, -Math.PI / 2 + TAU * M.circ); c.stroke();
+              c.beginPath(); c.ellipse(bc.x, bc.y, M.cellW * 0.62, (M.lhQ || sg.lh) * 0.5, -0.2, -Math.PI / 2, -Math.PI / 2 + TAU * M.circ); c.stroke();
             }
             if (M.found && !M.fixed && M.strike > 0) {
               const r = fs * 0.45;
@@ -882,10 +1043,16 @@
               c.beginPath(); c.moveTo(bc.x - r, bc.y + r * 0.8); c.lineTo(bc.x - r + 2 * r * M.strike, bc.y + r * 0.8 - 1.6 * r * M.strike); c.stroke();
             }
             if (M.ph === 2 && !M.fixed) {          // “?” 气泡
-              const by = bc.y - sg.lh * 0.5 - 16 * u + Math.sin(t * 5) * 3 * u;
-              const bx = Math.min(sg.x + sg.w - 20 * u, Math.max(sg.x + 20 * u, bc.x));
-              g.rrect(bx - 15 * u, by - 14 * u, 30 * u, 28 * u, 10 * u, '#FFFFFF', '#E02424', 2.5 * u);
-              g.text('?', bx, by + 1 * u, { size: Math.round(20 * u), font: 'num', color: '#E02424' });
+              if (!bc.li) {                         // 错字在第一行：气泡顶在它头上（上面是木牌边框，不挡字）
+                const by = bc.y - (M.lhQ || sg.lh) * 0.5 - 16 * u + Math.sin(t * 5) * 3 * u;
+                const bx = Math.min(sg.x + sg.w - 20 * u, Math.max(sg.x + 20 * u, bc.x));
+                g.rrect(bx - 15 * u, by - 14 * u, 30 * u, 28 * u, 10 * u, '#FFFFFF', '#E02424', 2.5 * u);
+                g.text('?', bx, by + 1 * u, { size: Math.round(20 * u), font: 'num', color: '#E02424' });
+              } else {                              // 在第二、三行：上面是别的字，改成右上角的小角标（实测大气泡盖住“题”“班”“绩终”）
+                const r = Math.max(8 * u, fs * 0.21), bx = bc.x + M.cellW * 0.5, by = bc.y - fs * 0.44 + Math.sin(t * 5) * 1.5 * u;
+                ell(c, bx, by, r, r, '#FFFFFF'); c.lineWidth = 2 * u; c.strokeStyle = '#E02424'; c.beginPath(); c.arc(bx, by, r, 0, TAU); c.stroke();
+                g.text('?', bx, by + 0.5 * u, { size: Math.round(r * 1.45), font: 'num', color: '#E02424' });
+              }
             }
             if (M.fixed) {
               const k = M.stamp;
@@ -903,20 +1070,20 @@
         if (M.fall && M.fall.a > 0) {
           const F = M.fall;
           c.save(); c.globalAlpha = Math.max(0, Math.min(1, F.a)); c.translate(F.x, F.y + M.drop.y); c.rotate(F.rot); c.scale(F.sc, F.sc);
-          g.text(M.bad, 0, 0, { size: sg.fs, font: 'kai', color: '#D62828', weight: 700 });
-          c.strokeStyle = '#E02424'; c.lineWidth = 4 * u; const r = sg.fs * 0.45;
+          g.text(M.bad, 0, 0, { size: M.fsQ || sg.fs, font: 'kai', color: '#D62828', weight: 700 });
+          c.strokeStyle = '#E02424'; c.lineWidth = 4 * u; const r = (M.fsQ || sg.fs) * 0.45;
           c.beginPath(); c.moveTo(-r, r * 0.8); c.lineTo(r, -r * 0.8); c.stroke();
           c.restore();
         }
       }
       function drawStrip(g, c) {
-        const u = M.u, y = M.stripY, hgt = M.stripH, cx = g.w / 2;
+        const u = M.u, y = M.stripY, hgt = M.pillH, cx = g.w / 2;
         const T = M.tip;
         if (T && T.t > 0) {
           const a = Math.min(1, T.t / 0.25, (T.d - T.t) / 0.15 + 0.3);
           const fs = Math.round(17 * u);
           const maxW = Math.min(g.w - 30 * u, 700);
-          const lines = g.wrapText(T.text, maxW - 50 * u, fs, 'kai');
+          const lines = fixOpenQuotes(g.wrapText(T.text, maxW - 50 * u, fs, 'kai'));
           const shown = lines.slice(0, 3);
           const lw = Math.max.apply(null, shown.map((l) => g.measure(l, fs, 'kai')));
           const bw = Math.min(maxW, lw + 62 * u), bh = Math.max(hgt, shown.length * fs * 1.3 + 14 * u);
@@ -927,10 +1094,18 @@
           g.emoji(warn ? '🙈' : '💡', cx - bw / 2 + 22 * u, y + bh / 2, 22 * u);
           shown.forEach((l, i) => g.text(l, cx - bw / 2 + 40 * u, y + bh / 2 + (i - (shown.length - 1) / 2) * fs * 1.3 + 1, { size: fs, font: 'kai', color: warn ? '#B3261E' : NAVY, weight: 700, align: 'left', maxW: bw - 52 * u }));
           c.restore();
+          if (M.waitNext && M.waitT >= 1.2 && T.kind === 'e') {    // 能跳过就说出来：孩子不知道“点一下”可以直接下一题
+            const k = Math.min(1, (M.waitT - 1.2) / 0.3);
+            c.save(); c.globalAlpha = k * (0.75 + 0.25 * Math.sin(M.clk * 5));
+            const nx = M.lastQ ? '过关' : '下一题';
+            g.text(g.w >= 700 ? '点一下 / 空格：' + nx + ' ▶' : '点一下：' + nx + ' ▶', cx + bw / 2 - 8 * u, y + bh + 15 * u + Math.sin(M.clk * 5) * 2 * u,
+              { size: Math.round(15 * u), font: 'round', color: '#FFFFFF', stroke: NAVY, strokeW: 3 * u, align: 'right' });
+            c.restore();
+          }
           return;
         }
         const ph = M.ph === 0 ? M.lastPh : M.ph;
-        if (!ph) return;
+        if (!ph || g.state === 'over') return;
         const txt = ph === 1 ? '敲举着错字的地鼠！' : '敲出正确的字！';
         const tag = ph === 1 ? '①' : '②';
         const fs = Math.round(20 * u);
@@ -943,19 +1118,20 @@
         g.rrect(-bw / 2, -bh / 2, bw, bh, bh / 2, col, NAVY, 2.8 * u);
         g.rrect(-bw / 2 + 6 * u, -bh / 2 + 4 * u, bw - 12 * u, bh * 0.36, bh * 0.18, 'rgba(255,255,255,.28)');
         g.emoji('🔨', -bw / 2 + 24 * u, 0, 24 * u, { rot: Math.sin(M.clk * 6) * 0.3 });
-        g.text(tag + ' ' + txt, 12 * u, 1 * u, { size: fs, font: 'round', color: '#FFFFFF', stroke: NAVY, strokeW: 3.2 * u });
+        g.text(tag + ' ' + txt, 12 * u, 1 * u, { size: fs, font: 'round', color: '#FFFFFF', stroke: NAVY, strokeW: 2.4 * u });
         c.restore();
       }
       function drawFly(g, c) {
         const F = M.fly;
         if (!F) return;
-        const t = F.t;
-        const x = F.x0 + (F.x1 - F.x0) * t;
-        const y = F.y0 + (F.y1 + M.drop.y - F.y0) * t - Math.sin(t * Math.PI) * 120 * M.u;
+        const t = F.t, cell = M.cells[M.bi];
+        const x1 = cell ? cell.x : F.x1, y1 = cell ? cell.y : F.y1;     // 飞行中转屏 / 改窗口大小：终点跟着木牌上的新位置走
+        const x = F.x0 + (x1 - F.x0) * t;
+        const y = F.y0 + (y1 + M.drop.y - F.y0) * t - Math.sin(t * Math.PI) * 120 * M.u;
         const sc = 1 + Math.sin(t * Math.PI) * 0.5;
         c.save(); c.translate(x, y); c.rotate(t * TAU); c.scale(sc, sc);
         ell(c, 0, 0, 30 * M.u, 30 * M.u, 'rgba(255,240,150,.55)');
-        g.text(F.ch, 0, 0, { size: M.sg.fs, font: 'kai', color: '#138A36', weight: 700 });
+        g.text(F.ch, 0, 0, { size: M.fsQ || M.sg.fs, font: 'kai', color: '#138A36', weight: 700 });
         c.restore();
       }
 
@@ -977,7 +1153,7 @@
             list, P: param(g.level), qi: 0, item: null, ph: 0, lastPh: 1, phT: 0, clk: 0, mid: 0,
             maxN: Math.max(5, ...list.map((t) => Array.from(t.s).length)),
             holes: null, drop: { y: 0 }, sw: { a: 0, v: 0 }, ham: { x: g.w / 2, y: g.h * 0.7, a: 0.72, alpha: 0, flip: false, touch: false, fade: 0 },
-            tip: null, stripPop: 0, spawnT: 0, sinceT: 0, sel: 0, kbd: false, kbdT: 0,
+            tip: null, stripPop: 0, spawnT: 0, sinceT: 0, sel: 0, kbd: false, kbdT: 0, hurtAt: -9,
             decor: g.level <= 3 ? 0 : g.level <= 6 ? 1 : 2, empty: !list.length
           };
           g.M = M;
@@ -1004,7 +1180,7 @@
           const H = M.ham;
           if (H.touch && H.alpha > 0) { H.fade -= dt; if (H.fade < 0.25) H.alpha = Math.max(0, H.fade / 0.25); }
           if (M.kbdT > 0) M.kbdT -= dt;
-          if (M.waitNext) M.waitT += dt;
+          if (M.waitNext) { M.waitT += dt; if (M.waitT > 1.1) idlePeek(g, dt); }
           spawnTick(g, dt);
           updateMoles(g, dt);
         },
@@ -1026,7 +1202,7 @@
             drawMole(g, c, h);
             drawMoundFront(c, h, M.kbd && M.kbdT > 0 && M.sel === h.idx);
           }
-          if (showKeys) for (const h of M.holes) drawKeyBadge(g, h);   // 单独一遍画在最上面：前排地鼠的字牌不会盖住后排洞的数字
+          if (showKeys) for (const h of M.holes) drawKeyBadge(g, c, h);   // 单独一遍画在最上面：前排地鼠的字牌不会盖住后排洞的数字
           drawFireflies(g, c);
           drawSign(g, c);
           drawStrip(g, c);

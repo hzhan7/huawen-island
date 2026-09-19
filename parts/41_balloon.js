@@ -33,7 +33,7 @@
     const k = n === 4 ? 2 : Math.ceil(n / 2);
     return [a.slice(0, k).join(''), a.slice(k).join('')];
   }
-  function sizeK(n) { return n <= 2 ? 1 : n === 3 ? 1.14 : n === 4 ? 1.02 : n <= 6 ? 1.12 : 1.24; }
+  function sizeK(n) { return n <= 2 ? 1 : n === 3 ? 1.14 : n === 4 ? 1.02 : n <= 6 ? 1.14 : 1.3; }
 
   function makeSpec(ctx) {
     const st = {
@@ -70,7 +70,7 @@
         b.rx = 47 * S * sizeK(n); b.ry = b.rx * 1.17;
         b.lines = splitLines(b.text);
         const maxc = Math.max.apply(null, b.lines.map((l) => Array.from(l).length));
-        b.fs = Math.floor(Math.min(b.rx * 0.8, b.rx * 1.62 / maxc, b.lines.length > 1 ? b.ry * 0.6 : b.ry));
+        b.fs = Math.floor(Math.min(b.rx * 0.8, b.rx * (b.lines.length > 1 && maxc >= 3 ? 1.7 : 1.62) / maxc, b.lines.length > 1 ? b.ry * 0.6 : b.ry));
       } else { b.rx = 34 * S; b.ry = b.rx * 1.17; b.lines = null; b.fs = 0; }
     }
     function mkBall(kind, text, oi, ok, col) {
@@ -139,7 +139,11 @@
         row++;
       }
       st.balls.push.apply(st.balls, balls);
-      g.say(it.say, { caption: it.py || '' });
+      // 上一题的例句横幅还挂着：先让它收起（0.3 秒），新词等气球冒头、横幅收好再读，
+      // 免得“旧例句 + 新读音”同时出现（无朗读时拼音横幅也会被旧例句挡住）
+      const say = () => { if (g.state === 'play' && st.wave === wv && wv.state === 'open') { g.say(it.say, { caption: it.py || '' }); st.btnPulse = 1; } };
+      if (st.reveal && st.reveal.t < st.reveal.life - 0.3) { st.reveal.life = st.reveal.t + 0.3; g.after(0.35, say); }
+      else say();
       st.btnPulse = 1;
       if (prev) g.float('再放一轮！', g.w / 2, g.h * 0.48, { color: '#FFFFFF', size: 30 });
     }
@@ -152,9 +156,16 @@
       const wv = st.wave;
       if (!wv || g.state !== 'play') return;
       wv.listens++;
+      st.btnPulse = 1; st.btnPress = 1;
+      if (!ttsOk()) {
+        // 没有朗读：例句已经挖空印在横幅上，字幕只放这个词的拼音（整句自动注音会有“· ·”缺字），
+        // 横幅重新弹一下，让“再听”按钮看得见反馈
+        g.say(wv.it.say, { caption: wv.it.py || '' });
+        st.bK = 0;
+        return;
+      }
       const useCtx = wv.listens % 2 === 1 && typeof wv.it.ctx === 'string' && wv.it.ctx;
       if (useCtx) g.say(wv.it.ctx); else g.say(wv.it.say, { caption: wv.it.py || '' });
-      st.btnPulse = 1; st.btnPress = 1;
     }
     function spawnBonus(g, kind) {
       const L = st.L, S = L.S;
@@ -172,6 +183,13 @@
       // 只朝上方（-170° … -10°）
       if (a > 0) return a > Math.PI / 2 ? -Math.PI + 0.17 : -0.17;
       return clamp(a, -Math.PI + 0.17, -0.17);
+    }
+    /* 已经有飞镖飞向本题的某个选项气球：先等它扎到（约 0.2 秒）再接受下一发，
+       免得手快连点两只时，后点的（错的）先扎到而白扣一颗心 */
+    function waveBusy(b) {
+      if (!b || b.kind !== 'q' || !b.w) return false;
+      for (const d of st.darts) if (!d.dead && d.tb && d.tb.kind === 'q' && d.tb.w === b.w && !d.tb.dead) return true;
+      return false;
     }
     function fire(g, b, tx, ty) {
       const L = st.L, S = L.S;
@@ -247,6 +265,7 @@
       }
       const wv = st.wave;
       if (b.state !== 'up' || !wv || b.w !== wv || wv.state !== 'open') { pop(g, b, 'soft'); return; }
+      st.tipT = 0;   // 已经会玩了：开场玩法横幅不再回来
       if (b.ok) {
         wv.state = 'done';
         pop(g, b, 'good');
@@ -260,7 +279,7 @@
         g.right(wv.it, b.dx, b.dy);
         if (g.combo >= 2 && Math.random() < 0.55) g.float(PRAISE[Math.floor(Math.random() * PRAISE.length)], clamp(b.dx, 80, g.w - 80), b.dy + 40 * st.L.S, { color: '#FFFFFF', size: 26 });
         st.qi++;
-        if (g.state === 'play') g.after(0.85, () => nextWave(g));
+        if (g.state === 'play') g.after(1.25, () => nextWave(g));
       } else {
         wv.wrongs++;
         pop(g, b, 'ink');
@@ -402,7 +421,8 @@
       c.beginPath(); c.arc(-rx * 0.2, -ry * 0.78, rx * 0.065, 0, TAU); c.fill();
       if (b.kind === 'q') {
         const n = b.lines.length, lh = b.fs * 1.08, y0 = -ry * 0.1 - (n - 1) * lh / 2;
-        for (let i = 0; i < n; i++) g.text(b.lines[i], 0, y0 + i * lh, { size: b.fs, font: 'kai', weight: 700, color: '#FFFFFF', stroke: NAVY, strokeW: Math.max(3, b.fs * 0.16) });
+        // 深色字 + 白色描边：字的内部空隙（日/目、厉/历 的差别就在这里）保持浅色，不被粗描边糊掉
+        for (let i = 0; i < n; i++) g.text(b.lines[i], 0, y0 + i * lh, { size: b.fs, font: 'kai', weight: 700, color: NAVY, stroke: '#FFFFFF', strokeW: Math.max(2, b.fs * 0.11) });
       } else {
         g.emoji(b.text, 0, -ry * 0.08, rx * 1.05);
       }
@@ -494,7 +514,8 @@
       else if (st.tipT > 0 && g.state === 'play') { mode = 'tip'; key = 'tip'; }
       if (key !== st.bKey) { st.bKey = key; st.bK = 0; }
       if (!mode) return;
-      const k = outBack(st.bK);
+      let k = outBack(st.bK);
+      if (mode === 'reveal') k *= clamp((st.reveal.life - st.reveal.t) / 0.25, 0, 1);   // 收起动画
       const bl = st.blimp || { x: L.px, y: L.blY };
       const maxW = Math.min(g.w - 28 * S, 520 * S) - 28 * S;
       let lay1 = null, chars = null, hs = -1, hl = 0, blank = false, pyFs = 0, bh = 0, bw = 0;
@@ -685,7 +706,7 @@
     }
     function drawHint(g, c) {
       const S = st.L.S, wv = st.wave;
-      if (!st.hintOn || !wv || wv.state !== 'open' || wv.t < 1.2) return;
+      if (!st.hintOn || !wv || wv.state !== 'open' || wv.t < 2.6) return;   // 先让孩子自己听、自己试，2.6 秒没动手再教
       const b = st.balls.find((o) => o.w === wv && o.ok && o.state === 'up' && o.dy < g.h * 0.64);
       if (!b) return;
       const blink = 0.55 + 0.45 * Math.sin(st.clock * 8);
@@ -828,6 +849,7 @@
         drawBunch(g, c, st.freed, false);
         drawBlimp(g, c);
         drawBanner(g, c);
+        drawSplats(g, c);   // 墨汁溅在天上、压在气球下面：只吓一跳，不挡住别的气球上的字
         for (const b of st.balls) drawBalloon(g, c, b);
         drawPops(g, c);
         for (const d of st.darts) drawDart(g, c, d);
@@ -836,14 +858,13 @@
         drawButton(g, c);
         drawHint(g, c);
         drawReticle(g, c);
-        drawSplats(g, c);
       },
       down(g, p) {
         const L = st.L;
         if (Math.hypot(p.x - L.bx, p.y - L.by) <= L.br + 10 * L.S) { st.kbd = false; replay(g); g.ring(L.bx, L.by, '#FFFFFF', 60 * L.S); return; }
         st.kbd = false;
         const b = pickAt(g, p);
-        if (b) { st.hintOn = false; fire(g, b); return; }
+        if (b) { st.hintOn = false; if (!waveBusy(b)) fire(g, b); return; }
         const bl = st.blimp;
         if (bl) { const nx = (p.x - bl.x) / (L.bw / 2 + 12 * L.S), ny = (p.y - bl.y) / (L.bh / 2 + 14 * L.S); if (nx * nx + ny * ny <= 1) { replay(g); g.ring(bl.x, bl.y, '#FFFFFF', 70 * L.S); return; } }
         if (p.y < L.py - 20 * L.S && st.fireCd <= 0) { st.fireCd = 0.18; fire(g, null, p.x, p.y); }
@@ -858,7 +879,7 @@
         if (k === 'enter' || k === 'up') {
           st.hintOn = false; st.kbd = true;
           if (!targetable(g, st.sel)) moveSel(g, 0);
-          if (targetable(g, st.sel)) { const b = st.sel; fire(g, b); moveSel(g, 0); }
+          if (targetable(g, st.sel) && !waveBusy(st.sel)) { const b = st.sel; fire(g, b); moveSel(g, 0); }
         }
       },
       resize(g) {

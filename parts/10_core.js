@@ -18,7 +18,18 @@
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function mkErr(code, msg) { var e = new Error(msg); e.code = code; return e; }
   function pad2(n) { return String(n).padStart(2, '0'); }
-  function todayStr(d) { d = d || new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  /* 测试后门（HW._debug、HW.meta._answer、日期偏移、家长验证直通）只在页面 URL 带 #hwdebug 时打开；生产默认全关。
+     用法：node tools/shot.js --page build/xxx/index.html#hwdebug …（hash 里可以和别的参数并列，如 #a=1&hwdebug） */
+  var DEBUG = (function () {
+    try { return /(?:^#|[#&;,?])hwdebug(?![\w-])/i.test(String((W.location && W.location.hash) || '')); } catch (e) { return false; }
+  })();
+  /* 只供测试的日期偏移：localStorage 'hw.v1.debugDayOffset' = 整数天（正数 = 假装已经过了几天）。
+     只影响“今天是哪一天”（航线、字卡复习、灯塔、时长），不影响 updatedAt 等时间戳。没有 #hwdebug 时一律 0（残留的值不生效） */
+  function dayOffset() {
+    if (!DEBUG) return 0;
+    try { var v = Number(JSON.parse(W.localStorage.getItem('hw.v1.debugDayOffset') || '0')); return Number.isFinite(v) ? Math.round(v) : 0; } catch (e) { return 0; }
+  }
+  function todayStr(d) { d = d || new Date(Date.now() + dayOffset() * 864e5); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
   function hash(str) {
     var x = 0x811c9dc5;
     for (var i = 0; i < str.length; i++) { x ^= str.charCodeAt(i); x = Math.imul(x, 0x01000193); }
@@ -137,7 +148,9 @@
     p5: 'P5 重点：成语惯用语 · 病句 · 排比夸张 · 设问反问',
     p6: 'P6 重点：成语典故 · 歇后语 · 古诗名句 · 概括主旨'
   };
-  var COLS = ['words', 'chars', 'quiz', 'pick', 'stories', 'readaloud', 'twisters', 'talk', 'order', 'passages', 'build', 'typo', 'compose'];
+  // ctx.G 的栏目：1.0 的 13 个 + 3.0 新栏目（SPEC_V3 §3，content/ext_*.json；游戏也可以直接读 window.HW_DATA，两种都行）
+  var COLS = ['words', 'chars', 'quiz', 'pick', 'stories', 'readaloud', 'twisters', 'talk', 'order', 'passages', 'build', 'typo', 'compose',
+    'recipes', 'chains', 'jg', 'zuci', 'menu', 'menuwords', 'bushou', 'bushou_stats'];
   var GAME_DATA = {
     pick: ['pick'], story: ['stories'], dictation: ['words'], readaloud: ['readaloud'], twister: ['twisters'], talk: ['talk'],
     quiz: ['quiz'], match: ['words'], order: ['order'], passage: ['passages'], stroke: ['chars'], build: ['build'], typo: ['typo'], compose: ['compose'],
@@ -168,9 +181,9 @@
     F('mooncake', '月饼', 215, 'square'), F('rambutan', '红毛丹', 260, 'round'), F('xueba', '学霸', 320, 'square'),
     F('zhuangyuan', '状元', 400, 'square'),
     SK('tingli', '听力王', 'listen'), SK('jinsang', '金嗓子', 'speak'), SK('shuchong', '小书虫', 'read'), SK('shenbi', '神笔', 'write'),
-    { id: 'ririxin', t: '日日新', shape: 'round', need: '第一次完成今日四件事', prog: function (p) { return [p.days.length, 1]; }, test: function (p) { return p.days.length >= 1; } },
-    { id: 'qinxue', t: '勤学', shape: 'square', need: '有 3 天完成今日四件事', prog: function (p) { return [p.days.length, 3]; }, test: function (p) { return p.days.length >= 3; } },
-    { id: 'chizhi', t: '持之以恒', shape: 'square', need: '有 7 天完成今日四件事', prog: function (p) { return [p.days.length, 7]; }, test: function (p) { return p.days.length >= 7; } },
+    { id: 'ririxin', t: '日日新', shape: 'round', need: '第一次完成今日航线', prog: function (p) { return [p.days.length, 1]; }, test: function (p) { return p.days.length >= 1; } },
+    { id: 'qinxue', t: '勤学', shape: 'square', need: '有 3 天完成今日航线', prog: function (p) { return [p.days.length, 3]; }, test: function (p) { return p.days.length >= 3; } },
+    { id: 'chizhi', t: '持之以恒', shape: 'square', need: '有 7 天完成今日航线', prog: function (p) { return [p.days.length, 7]; }, test: function (p) { return p.days.length >= 7; } },
     { id: 'manfen', t: '满分', shape: 'round', need: '有一轮拿到三颗星', test: function (p) { return Object.keys(p.games).some(function (k) { return p.games[k].best >= 3; }); } },
     { id: 'liandui', t: '连对王', shape: 'round', need: '一轮里连续答对 10 题', prog: function (p) { return [p.maxCombo, 10]; }, test: function (p) { return p.maxCombo >= 10; } },
     { id: 'kexing', t: '错题克星', shape: 'square', need: '从错题本里消灭 5 道题', prog: function (p) { return [p.cleared, 5]; }, test: function (p) { return p.cleared >= 5; } },
@@ -187,6 +200,7 @@
   var root = null, main = null, toastEl = null, fxEl = null, booted = false;
   var ui = { view: 'map', mapScroll: 0, editing: null };
   var S = null, sessSeq = 0;
+  var META = null;   // 元游戏模块（parts/12_meta.js 通过 HW._core.useMeta 注册）；没有它时核心照常工作
 
   /* ================= 档案 ================= */
   function normProfile(p) {
@@ -218,9 +232,22 @@
     }
     if (isObj(p.seen)) for (var sg in p.seen) if (Array.isArray(p.seen[sg])) o.seen[sg] = p.seen[sg].filter(function (x) { return typeof x === 'string'; }).slice(-SEEN_MAX);
     o.wrong.forEach(function (w) { w.c = num(w.c, 1); w.ok = num(w.ok); w.t = num(w.t); w.gr = String(w.gr || o.grade); w.n = String(w.n || ''); });
+    // 家长设置：每日时长上限（分钟，0 = 不限）；pt = 今天已玩秒数 {d, s}
+    o.lim = clamp(Math.round(num(p.lim)), 0, 600);
+    o.pt = isObj(p.pt) && typeof p.pt.d === 'string' ? { d: p.pt.d, s: Math.max(0, Math.round(num(p.pt.s))) } : { d: '', s: 0 };
+    // 元游戏字段（字卡 cards / 字宠 pet / 航线 voy / 钱包 purse+wallet）由 12_meta.js 规范化；没有该模块时原样保留，免得丢数据
+    if (META && typeof META.norm === 'function') { try { META.norm(o, p); } catch (e) { try { console.warn('[HW] meta norm', e); } catch (x) { /* ignore */ } } }
+    else ['cards', 'pet', 'voy', 'purse', 'wallet'].forEach(function (k) { if (has(p, k)) o[k] = clone(p[k]); });
     // seed：本机预置、还没和云端对过账的示例档案。云端已有同 id 档案时，云端为底、本机进度叠加上去（不许覆盖云端）
     if (p.seed === true) o.seed = true;
     return o;
+  }
+  /* 挣小红花：累计数 flowers（印章门槛读它）与钱包 wallet（以后商店花的）同加 */
+  function earn(p, n) {
+    n = Math.max(0, Math.round(num(n)));
+    if (!p || !n) return;
+    p.flowers += n;
+    if (META && typeof META.earn === 'function') { try { META.earn(p, n); } catch (e) { /* ignore */ } }
   }
   function seedProfiles() {
     return [
@@ -255,9 +282,15 @@
     o.cleared += l.cleared;
     Object.keys(l.mem).forEach(function (g) { if (!has(o.mem, g)) o.mem[g] = clone(l.mem[g]); });
     Object.keys(l.seen).forEach(function (g) { if (!o.seen[g]) o.seen[g] = l.seen[g].slice(); });
+    if (META && typeof META.absorb === 'function') { try { META.absorb(o, l); } catch (e) { /* ignore */ } }
     checkStamps(o);
     o.updatedAt = Math.max(now(), num(o.updatedAt) + 1);
     return o;
+  }
+  /* 元游戏字段合并：把 other 的并入 base（就地改），base 变了返回 true */
+  function metaMerge(base, other) {
+    if (!META || typeof META.merge !== 'function' || !base || !other || base === other) return false;
+    try { var a = META.sig(base); META.merge(base, other); return META.sig(base) !== a; } catch (e) { try { console.warn('[HW] meta merge', e); } catch (x) { /* ignore */ } return false; }
   }
   function sortedProfiles() {
     return Object.keys(profiles).map(function (k) { return profiles[k]; }).sort(function (a, b) { return a.createdAt - b.createdAt; });
@@ -298,7 +331,7 @@
     return p.daily;
   }
   function createProfile(o) {
-    var p = normProfile({ id: uid(), name: o.name, avatar: o.avatar, grade: o.grade, createdAt: now(), updatedAt: now() });
+    var p = normProfile({ id: uid(), name: o.name, avatar: o.avatar, grade: o.grade, lim: o.lim, createdAt: now(), updatedAt: now() });
     profiles[p.id] = p;
     touch(p);
     return p;
@@ -306,6 +339,7 @@
   function switchProfile(id) {
     if (!profiles[id]) return;
     curId = id; saveLocal();
+    LS.set('pickDay', todayStr());   // 今天已经选过人：刷新页面不再问“谁来玩？”
   }
   function deleteProfile(id) {
     if (sortedProfiles().length <= 1) { toast('至少要留一个档案'); return false; }
@@ -372,6 +406,8 @@
   function forDb(p) {
     var o = clone(p) || {};
     delete o.seed;
+    // 元游戏字卡写成紧凑数组（上千张卡也远低于 db 单文档 256KB）；读回时 normProfile 两种写法都认
+    if (META && typeof META.pack === 'function') { try { META.pack(o); } catch (e) { /* ignore */ } }
     var s = JSON.stringify(o);
     if (byteLen(s) > 200000) { o.log = (o.log || []).slice(-20); o.seen = {}; s = JSON.stringify(o); }
     while (byteLen(s) > 200000 && o.wrong && o.wrong.length) {
@@ -379,6 +415,8 @@
       o.wrong.splice(0, Math.ceil(o.wrong.length / 4));
       s = JSON.stringify(o);
     }
+    // 还太大：字卡只留最近 2 个答对日（卡级、升箱日期都另存着，不会降级）
+    if (byteLen(s) > 200000 && META && typeof META.pack === 'function') { try { o.cards = clone(p.cards); META.pack(o, true); } catch (e) { /* ignore */ } }
     return o;
   }
   function withRetry(fn) {
@@ -482,8 +520,15 @@
         var merged = absorbSeed(r, l);
         profiles[d.id] = merged; changed = true;
         if (merged.updatedAt !== num(raw.updatedAt)) dirty.add(d.id);
-      } else if (!l || r.updatedAt > l.updatedAt) { profiles[d.id] = r; changed = true; }
-      else if (!dbFirstDone && definitive && l.updatedAt > r.updatedAt) dirty.add(d.id);
+      } else if (!l || r.updatedAt > l.updatedAt) {
+        // 云端更新：整份档案以云端为准，但元游戏进度（字卡/字宠/航线/钱包/完成日）按并集/最大值合并本机的，
+        // 两台设备各玩各的不会互相盖掉；合并后比云端多出东西就回推一次（合并是幂等的，不会来回推）
+        if (l && metaMerge(r, l)) { r.updatedAt = Math.max(now(), num(r.updatedAt) + 1); dirty.add(d.id); }
+        profiles[d.id] = r; changed = true;
+      } else {
+        if (metaMerge(l, r)) { l.updatedAt = Math.max(now(), num(l.updatedAt) + 1); dirty.add(d.id); changed = true; }
+        if (!dbFirstDone && definitive && l.updatedAt > r.updatedAt) dirty.add(d.id);
+      }
     });
     if (!dbFirstDone && definitive) {
       // 首次权威快照后，本机预置档案就算“对过账”了：云端没有的照常推上去，之后按 updatedAt 正常合并
@@ -519,6 +564,8 @@
     else if (ui.view === 'records') keepPlace(renderRecords);
     else if (ui.view === 'wrong') keepPlace(renderWrong);
     else if (ui.view === 'profiles' && !ui.editing) keepPlace(function () { renderProfiles(); });
+    else if (ui.view === 'pick') { if (pickClose) pickClose(); renderMap(); showPick(); }   // 云端档案到了：“谁来玩？”换成最新名单
+    else if (META && typeof META.refresh === 'function') { try { META.refresh(ui.view); } catch (e) { /* ignore */ } }
   }
   function keepPlace(fn) {
     var y = W.scrollY || 0;
@@ -1039,9 +1086,15 @@
     }
     return s.need;
   }
+  /* 全部印章 = 固定 24 枚 + 元游戏的家族印章（本年级的部首家族，全部金卡才得） */
+  function allStamps(p) {
+    var ex = [];
+    if (META && typeof META.stamps === 'function') { try { ex = META.stamps(p) || []; } catch (e) { ex = []; } }
+    return STAMPS.concat(ex);
+  }
   function checkStamps(p) {
     var fresh = [];
-    STAMPS.forEach(function (s) {
+    allStamps(p).forEach(function (s) {
       if (p.stamps[s.id]) return;
       var ok = false;
       try { ok = !!s.test(p); } catch (e) { ok = false; }
@@ -1112,7 +1165,9 @@
     o = o || {};
     var opts = Array.isArray(o.options) ? o.options : [];
     var ans = Number(o.answer);
-    var wrap = h('div', { class: 'hw-choices' + (o.big ? ' big' : ''), role: 'group' });
+    // 大字选项里有 4 个字以上的（成语等）：稍微缩小字号、收窄留白，免得“精益求/精”在词中间折行
+    var long = o.big && opts.some(function (x) { return typeof x === 'string' && Array.from(x.trim()).length >= 4; });
+    var wrap = h('div', { class: 'hw-choices' + (o.big ? ' big' : '') + (long ? ' is-long' : ''), role: 'group' });
     var locked = false;
     opts.forEach(function (opt, i) {
       var isNode = typeof Node !== 'undefined' && opt instanceof Node;
@@ -1175,6 +1230,14 @@
     touch(p);
   }
 
+  /* 字卡掌握度：每次 right(item) / wrong(item) 从题目里取汉字记到 profile.cards（规则见 12_meta.js 的 itemChars） */
+  function metaAnswer(sess, item, ok) {
+    if (!META || typeof META.answer !== 'function') return;
+    var p = profOf(sess);
+    if (!p) return;
+    try { META.answer(p, item, ok, sess); } catch (e) { try { console.warn('[HW] meta answer', e); } catch (x) { /* ignore */ } }
+  }
+
   function makeCtx(g, sess) {
     var p = profOf(sess) || curProf();
     var gradeNum = Number(sess.grade.slice(1)) || 3;
@@ -1198,8 +1261,14 @@
         var seen = (pr && Array.isArray(pr.seen[gid])) ? pr.seen[gid] : [];
         var pos = new Map();
         seen.forEach(function (k, i) { pos.set(k, i); });
-        var ranked = shuffle(list).map(function (it) { var k = keyOf(it); return { it: it, k: k, r: pos.has(k) ? pos.get(k) : -1 }; });
-        ranked.sort(function (a, b) { return a.r - b.r; });
+        // 航线“丰收局 / 今日游戏”：含重点字（到期复习字 / 今天的新字）的题排最前（ctx.focus）
+        var foc = sess.focus && sess.focus.length && META && typeof META.itemHas === 'function' ? sess.focus : null;
+        var ranked = shuffle(list).map(function (it) {
+          var k = keyOf(it), f = 0;
+          if (foc) { try { f = META.itemHas(it, foc) ? 1 : 0; } catch (e) { f = 0; } }
+          return { it: it, k: k, r: pos.has(k) ? pos.get(k) : -1, f: f };
+        });
+        ranked.sort(function (a, b) { return (b.f - a.f) || (a.r - b.r); });
         var out = ranked.slice(0, Math.min(n, ranked.length));
         out.forEach(function (x) { sess.presented.add(x.k); });
         if (pr) {
@@ -1243,6 +1312,7 @@
         get on() { return !!settings.sound; }   // 音效开关（街机引擎的合成音效/音乐也要看它）
       },
       kind: g.kind,
+      focus: sess.focus ? sess.focus.slice() : [],   // 航线里本局的重点字（丰收局 = 到期字；今日游戏 = 今天的新字）；ctx.pick 已自动把含这些字的题排前
       levelHint: sess.levelHint || null,       // 街机：结算页“下一关/再玩一次”带来的建议关卡（选关界面默认选它）
       asr: {
         get ok() { return ASR.ok; },
@@ -1275,12 +1345,13 @@
           if (sess.combo > sess.maxCombo) sess.maxCombo = sess.combo;
           if (item != null) sess.rightKeys.add(keyOf(item));
           if (!sess.arcade) { SFX.good(); comboFx(sess); }
+          if (item != null) metaAnswer(sess, item, true);
         },
         wrong: function (item, note) {
           if (!sess.alive) return;
           sess.wrongN++; sess.combo = 0;
           if (!sess.arcade) { SFX.bad(); comboFx(sess); }
-          if (item != null) addWrong(sess, item, note);
+          if (item != null) { metaAnswer(sess, item, false); addWrong(sess, item, note); }
         },
         stats: function () { return { correct: sess.correct, wrong: sess.wrongN, combo: sess.combo, maxCombo: sess.maxCombo }; }
       },
@@ -1316,6 +1387,7 @@
     var g = games[id];
     if (!g) return;
     if (S && S.alive) endSession(S);
+    if (overLimit(curProf())) { showRest(); return; }
     if (ui.view === 'map') ui.mapScroll = W.scrollY || 0;
     var p = curProf();
     var review = null;
@@ -1345,6 +1417,9 @@
       presented: new Set(), picked: false, rightKeys: new Set(), wrongKeys: new Set(), itemAware: false, hzBag: [],
       review: review ? review.map(function (e) { return clone(e.it); }) : null,
       reviewKeys: review ? new Set(review.map(function (e) { return e.k; })) : null,
+      voy: opt && typeof opt.voyage === 'string' ? opt.voyage : null,      // 航线站：'h' 丰收局 / 'g' 今日游戏
+      focus: opt && Array.isArray(opt.focus) ? opt.focus.filter(function (c) { return typeof c === 'string' && c; }).slice(0, 24) : null,
+      meta: { ups: [], fresh: [], cookies: [], heat: 0, hatched: false },   // 本局字卡升级 / 新收集 / 饼干（结算页展示）
       t0: now()
     };
     S = sess;
@@ -1440,17 +1515,23 @@
     var today = todayStr();
     var daily = ensureDaily(p);
     var wasAll = SKILL_IDS.every(function (s) { return daily.done[s]; });
-    p.flowers += stars;
+    // 小红花 = 星数；有元游戏时同一关反复刷会递减（见 12_meta.js roundFlowers），out.flowers 是这一局真正给的
+    var give = stars;
+    if (META && typeof META.roundFlowers === 'function') { try { give = clamp(Math.round(num(META.roundFlowers(p, sess, out, stars), stars)), 0, stars); } catch (e) { give = stars; } }
+    out.flowers = give;
+    earn(p, give);
     var sk = p.skills[g.skill]; sk.rounds += 1; sk.stars += stars;
     var gs = p.games[g.id] || (p.games[g.id] = { rounds: 0, stars: 0, best: 0, last: '' });
     gs.rounds += 1; gs.stars += stars; gs.best = Math.max(gs.best, stars); gs.last = today;
     daily.done[g.skill] = true;
-    if (!wasAll && SKILL_IDS.every(function (s) { return daily.done[s]; })) {
+    // 有元游戏时，“当日完成盖章 + 2 朵小红花”改由每日航线的宝箱发（见 12_meta.js）；没有时沿用“今日四件事”
+    if (!META && !wasAll && SKILL_IDS.every(function (s) { return daily.done[s]; })) {
       if (p.days.indexOf(today) < 0) p.days.push(today);
       p.days = p.days.slice(-400);
-      p.flowers += 2;
+      earn(p, 2);
       out.dayBonus = true;
     }
+    if (META && typeof META.onRound === 'function') { try { out.meta = META.onRound(p, sess, out); } catch (e) { try { console.warn('[HW] meta round', e); } catch (x) { /* ignore */ } } }
     if (sess.maxCombo > p.maxCombo) p.maxCombo = sess.maxCombo;
     p.log.push({ t: now(), g: g.id, gr: sess.grade, s: stars, c: correct, n: total, rv: sess.review ? 1 : 0 });
     if (p.log.length > LOG_MAX) p.log = p.log.slice(-LOG_MAX);
@@ -1544,32 +1625,46 @@
       if (newHi && hi0) rollNum(hiV, hi0, hi, 1500, 600);
       if (unlocked) unlockEl = h('p', { class: 'hw-unlock' }, h('span', { class: 'ic', 'aria-hidden': 'true' }, '🔓'), '第 ' + unlocked + ' 关已解锁！');
     }
-    var gained = out.stars + (out.dayBonus ? 2 : 0);
+    var got = out.flowers != null ? out.flowers : out.stars;
+    var gained = got + (out.dayBonus ? 2 : 0);
     var totEl = h('b', { class: 'tot' }, String(p.flowers));
-    var coinRow = out.stars
-      ? h('div', { class: 'hw-coinrow', role: 'img', 'aria-label': '得到 ' + out.stars + ' 朵小红花，一共 ' + p.flowers + ' 朵' },
+    var coinRow = got
+      ? h('div', { class: 'hw-coinrow', role: 'img', 'aria-label': '得到 ' + got + ' 朵小红花，一共 ' + p.flowers + ' 朵' },
           h('span', { class: 'hw-coin', 'aria-hidden': 'true' }, flowerSvg(26)),
-          h('span', { class: 'plus', 'aria-hidden': 'true' }, '+' + out.stars),
+          h('span', { class: 'plus', 'aria-hidden': 'true' }, '+' + got),
           h('span', { 'aria-hidden': 'true' }, '小红花 共'), totEl, h('span', { 'aria-hidden': 'true' }, '朵'))
-      : h('p', { class: 'hw-muted' }, '这一轮没有拿到小红花，下一轮一定行！');
-    if (out.stars) rollNum(totEl, p.flowers - gained, p.flowers, 1250, 800);
+      : h('p', { class: 'hw-muted' }, out.stars ? '这一关今天玩了好多局啦，换一关或别的游戏再拿小红花吧！' : '这一轮没有拿到小红花，下一轮一定行！');
+    if (got) rollNum(totEl, p.flowers - gained, p.flowers, 1250, 800);
     var dailyLine = null;
     if (out.dayBonus) {
       dailyLine = h('div', { class: 'hw-result-bonus hw-row hw-center' }, dateSeal(todayStr()), h('span', null, '今日四件事全部完成！再奖 2 朵小红花。'));
-    } else if (out.daily) {
+    } else if (out.daily && !META) {
       var doneS = SKILLS.filter(function (s) { return out.daily.done[s.id]; }).map(function (s) { return s.ch; });
       var left = SKILLS.filter(function (s) { return !out.daily.done[s.id]; }).map(function (s) { return s.ch; });
       if (left.length) dailyLine = h('p', { class: 'hw-muted' }, '今日四件事：' + doneS.join('、') + ' 已完成，还差 ' + left.join('、') + '。');
     }
-    var againText = sess.review ? '再练错题' : (arc ? (unlockEl ? '下一关 ▶' : (lost ? '再试一次' : '再玩一次')) : '再来一轮');
+    // 家长设的时长到了：这一局照常结算，按钮换成“休息”
+    var tired = overLimit(p);
+    var againText = tired ? '好的，休息啦 🌙' : sess.review ? '再练错题' : (arc ? (unlockEl ? '下一关 ▶' : (lost ? '再试一次' : '再玩一次')) : '再来一轮');
     var again = h('button', { class: 'hw-btn primary big', type: 'button', id: 'hw-again' }, againText);
     again.addEventListener('click', function () {
+      if (overLimit(curProf())) { showRest(); return; }
       if (sess.review) {
         var pr = curProf();
         if (pr.wrong.some(function (w) { return w.g === g.id && w.it != null; })) { startReview(g.id); return; }
       }
-      startGame(g.id, null, arc ? { level: nextLv } : null);
+      var o2 = arc ? { level: nextLv } : {};
+      // 航线的丰收局没拿到星、点“再试一次”：还算航线这一站（带着重点字）
+      if (sess.voy) { o2.voyage = sess.voy; o2.focus = sess.focus ? sess.focus.slice() : null; }
+      startGame(g.id, null, o2);
     });
+    var metaBlock = null, voyBtn = null;
+    if (META && typeof META.resultBlock === 'function') {
+      try { metaBlock = META.resultBlock(p, sess, out); } catch (e) { metaBlock = null; try { console.warn('[HW] meta result', e); } catch (x) { /* ignore */ } }
+      if (out.meta && out.meta.voyTouched && !tired) {
+        voyBtn = h('button', { class: 'hw-btn big hw-voygo', type: 'button', id: 'hw-voy-back', on: { click: goMapTop } }, '继续航线 ⛵');
+      }
+    }
     var card = h('section', { class: 'hw-result', 'aria-labelledby': 'hw-result-h' },
       h('div', { class: 'hw-ribbon' + (out.stars && !lost ? '' : ' lose') }, h('h2', { id: 'hw-result-h' }, lost ? '差一点点！' : titles[out.stars])),
       h('p', { class: 'hw-result-k' }, (g.icon ? g.icon + ' ' : '') + g.name + ' · ' + sess.grade.toUpperCase() + (sess.review ? ' · 错题重练' : '')),
@@ -1580,13 +1675,15 @@
       out.total != null ? h('p', { class: 'hw-result-line' }, '答对 ' + out.correct + ' / ' + out.total + (out.maxCombo >= 3 ? ' · 最多连对 ' + out.maxCombo + ' 题' : '')) : null,
       coinRow,
       dailyLine,
+      metaBlock,
       out.cleared ? h('p', { class: 'hw-result-line' }, '错题本里消灭了 ' + out.cleared + ' 道题！') : null,
+      tired ? h('p', { class: 'hw-result-line hw-result-tired' }, '⏰ 今天玩够啦！这一局的星星和小红花都收好了，明天再来。') : null,
       out.newStamps.length ? h('div', { class: 'hw-stack hw-center' },
         h('h3', { class: 'hw-kai' }, '得到新印章！'),
         h('div', { class: 'hw-newstamps' }, out.newStamps.map(function (s) {
           return h('div', { class: 'hw-newstamp' }, stampEl(s, { size: 84, fresh: true }), h('span', null, s.need));
         }))) : null,
-      h('div', { class: 'hw-result-btns' }, again,
+      h('div', { class: 'hw-result-btns' }, voyBtn, again,
         h('button', { class: 'hw-btn big', type: 'button', id: 'hw-home', on: { click: goMap } }, '回到地图')));
     main.replaceChildren(h('div', { class: 'hw-resview' }, card));
     try { W.scrollTo(0, 0); } catch (e) { /* ignore */ }
@@ -1705,7 +1802,15 @@
     write: { name: '毛笔山岛', mark: 'brushmount' }
   };
   var SHORT_WHY = { '题目准备中': '准备中', '需要中文朗读声音': '要朗读声音', '这个浏览器不能朗读': '不能朗读', '笔顺数据没有加载': '缺笔顺' };
-  function stampCount(p) { return STAMPS.filter(function (s) { return p.stamps[s.id]; }).length; }
+  function stampCount(p) {
+    var ids = {}; STAMPS.forEach(function (s) { ids[s.id] = 1; });
+    return Object.keys(p.stamps).filter(function (k) { return p.stamps[k] && (ids[k] || k.indexOf('fam_') === 0); }).length;
+  }
+  /* 元游戏在首页上的小部件（没有 12_meta.js 或出错时返回 null，页面照常） */
+  function metaNode(name, p) {
+    if (!META || typeof META[name] !== 'function') return null;
+    try { return META[name](p) || null; } catch (e) { try { console.warn('[HW] meta ' + name, e); } catch (x) { /* ignore */ } return null; }
+  }
   function hudEl(p) {
     var got = stampCount(p);
     return h('header', { class: 'hw-hud' },
@@ -1716,6 +1821,7 @@
         h('span', { class: 'hw-coin', 'aria-hidden': 'true' }, flowerSvg(19)), h('b', { 'aria-hidden': 'true' }, String(p.flowers))),
       h('button', { class: 'hw-pill', id: 'hw-seals', type: 'button', title: '印章册', 'aria-label': '印章 ' + got + ' 枚，打开印章册', on: { click: function () { leaveMap(); renderStamps(); } } },
         stampEl({ t: '印', shape: 'square' }, { size: 26, tiny: true, rot: -8 }), h('b', { 'aria-hidden': 'true' }, String(got))),
+      metaNode('hudCards', p),
       h('button', { class: 'hw-hudbtn', id: 'hw-sound', type: 'button', title: settings.sound ? '关掉音效' : '打开音效', 'aria-label': settings.sound ? '关掉音效' : '打开音效', on: { click: toggleSound } }, settings.sound ? '🔊' : '🔈'));
   }
   function skyEl() {
@@ -1822,7 +1928,8 @@
       h('span', { class: 'hw-lv-nm', 'aria-hidden': 'true' }, g.name),
       av.ok && !played ? h('span', { class: 'hw-lv-new', 'aria-hidden': 'true' }, '新！') : null,
       wn ? h('span', { class: 'hw-lv-wn', 'aria-hidden': 'true', title: '错题' }, String(wn)) : null,
-      isNext ? h('span', { class: 'hw-pin', 'aria-hidden': 'true' }, p.avatar) : null);
+      isNext ? h('span', { class: 'hw-pin', 'aria-hidden': 'true' }, p.avatar) : null,
+      isNext ? metaNode('pinPet', p) : null);
   }
   function gameCard(g, p, G) {
     var av = availability(g, G);
@@ -1906,9 +2013,10 @@
         h('span', { 'aria-hidden': 'true' }, title),
         badge ? h('span', { class: 'badge', 'aria-hidden': 'true' }, badge > 99 ? '99+' : String(badge)) : null);
     }
-    return h('nav', { class: 'hw-dock', 'aria-label': '我的本子' },
+    return h('nav', { class: 'hw-dock' + (META && typeof META.renderCards === 'function' ? ' n5' : ''), 'aria-label': '我的本子' },
       btn('hw-open-wrong', '错题本', p.wrong.length ? p.wrong.length + ' 道待重练' : '还没有错题', ['ic-wrong', '错'], renderWrong, p.wrong.length),
-      btn('hw-open-stamps', '印章册', got + ' / ' + STAMPS.length + ' 枚', ['ic-seal', stampEl({ t: '印', shape: 'square' }, { size: 28, tiny: true, rot: -8 })], renderStamps),
+      btn('hw-open-stamps', '印章册', got + ' / ' + allStamps(p).length + ' 枚', ['ic-seal', stampEl({ t: '印', shape: 'square' }, { size: 28, tiny: true, rot: -8 })], renderStamps),
+      META && typeof META.renderCards === 'function' ? btn('hw-open-cards', '图鉴', (META.cardLine ? META.cardLine(p) : ''), ['ic-card', h('span', null, '字')], function () { META.renderCards(); }) : null,
       btn('hw-open-records', '学习记录', rounds ? '一共 ' + rounds + ' 轮' : '还没有记录', ['ic-chart', [h('i'), h('i'), h('i')]], renderRecords),
       btn('hw-open-profiles', '档案', Object.keys(profiles).length + ' 个小朋友', ['ic-me', p.avatar], function () { renderProfiles(); }));
   }
@@ -1922,7 +2030,7 @@
     main.replaceChildren(h('div', { class: 'hw-world hw-mapview', style: '--t:' + (-(now() % 3600000) / 1000).toFixed(2) + 's' },
       hudEl(p),
       heroEl(p),
-      questEl(p),
+      metaNode('mapBoard', p) || questEl(p),
       hintEl(),
       h('div', { class: 'hw-sea' },
         seaDecor(),
@@ -1982,18 +2090,24 @@
   function renderStamps() {
     ui.view = 'stamps';
     var p = curProf();
-    var got = STAMPS.filter(function (s) { return p.stamps[s.id]; }).length;
-    page('印章册', got + ' / ' + STAMPS.length, [
+    var fam = allStamps(p).slice(STAMPS.length);
+    var got = stampCount(p);
+    var cell = function (s) {
+      var d = p.stamps[s.id];
+      return h('div', { class: 'hw-stampcell' }, stampEl(s, { size: 76, locked: !d }), h('b', null, s.t), h('span', null, d ? fmtDate(d) + '得到' : needText(s, p)));
+    };
+    page('印章册', got + ' / ' + (STAMPS.length + fam.length), [
       h('section', { class: 'hw-card hw-stack', 'aria-labelledby': 'hw-st-h' },
         h('h2', { class: 'hw-kai', id: 'hw-st-h' }, '奖励印章'),
         h('p', { class: 'hw-muted' }, '现在有 ' + p.flowers + ' 朵小红花。灰色的印章还没得到，看看下面怎么拿到它。'),
-        h('div', { class: 'hw-stampgrid' }, STAMPS.map(function (s) {
-          var d = p.stamps[s.id];
-          return h('div', { class: 'hw-stampcell' }, stampEl(s, { size: 76, locked: !d }), h('b', null, s.t), h('span', null, d ? fmtDate(d) + '得到' : needText(s, p)));
-        }))),
+        h('div', { class: 'hw-stampgrid' }, STAMPS.map(cell))),
+      fam.length ? h('section', { class: 'hw-card hw-stack', 'aria-labelledby': 'hw-stf-h' },
+        h('h2', { class: 'hw-kai', id: 'hw-stf-h' }, '部首家族印章'),
+        h('p', { class: 'hw-muted' }, '一个部首家族的字卡全部升成金卡，就得到这一家的印章。'),
+        h('div', { class: 'hw-stampgrid' }, fam.map(cell))) : null,
       h('section', { class: 'hw-card hw-stack', 'aria-labelledby': 'hw-day-h' },
         h('h2', { class: 'hw-kai', id: 'hw-day-h' }, '每日章'),
-        h('p', { class: 'hw-muted' }, '听、说、读、写四件事都完成的日子，一共 ' + p.days.length + ' 天。'),
+        h('p', { class: 'hw-muted' }, (META ? '完成今日航线' : '听、说、读、写四件事都完成') + '的日子，一共 ' + p.days.length + ' 天。'),
         p.days.length ? h('div', { class: 'hw-days' }, p.days.slice(-30).reverse().map(dateSeal))
           : h('p', { class: 'hw-empty' }, '还没有每日章，今天就来盖第一个吧！'))
     ]);
@@ -2031,7 +2145,7 @@
     page('学习记录', p.name, [
       h('section', { class: 'hw-card hw-stack', 'aria-labelledby': 'hw-rc-h' },
         h('h2', { class: 'hw-kai', id: 'hw-rc-h' }, '听说读写'),
-        h('p', { class: 'hw-muted' }, '一共玩了 ' + total + ' 轮，得到 ' + p.flowers + ' 朵小红花，完成四件事 ' + p.days.length + ' 天。'),
+        h('p', { class: 'hw-muted' }, '一共玩了 ' + total + ' 轮，得到 ' + p.flowers + ' 朵小红花，' + (META ? '完成今日航线 ' : '完成四件事 ') + p.days.length + ' 天。'),
         h('div', { class: 'hw-skillbars' }, bars)),
       h('section', { class: 'hw-card hw-stack', 'aria-labelledby': 'hw-rg-h' },
         h('h2', { class: 'hw-kai', id: 'hw-rg-h' }, '每个游戏'),
@@ -2044,6 +2158,44 @@
           h('thead', null, h('tr', null, th('时间'), th('游戏'), th('年级'), th('答对', 'num'), th('星', 'num'))),
           h('tbody', null, logs))) : h('p', { class: 'hw-empty' }, '还没有记录，去地图上挑一个游戏吧！'))
     ]);
+  }
+  /* 一台设备好几个孩子：每天第一次打开，在岛图上先弹“谁来玩？”。
+     第一次打开尤其要紧：默认停在预置的第一个档案“大宝”，妹妹先打开就会替哥哥挑蛋、玩哥哥的年级。
+     弹着的时候 ui.view = 'pick'：元游戏的“去选蛋”提示、云同步重画都会等孩子选完再来。 */
+  var pickClose = null;
+  function showPick() {
+    if (pickClose) pickClose();
+    var list = sortedProfiles();
+    var bg = h('div', { class: 'hw-sheet-bg hw-pick-bg', id: 'hw-pick' });
+    function close() { pickClose = null; if (bg.parentNode) bg.parentNode.removeChild(bg); D.removeEventListener('keydown', onKey, true); }
+    function choose(id) {
+      close();
+      switchProfile(id);
+      SFX.tap();
+      ui.view = 'map';
+      renderMap();
+      try { W.scrollTo(0, 0); } catch (e) { /* ignore */ }
+    }
+    function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); choose(curId); } }
+    var box = h('div', { class: 'hw-sheet hw-pick', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'hw-pick-h' },
+      h('h2', { class: 'hw-sheet-h', id: 'hw-pick-h' }, '谁来玩？'),
+      h('p', { class: 'hw-pick-lead' }, '点你自己！每个人的字宠、字卡、小红花都分开记。'),
+      h('div', { class: 'hw-pick-list' }, list.map(function (p) {
+        return h('button', { type: 'button', class: 'hw-pick-me', id: 'hw-pick-' + p.id, 'aria-label': '我是' + p.name + '，' + p.grade.toUpperCase(), on: { click: function () { choose(p.id); } } },
+          h('span', { class: 'hw-pick-av', 'aria-hidden': 'true' }, p.avatar),
+          h('b', { class: 'hw-pick-n' }, p.name),
+          h('span', { class: 'hw-pick-g' }, p.grade.toUpperCase() + ' · 小学' + CN_NUM[Number(p.grade.slice(1))] + '年级'));
+      })),
+      h('div', { class: 'hw-row hw-center' },
+        h('button', { class: 'hw-btn', type: 'button', id: 'hw-pick-new', on: { click: function () { close(); ui.view = 'map'; leaveMap(); renderProfiles('__new'); } } }, '＋ 我是新来的')),
+      h('p', { class: 'hw-muted hw-pick-foot' }, '名字或年级不对？请爸爸妈妈到“档案”里修改。'));
+    bg.appendChild(box);
+    ui.view = 'pick';
+    pickClose = close;
+    root.appendChild(bg);
+    D.addEventListener('keydown', onKey, true);
+    var f = box.querySelector('.hw-pick-me');
+    try { if (f) f.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
   }
   function renderProfiles(editId) {
     ui.view = 'profiles';
@@ -2064,7 +2216,9 @@
     return h('div', { class: 'hw-card hw-pcard' + (cur ? ' is-cur' : '') },
       h('div', { class: 'hw-pcard-top' },
         h('span', { class: 'hw-pcard-av', 'aria-hidden': 'true' }, p.avatar),
-        h('div', null, h('div', { class: 'hw-pcard-n' }, p.name), h('div', { class: 'hw-muted' }, p.grade.toUpperCase() + ' · ' + p.flowers + ' 朵小红花'))),
+        h('div', null, h('div', { class: 'hw-pcard-n' }, p.name),
+          h('div', { class: 'hw-muted' }, p.grade.toUpperCase() + ' · ' + p.flowers + ' 朵小红花' + (typeof p.wallet === 'number' ? ' · 钱包 ' + p.wallet + ' 朵' : '')),
+          h('div', { class: 'hw-muted hw-pcard-time' }, '今天玩了 ' + playedMin(p) + ' 分钟' + (p.lim ? '（每天最多 ' + p.lim + ' 分钟）' : '')))),
       h('div', { class: 'hw-row' },
         cur ? h('span', { class: 'hw-tag accent' }, '正在练习')
           : h('button', { class: 'hw-btn primary', type: 'button', id: 'hw-use-' + p.id, on: { click: function () { switchProfile(p.id); SFX.tap(); goMapTop(); } } }, '就是我'),
@@ -2079,6 +2233,23 @@
     var name = h('input', { class: 'hw-input', id: 'hw-pf-name', type: 'text', maxlength: '12', value: base.name, placeholder: '名字，比如：大宝', autocomplete: 'off' });
     var grade = h('select', { class: 'hw-select', id: 'hw-pf-grade', value: base.grade },
       GRADES.map(function (g) { return h('option', { value: g }, g.toUpperCase() + '（小学' + CN_NUM[Number(g.slice(1))] + '年级）'); }));
+    // 每日时长上限：家长设置，锁着；点“家长修改”过了家长验证才能改（新档案默认沿用家里最严的那个上限，免得新建档案绕开）
+    var lim0 = p ? (p.lim || 0) : defaultLim();
+    var limUnlocked = false;
+    var limit = h('select', { class: 'hw-select', id: 'hw-pf-limit', value: String(lim0), disabled: true, 'aria-describedby': 'hw-pf-limit-tip' },
+      LIMITS.map(function (m) { return h('option', { value: String(m) }, m ? m + ' 分钟' : '不限'); }));
+    if (lim0 && LIMITS.indexOf(lim0) < 0) limit.appendChild(h('option', { value: String(lim0) }, lim0 + ' 分钟'));
+    limit.value = String(lim0);
+    var limBtn = h('button', { class: 'hw-btn hw-lockbtn', type: 'button', id: 'hw-pf-limit-unlock' }, h('span', { 'aria-hidden': 'true' }, '🔒'), '家长修改');
+    limBtn.addEventListener('click', function () {
+      parentGate('修改' + (p ? '「' + p.name + '」的' : '') + '每日时长上限').then(function (ok) {
+        if (!ok || !limBtn.isConnected) return;
+        limUnlocked = true;
+        limit.disabled = false;
+        limBtn.replaceWith(h('span', { class: 'hw-tag hw-unlocked', id: 'hw-pf-limit-ok' }, h('span', { 'aria-hidden': 'true' }, '🔓'), '家长已验证'));
+        try { limit.focus(); } catch (e) { /* ignore */ }
+      });
+    });
     var avList = AVATARS.indexOf(avatar) >= 0 ? AVATARS : [avatar].concat(AVATARS);
     var avs = h('div', { class: 'hw-avatars', role: 'radiogroup', 'aria-label': '选一个头像' }, avList.map(function (a, i) {
       var id = 'hw-pf-av-' + i;
@@ -2097,19 +2268,28 @@
           delBtn.textContent = '确定删除？' + p.name + '的进度会一起删掉';
           return;
         }
-        if (deleteProfile(p.id)) { toast('已删除'); renderProfiles(); }
+        // 删除前还要过家长验证（孩子看到的是“请爸爸妈妈来”）
+        parentGate('删除「' + p.name + '」的档案（小红花、印章、字卡、错题本会一起删掉，不能恢复）').then(function (ok) {
+          if (!ok) {
+            if (delBtn.isConnected) { delBtn.classList.remove('is-armed'); delBtn.textContent = '删除这个档案'; }
+            return;
+          }
+          if (profiles[p.id] && deleteProfile(p.id)) { toast('已删除'); renderProfiles(); }
+        });
       });
     }
     function save() {
       var nm = name.value.trim().slice(0, 12) || '小朋友';
       var gr = GRADES.indexOf(grade.value) >= 0 ? grade.value : 'p3';
+      // 没过家长验证就不认下拉框里的值（脚本改了也不算），保持原来的上限
+      var lim = limUnlocked ? clamp(Math.round(num(limit.value)), 0, 600) : (p ? num(profiles[p.id] ? profiles[p.id].lim : p.lim) : lim0);
       if (isNew) {
-        var np = createProfile({ name: nm, avatar: avatar, grade: gr });
+        var np = createProfile({ name: nm, avatar: avatar, grade: gr, lim: lim });
         switchProfile(np.id);
         toast('欢迎 ' + nm + '！');
       } else {
         var cur = profiles[p.id];
-        if (cur) { cur.name = nm; cur.avatar = avatar; cur.grade = gr; touch(cur); }
+        if (cur) { cur.name = nm; cur.avatar = avatar; cur.grade = gr; cur.lim = lim; touch(cur); }
         toast('保存好了');
       }
       renderProfiles();
@@ -2118,15 +2298,169 @@
       h('div', { class: 'hw-field' }, h('label', { for: 'hw-pf-name' }, '名字'), name),
       h('div', { class: 'hw-field' }, h('span', { class: 'lbl' }, '头像'), avs),
       h('div', { class: 'hw-field' }, h('label', { for: 'hw-pf-grade' }, '年级'), grade),
+      h('div', { class: 'hw-field' }, h('label', { for: 'hw-pf-limit' }, '每日时长上限（家长设置）'),
+        h('div', { class: 'hw-lockrow' }, limit, limBtn),
+        h('small', { class: 'hw-muted', id: 'hw-pf-limit-tip' }, '改这一项要请爸爸妈妈来做一道算术题。到时间会温和地提醒“今天玩够啦”；正在玩的那一局可以玩完（最多再给 3 分钟），结算照常。')),
       h('div', { class: 'hw-row' },
         h('button', { class: 'hw-btn primary', type: 'submit', id: 'hw-pf-save' }, '保存'),
         h('button', { class: 'hw-btn', type: 'button', id: 'hw-pf-cancel', on: { click: function () { renderProfiles(); } } }, '取消'),
         delBtn));
   }
 
+  /* ================= 家长验证（parental gate） =================
+     改“每日时长上限”、删除档案之前弹出：孩子看到“请爸爸妈妈来”，家长算一道“两位数 × 一位数”（自己输入数字，不是选择题，乱按过不去）。
+     答错换一题；连错 3 次锁 60 秒。返回 Promise<boolean>：true = 通过；取消 / 关掉 = false。 */
+  var gateLockUntil = 0, gateClose = null, gateMode = null, gateAns = null;
+  function parentGate(why) {
+    return new Promise(function (resolve) {
+      if (gateClose) gateClose(false);            // 同时只开一个
+      if (DEBUG && gateMode) { resolve(gateMode === 'pass'); return; }   // 测试：HW._debug.gate('pass'|'fail')
+      var prevFocus = D.activeElement, done = false, tries = 0, a = 0, b = 0, lockTimer = 0;
+      var q = h('p', { class: 'hw-gate-q', id: 'hw-gate-q' });
+      var inp = h('input', { class: 'hw-input hw-gate-in', id: 'hw-gate-in', type: 'text', inputmode: 'numeric', pattern: '[0-9]*', maxlength: '5',
+        autocomplete: 'off', autocorrect: 'off', spellcheck: 'false', enterkeyhint: 'done', 'aria-labelledby': 'hw-gate-q', placeholder: '输入答案' });
+      var msg = h('p', { class: 'hw-gate-msg', id: 'hw-gate-msg', role: 'status', 'aria-live': 'polite' });
+      var okBtn = h('button', { class: 'hw-btn primary', type: 'submit', id: 'hw-gate-ok' }, '确定');
+      var noBtn = h('button', { class: 'hw-btn', type: 'button', id: 'hw-gate-cancel' }, '取消');
+      var xBtn = h('button', { class: 'hw-sheet-x', type: 'button', id: 'hw-gate-x', 'aria-label': '关闭' }, '✕');
+      function newQ() {
+        do { a = 12 + Math.floor(Math.random() * 87); } while (a % 10 === 0 || a % 11 === 0);   // 12–98，不出整十、不出 22/33 这类太好算的
+        b = 3 + Math.floor(Math.random() * 7);                                               // 3–9
+        gateAns = a * b;
+        q.textContent = a + ' × ' + b + ' = ?';
+        inp.value = '';
+      }
+      function setLocked(on) {
+        inp.disabled = on; okBtn.disabled = on;
+        if (on) {
+          inp.value = '';
+          msg.className = 'hw-gate-msg is-bad';
+          msg.textContent = '错了好几次，先休息一下：1 分钟后再请爸爸妈妈来试。';
+          clearTimeout(lockTimer);
+          lockTimer = setTimeout(function () { if (!done) { tries = 0; setLocked(false); msg.textContent = ''; newQ(); try { inp.focus(); } catch (e) { /* ignore */ } } }, Math.max(0, gateLockUntil - now()) + 50);
+        }
+      }
+      function close(ok) {
+        if (done) return;
+        done = true; gateClose = null; gateAns = null;
+        clearTimeout(lockTimer);
+        D.removeEventListener('keydown', onKeyG, true);
+        if (bg.parentNode) bg.parentNode.removeChild(bg);
+        try { if (prevFocus && prevFocus.isConnected && prevFocus.focus) prevFocus.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
+        resolve(!!ok);
+      }
+      function onKeyG(e) {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(false); return; }
+        if (e.key === 'Tab') {   // 焦点只在弹窗里转
+          var f = Array.prototype.filter.call(box.querySelectorAll('button,input'), function (x) { return !x.disabled; });
+          if (!f.length) return;
+          var i = f.indexOf(D.activeElement);
+          if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
+          else if (!e.shiftKey && (i < 0 || i === f.length - 1)) { e.preventDefault(); f[0].focus(); }
+        }
+      }
+      function submit(e) {
+        if (e) e.preventDefault();
+        if (now() < gateLockUntil) { setLocked(true); return; }
+        var v = String(inp.value || '').replace(/[０-９]/g, function (d) { return String.fromCharCode(d.charCodeAt(0) - 0xFEE0); }).replace(/\s+/g, '');
+        if (!/^\d+$/.test(v)) { msg.className = 'hw-gate-msg is-bad'; msg.textContent = '请输入数字答案'; try { inp.focus(); } catch (x) { /* ignore */ } return; }
+        if (Number(v) === a * b) { close(true); return; }
+        tries++;
+        box.classList.remove('is-shake'); void box.offsetWidth; box.classList.add('is-shake');
+        if (tries >= 3) { gateLockUntil = now() + 60000; setLocked(true); return; }
+        msg.className = 'hw-gate-msg is-bad';
+        msg.textContent = '不对哦，换一道题（还能试 ' + (3 - tries) + ' 次）';
+        newQ();
+        try { inp.focus(); } catch (x) { /* ignore */ }
+      }
+      var box = h('form', { class: 'hw-sheet hw-gate', id: 'hw-gate', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'hw-gate-h', 'aria-describedby': 'hw-gate-why', novalidate: true, on: { submit: submit } },
+        xBtn,
+        h('div', { class: 'hw-gate-top', 'aria-hidden': 'true' }, '🔐'),
+        h('h2', { class: 'hw-sheet-h hw-gate-h', id: 'hw-gate-h' }, '请爸爸妈妈来'),
+        h('p', { class: 'hw-gate-why', id: 'hw-gate-why' }, '这一步要家长来做：' + (why || '修改家长设置')),
+        h('div', { class: 'hw-gate-box' },
+          h('p', { class: 'hw-gate-lead' }, '家长验证：请算出结果'),
+          q, inp, msg),
+        h('div', { class: 'hw-row hw-gate-btns' }, okBtn, noBtn));
+      var bg = h('div', { class: 'hw-sheet-bg hw-gate-bg', id: 'hw-gate-bg' }, box);
+      bg.addEventListener('click', function (e) { if (e.target === bg) close(false); });
+      noBtn.addEventListener('click', function () { close(false); });
+      xBtn.addEventListener('click', function () { close(false); });
+      box.addEventListener('animationend', function (e) { if (e.animationName === 'hw-gate-shake') box.classList.remove('is-shake'); });
+      newQ();
+      (root || D.body).appendChild(bg);
+      D.addEventListener('keydown', onKeyG, true);
+      gateClose = close;
+      if (now() < gateLockUntil) setLocked(true);
+      else setTimeout(function () { if (!done) try { inp.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }, 60);
+    });
+  }
+  /* 新档案的时长上限默认沿用家里已有档案里最严的那个（家长从没设过 = 不限） */
+  function defaultLim() {
+    var ls = sortedProfiles().map(function (x) { return num(x.lim); }).filter(function (x) { return x > 0; });
+    return ls.length ? Math.min.apply(null, ls) : 0;
+  }
+
+  /* ================= 家长设置：每日时长上限 ================= */
+  // 只算“真的在玩”的时间：页面在前台，并且正在一局游戏里、或 90 秒内点过/按过键
+  var LIMITS = [0, 15, 20, 30, 45, 60, 90, 120];
+  var TICK = 5, lastAct = 0, ptPending = 0, warnedDay = '';
+  function playedMin(p) { var t = todayStr(); return p && p.pt && p.pt.d === t ? Math.floor(p.pt.s / 60) : 0; }
+  function overLimit(p) {
+    if (!p || !p.lim) return false;
+    return !!(p.pt && p.pt.d === todayStr() && p.pt.s >= p.lim * 60);
+  }
+  function tickPlay() {
+    if (!booted || D.hidden) return;
+    var p = curProf();
+    if (!p) return;
+    if (!((S && S.alive) || now() - lastAct < 90000)) return;
+    var t = todayStr();
+    if (!p.pt || p.pt.d !== t) p.pt = { d: t, s: 0 };
+    var wasOver = overLimit(p);
+    p.pt.s += TICK; ptPending += TICK;
+    if (ptPending >= 60) { ptPending = 0; touch(p); }
+    if (!p.lim || wasOver) return;
+    var left = p.lim * 60 - p.pt.s;
+    if (left <= 120 && left > 0 && warnedDay !== p.id + t) { warnedDay = p.id + t; toast('再玩 2 分钟就该休息啦'); }
+    if (left <= 0) {
+      ptPending = 0; touch(p);
+      if (S && S.alive) graceCheck();
+      else if (ui.view === 'pet' || ui.view === 'newchars') showRest();
+      else toast('今天玩够啦，明天再来喂宠物');
+    }
+  }
+  /* 到时间时正在玩的这一局：给 3 分钟把它玩完（结算页照常，星星和小红花都算）；超过 3 分钟还没完才温和地结束 */
+  var restAfter = '';
+  function graceCheck() {
+    if (!booted || !(S && S.alive)) return;
+    var p = curProf();
+    if (!p || !overLimit(p)) return;
+    var key = p.id + todayStr();
+    if (restAfter !== key) { restAfter = key; toast('时间到啦！把这一局玩完就休息'); return; }
+    if (p.pt.s >= p.lim * 60 + 180) { endSession(S); showRest(); }
+  }
+  function showRest() {
+    var p = curProf();
+    ui.view = 'rest';
+    setView('page');
+    var pet = metaNode('restPet', p);
+    if (fxEl) fxEl.replaceChildren();   // 结算页的彩带别飘到“休息”页上
+    main.replaceChildren(h('div', { class: 'hw-restview' },
+      h('section', { class: 'hw-rest', 'aria-labelledby': 'hw-rest-h' },
+        h('div', { class: 'hw-rest-sky', 'aria-hidden': 'true' }, h('span', { class: 'hw-rest-moon' }), h('span', { class: 'hw-rest-z' }, 'Z'), h('span', { class: 'hw-rest-z z2' }, 'z')),
+        pet || h('div', { class: 'hw-rest-av', 'aria-hidden': 'true' }, p.avatar),
+        h('h2', { id: 'hw-rest-h' }, '今天玩够啦'),
+        h('p', { class: 'hw-rest-t' }, pet ? '明天再来喂字宠吧！字宠也要睡觉啦，晚安～' : '明天再来玩吧！晚安～'),
+        h('p', { class: 'hw-muted' }, '爸爸妈妈设的每天 ' + p.lim + ' 分钟已经用完了。今天学会的字都已经收进图鉴。'),
+        h('button', { class: 'hw-btn primary big', type: 'button', id: 'hw-rest-home', on: { click: goMapTop } }, '好的，回到地图'))));
+    try { W.scrollTo(0, 0); } catch (e) { /* ignore */ }
+  }
+
   /* ================= 全局事件 / 启动 ================= */
   function onKey(e) {
     if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (META && typeof META.onKey === 'function') { try { if (META.onKey(e)) return; } catch (x) { /* ignore */ } }
     var t = e.target;
     var typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || ''));
     if (ui.view === 'game' && S && S.alive) {
@@ -2140,7 +2474,7 @@
       if (!set) return;
       var btn = set.children[idx];
       if (btn) { e.preventDefault(); try { btn.focus({ preventScroll: true }); } catch (x) { /* ignore */ } btn.click(); }
-    } else if (e.key === 'Escape' && !typing && ['wrong', 'stamps', 'records', 'profiles', 'result'].indexOf(ui.view) >= 0) {
+    } else if (e.key === 'Escape' && !typing && ['wrong', 'stamps', 'records', 'profiles', 'result', 'rest', 'cards', 'pet', 'newchars'].indexOf(ui.view) >= 0) {
       goMap();
     }
   }
@@ -2148,12 +2482,15 @@
     // iOS/Safari 只认“激活类”事件（touchend / click / keydown / mouse 的 pointerdown）里的首次发声；
     // 触摸的 pointerdown 不算激活，若在那里用掉一次性的 TTS 解锁，之后就再也解不开 → TTS 只挂在激活事件上
     var unlock = function () { TTS.unlock(); SFX.unlock(); };
+    var act = function () { lastAct = now(); };
+    D.addEventListener('pointerdown', act, { capture: true, passive: true });
+    D.addEventListener('keydown', act, true);
     D.addEventListener('pointerdown', function (e) { if (e && e.pointerType === 'mouse') unlock(); else SFX.unlock(); }, { capture: true, passive: true });
     D.addEventListener('touchend', unlock, { capture: true, passive: true });
     D.addEventListener('click', unlock, true);
     D.addEventListener('keydown', unlock, true);
     D.addEventListener('keydown', onKey);
-    D.addEventListener('visibilitychange', function () { if (D.hidden) { TTS.stop(); flushRemote(); } });
+    D.addEventListener('visibilitychange', function () { if (D.hidden) { TTS.stop(); saveLocal(); flushRemote(); } });
     W.addEventListener('pagehide', function () { flushRemote(); });
     var lastTts = TTS.status();
     TTS.onChange(function () {
@@ -2176,9 +2513,12 @@
     ASR.init();
     TTS.init();
     bindGlobal();
+    // 两个以上的档案：每天第一次打开先问“谁来玩？”（第一次打开时尤其要紧：默认停在预置的第一个档案“大宝”）
     renderMap();
+    if (sortedProfiles().length >= 2 && LS.get('pickDay', '') !== todayStr()) showPick();
     connectDb();
     useCap('sample');
+    setInterval(function () { tickPlay(); graceCheck(); }, TICK * 1000);
   }
 
   /* ================= 对外 ================= */
@@ -2208,5 +2548,41 @@
     get sound() { return !!settings.sound; },
     get games() { return orderedGames().map(function (g) { return { id: g.id, skill: g.skill, name: g.name, kind: g.kind }; }); },
     get stamps() { return STAMPS.map(function (s) { return { id: s.id, t: s.t, need: s.need }; }); }
+  };
+
+  /* 给 parts/12_meta.js（元游戏）用的内部接口；游戏模块不要用 */
+  W.HW._core = {
+    useMeta: function (m) { META = m || null; if (booted && ui.view === 'map') keepPlace(renderMap); },
+    h: h, LS: LS, clamp: clamp, num: num, isObj: isObj, has: has, clone: clone, hash: hash, keyOf: keyOf, shuffle: shuffle,
+    now: now, todayStr: todayStr, reduceMotion: reduceMotion, tokens: tokens, svgEl: svgEl,
+    profiles: function () { return profiles; }, sortedProfiles: sortedProfiles, curProf: curProf, curId: function () { return curId; },
+    touch: touch, saveLocal: saveLocal, earn: earn, checkStamps: checkStamps, stampEl: stampEl, dateSeal: dateSeal, flowerSvg: flowerSvg, starSvg: starSvg,
+    games: function () { return games; }, orderedGames: orderedGames, isArcade: isArcade, availability: availability, gradeData: gradeData,
+    startGame: startGame, goMap: goMap, goMapTop: goMapTop, leaveMap: leaveMap, renderMap: renderMap, keepPlace: keepPlace,
+    page: page, setView: setView, ui: ui, main: function () { return main; }, root: function () { return root; }, fx: function () { return fxEl; },
+    toast: toast, burst: burst, confetti: confetti, sfx: SFX, tts: TTS, hanzi: Hanzi, rateFor: rateFor, curGradeNum: curGradeNum,
+    overLimit: overLimit, showRest: showRest, playedMin: playedMin, session: function () { return S; },
+    skills: SKILLS, isle: ISLE, parentGate: parentGate,
+    debug: DEBUG   // true = URL 带 #hwdebug（12_meta.js 据此决定挂不挂 HW.meta._answer）
+  };
+  /* 只供测试（URL 带 #hwdebug 才挂出来，见文件开头 DEBUG）：
+     HW._debug.dayOffset(n) 假装过了 n 天（写 localStorage 'hw.v1.debugDayOffset'），重画当前页；
+     HW._debug.gate('pass' | 'fail' | null) 家长验证直接通过 / 直接失败 / 恢复正常弹题；HW._debug.gateAnswer() 当前题目的答案 */
+  if (DEBUG) W.HW._debug = {
+    gate: function (mode) { gateMode = mode === 'pass' || mode === 'fail' ? mode : null; return gateMode; },
+    gateAnswer: function () { return gateAns; },
+    dayOffset: function (n) {
+      if (n === undefined) return dayOffset();
+      LS.set('debugDayOffset', Math.round(num(n)));
+      if (booted && ui.view === 'map') keepPlace(renderMap);
+      return dayOffset();
+    },
+    today: function () { return todayStr(); },
+    // 模拟一次云端快照（验证两台设备的合并规则）：docs = [{id, ...档案字段}]；返回合并后本机档案的副本
+    remote: function (docs) {
+      var list = (Array.isArray(docs) ? docs : []).map(function (x) { var d = clone(x); return { id: d.id, exists: true, data: function () { return clone(d); } }; });
+      onSnap({ docs: list, metadata: { fromCache: false }, docChanges: function () { return []; } });
+      return list.map(function (x) { return clone(profiles[x.id]) || null; });
+    }
   };
 })();

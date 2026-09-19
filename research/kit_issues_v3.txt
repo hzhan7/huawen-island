@@ -1,0 +1,78 @@
+1. [dev:tonerun] 引擎 g.say 在没有中文朗读（TTS）时，会用 g.pinyinOf 显示带调拼音字幕。声调类游戏一调用就等于把答案亮出来了。我只好先检查 ctx.tts.ok，没有朗读时干脆不调用 g.say。建议加一个选项 {caption:false}，或者允许只显示不带调的拼音。
+2. [dev:tonerun] g.miss(x,y) 把飘字写死成“溜走啦”，并不是每个游戏都适用（这里的实际情况是小龙在崖边刹住等着）。我现在调用 g.miss() 时不传坐标，再自己飘“快画声调！”。建议让 g.miss 接受自定义文字。
+3. [dev:tonerun] fx.float 和 g.right 的 label 用的是 round 字体（Baloo 2），带调号的 ǎǐǒǔ 可能要回退到别的字体，显示效果不一致。拼音飘字我自己画，用 py 字体。建议 float 支持 font 参数。
+4. [dev:tonerun] 引擎没有公开 AudioContext 和声音开关（soundOn）。要做自定义音效（比如这里的声调哨音）只能把 45_beat.js 里的 soundOn 复制一份，再自己建一个 AudioContext（在 end 里关掉）。建议公开 HW.arcade.soundOn() 和 HW.arcade.tone(...)。
+5. [dev:tonerun] SPEC_V3 要求给 item 加 hz 字段，但 10_core.js 的 score.right 注释写着“别改造后再传”，而 keyOf 就是对整个对象做 JSON.stringify。所以加了 hz 的 item，right 和 wrong 必须用完全相同的形状、字段顺序也要一致（Object.assign({}, it, {hz})），错题本才能对上号。我已经保证一致，重练实测能消掉错题。其他游戏要注意同样的问题。
+6. [dev:tonerun] ctx.pick 会把返回的所有题都标成“见过”。字数不定的词单元只能多取一两题来凑足目标字数，没用上的那几题也会被标成见过，轮换会稍微不准。
+7. [dev:tonerun] tools/shot.js 的 drag 只能拖直线，而且在手机模式下也是鼠标事件，画不出 ∨ 这类折线手势。我只能在 eval 里自己合成 PointerEvent（pointerType touch）来测三声。建议加一个 {"path":[[x,y],...]} 步骤，并支持触摸。
+8. [dev:tonerun] shot.js 不能在一次试玩中途改变视口尺寸，所以横竖屏旋转后的重新布局没有实测。代码里世界坐标和缩放 k 无关，resize 时会重新计算布局，逻辑上没问题，但缺少截图证据。
+9. [dev:stall] 核心 10_core.js 的 gradeData() 只把固定的 13 个 COLS 拷进 ctx.G，所以 menu 这类新栏目不能写进 cols（写了地图会显示“题目准备中”）。stall 因此没有声明 cols，直接读 HW_DATA[grade].menu / menuwords；如果要按 menu 判断能不能玩，需要核心把 ext 栏目也拷进 ctx.G。
+10. [dev:stall] ext_menu.json 有些配料用几何色块当 emoji（红豆🔴、鱼圆⚪、果冻🟩、仙草⬛、豆腐⬜、糖水💧），孩子认不出是什么食物。游戏把这些项过滤掉了；建议数据组换成能认出来的图，或者删掉。
+11. [dev:stall] ext_menu.json 有好几样东西共用同一个 emoji：🥟 用于豆沙包、肉包、水饺汤；🍗 用于鸡饭、烤鸡翅、鸡翅、鸡肉；🥬 用于生菜、青菜；🧊 用于冰、冰块。游戏每天按画面去重，保证同一天的格子分得清，但这样可选的菜少了；建议数据组给每样东西不同的图。
+12. [dev:stall] P2 菜单里真正有 2 样以上可用配料的主食只有 红豆冰 和 鱼圆面，所以 P2 做饭做面的那几关（第 2、3、4、7、10 关）来来回回就这两道菜。再加几道带配料的 P2 主食会丰富很多。
+13. [dev:stall] menu 里的 冰淇淋（量词 杯，没有 base 和 extra）按量词归成了饮料，会出现“还要一杯冰淇淋”这种句子。语法没错，但数据组可能想换个归类。
+14. [dev:stall] 内置兜底和特殊玩法用到的词不在 MENU_FOR_PARENT_REVIEW.md 里，家长没有审过：冰淇淋颜色（红白绿黄黑，P4+ 加咖啡色、紫色；颜色只用该年级 menuwords 里有的）、两种量词的水果和蛋糕（一串/一颗葡萄、一根/一串香蕉、一块/一个西瓜、一块/一个蛋糕）、沙爹分鸡肉/牛肉/羊肉、饮料 奶茶/咖啡/牛奶/茶，还有通用配料 荷包蛋、黄瓜、虾、生菜、辣椒酱（只在题库配料不够时补位当干扰项，不会出现在题库主食的点单里）。建议补进家长审阅表。
+15. [dev:stall] 无头 Chrome 没有中文 TTS 声音，所以只测了没有朗读时的拼音字幕这条路；P2 自动朗读、朗读期间暂停耐心条、上错菜后读出抱怨这几处，要在 iPad 真机上再听一遍。
+16. [dev:stall] 引擎的 g.miss 飘字固定是“溜走啦”，不能自定义。顾客等太久走掉时用它，意思对得上，另外我自己加了一句喊话“等太久啦！我不吃了！”。
+17. [dev:stall] 测试目录 build/_v3_stall/ 里是这次的试玩工具：play.js 支持 win/lose/mixed/idle 四种玩法、键盘操作和 --review 错题重练流程；gen.js 批量生成订单句子（这次最后一跑 1775 条）写到 shots/sentences.txt，方便人工审读。
+18. [dev:sling] 10_core 的 gradeData() 只复制 13 个老栏目，所以 ctx.G 里没有 zuci、recipes、jg、menu 这些新栏目。游戏如果写 cols:['zuci']，地图上会一直显示“题目准备中”。我的做法是 cols 写 ['chars']，运行时直接读 HW_DATA[grade].zuci。重练时 colOf('zuci') 走 default 分支返回 true，所以要游戏自己判断错题是哪种格式。
+19. [dev:sling] 错题本的 key 是 keyOf(item)，也就是把整个 item 转成 JSON 再求哈希。SPEC_V3 要求 right 时在 item 上加 hz，示例写的是“火车”。如果每次打中都写入不同的词，right 和 wrong 的 key 就对不上，重练答对了也清不掉错题。所以我让 hz 固定等于中心字（比如“火”），right 和 wrong 传的是同一个规范化对象。元游戏需要统计词级掌握度的话，建议另开一个不参与 key 计算的字段。
+20. [dev:sling] pypinyin.phrases_dict 只有 47,111 条，基本只收多音字词组，连“火山”“火花”都没有，不能拿来排除“碰巧能组成词”的错字。SPEC_V3 自己的示例 bad 里就有“鸟”（火鸟）和“云”（火云），这两个都值得商榷。我抽查了 ext_zuci，只发现 p2“草”的 bad 里有“饼”（草饼）属于边缘情况。游戏运行时加了一道保险：如果某个 bad 字和中心字在题库任何文本里相邻出现过，就不拿它当错字。
+21. [dev:sling] 引擎在 state 为 over 时不再调用 update，最后一击时物理和动画会停住。我是在 over 状态下改由 draw() 自己推进物理。建议引擎提供一个 over 阶段的更新钩子。
+22. [dev:sling] 引擎的“连击×N”牌子画在 hudTop 下方约 20px 的位置，没有被算进 hudTop，会压住游戏自己放在 HUD 下面的横幅。我把横幅右上角空出来了。没有朗读时显示的字幕条和“正在朗读”的 🔊 也画在 hudTop 位置，所以我对 say 传 caption:'' 来关掉字幕。
+23. [dev:sling] g.miss(x,y) 固定飘出“溜走啦”。“要直接打中”“打偏啦”这类没打中的提示只能改成 g.miss() 不传坐标，再由游戏自己画文字。
+24. [dev:sling] sky:'day' 在左下和右下角各有一棵很大的椰树，会和左下角的弹弓、排队的小鸟叠在一起。只是外观问题，不影响操作。
+25. [dev:sling] puppeteer 如果中途用 setViewport 切换 isMobile 或 hasTouch，页面会重新加载，所以测窗口缩放只能改尺寸，不能切换移动端模拟。
+26. [play:tonerun] Engine 15_arcade.js: the canvas is at least 480px tall. On a landscape phone (844×390) the drawing area and the tone key end up below the screen and the child has to scroll to see them. Drawing anywhere on the canvas still works, so only the visual hint is lost. Only the engine can change this.
+27. [play:tonerun] The TTS (Web Speech / 婷婷 voice) could not be heard in headless testing. The game only sends it the word or character itself (checked by logging speak: 众, 暖, 邻居 …; with TTS off it sends nothing and shows no toned caption that could give the answer away). Still, polyphones read inside words (倔强 juéjiàng, 塞翁失马 sài, 恰当 qiàdàng, 鞠躬尽瘁 jìn, 长大 zhǎng) should be listened to once on a real iPad or Mac. If the voice mispronounces one, the child would be marked wrong for following the audio.
+28. [play:tonerun] 10_core.js ctx.score.right says to pass the original question object unchanged, but SPEC_V3 requires adding an hz field. tonerun follows the same approach as tug (shallow copy plus hz with a fixed key order, so the mistake-book key stays stable; tested: review cleared the entries, ok:1). The comment in core and the spec contradict each other, and the main thread should settle this in one place.
+29. [play:tonerun] The words data marks some words with full tones where the standard dictionary allows a light (neutral) reading, e.g. 味道 wèi dào and 照顾 zhào gù. pypinyin agrees with the data and I did not change content/. If the TTS reads these with a neutral tone, the child could be unsure; the parent or a teacher may want to check.
+30. [play:tonerun] Not applicable: tonerun does not use matter.js, so the loading-failure message only matters for suika and sling. If the engine is missing, tonerun already shows a friendly message instead of a blank screen.
+31. [dev:tug] 引擎的 spec.down 只认第一根手指。两人同时抢卡时，tug 只能直接在 g.c.canvas 上自己挂 pointerdown，这依赖引擎内部实现。建议引擎提供多点触控开关
+32. [dev:tug] 朗读中的小喇叭提示和拼音字幕固定画在 HUD 下方。面对面竖屏时会盖住上方（倒转）那一侧的角落，字幕也只有下方玩家看得正
+33. [dev:tug] ctx.profile 只给当前档案，核心没有列出其他档案的接口。所以对战里另一个孩子只能叫“对手”，名字和成绩也没法记进他自己的档案
+34. [dev:tug] iPad Safari 上两人真的同时按，只在无头 Chrome 里用两个 pointerId 在同一帧派发测过。GAME_SHORTLIST 说的最大风险还需要真机确认
+35. [dev:tug] 题库 pick 的干扰项里有同音真词，比如 一只/一枝、大象/大像，要靠 TTS 读出的例句来分。没有中文语音时，只能靠 1.5 秒的拼音字幕
+36. [dev:tug] build.py 对新栏目 recipes/jg/zuci/menu 报 W-COL-UNKNOWN 警告。这不是 tug 的问题，但会淹没真正的警告
+37. [dev:tug] 题库里没有课本注音的 chars 词，字幕交给引擎的 g.pinyinOf 生成。这里的声调来自引擎的读音推断，没有经过人工核对
+38. [dev:suika] core 的 gradeData 只复制固定的 COLS，所以 ctx.G 里没有新栏目（recipes/jg/zuci/menu）。游戏如果写 cols:['recipes']，地图会永远显示「题目准备中」。suika 的处理：直接读 window.HW_DATA[grade].recipes，cols 写现有的 ['build']。建议 core 把新栏目加进 COLS，或者让 cols 支持从 HW_DATA 读。
+39. [dev:suika] SPEC_V3 要求传给 g.right 的 item 加字段 hz，但 core 注释写着 right(item) 要传题库原对象、不要改造后再传（keyOf 是 JSON 哈希）。如果直接往 HW_DATA 的共享对象上加 hz，本页之后别的游戏（比如 fishing 用同一条 build 记错题）算出来的 keyOf 就变了。suika 的做法是传浅拷贝 {...item, hz}。元游戏请直接从传进来的 item 读 hz，不要靠 keyOf 去匹配。
+40. [dev:suika] 结算页的「最多连对 N 题」和「连对王」印章，是 core 只根据 score.right/wrong 算的。suika 按设计从不调用 g.wrong，于是 core 的连对永远不会断：一局输掉的 P4 结算页显示「最多连对 8 题」，而引擎面板写的是「最多连击 3」，连对王印章也会发得不该发。建议街机游戏改用 finish 结果里带的引擎 g.maxCombo。
+41. [dev:suika] 引擎 g.lose({reveal}) 的「正确答案」框用的是 round 字体，不是楷体栈；在 ZCOOL KuaiLe 里「日」画得很像「曰」（早 = 日 + 十）。这违反 SPEC 的「题目汉字一律楷体」。suika 的变通：在结算面板出现前，先用楷体在画布上把配方显示一遍。
+42. [dev:suika] 15_arcade.js 在各 agent 用符号链接测试的时候被原地修改：约 00:46 有一次先调用了 cursorApply()、后面才补上定义，所有游戏大约 25 秒内进不去（pageerror: cursorApply is not defined）。建议引擎修改先写临时文件再 mv，保证原子替换。
+43. [dev:suika] 新 HUD 里引擎的「连击×N！」飘字画在 g.hudTop+70，正好压在各游戏 HUD 下面第一行内容上（suika 的字卡架、以及其他游戏的题目条）。朗读中的小喇叭（在 hudTop 左上）现在也压住了关卡号圆牌。
+44. [dev:suika] tools/shot.js 会把 console.warning 也算成错误。matter.js 的 warnOnce（比如 Engine.update 的 delta > 16.667ms）一旦触发，测试就会失败。用 Matter 的游戏（suika、sling）必须按 ≤16.667ms 的固定步长调用 Engine.update。另外 --out 和 steps 里的截图路径是相对当前工作目录解析的，不是相对页面文件。
+45. [dev:suika] ext_recipes.json 里的 chains 是单独的栏目，格式是 {path, show}，和 SPEC_V3 §3 写的配方内 chains 数组不一样。suika 只用配方行和 chain:true 标记，这不影响。recipes 内容我抽查了 P2–P6 全部行（拆分、拼音、用词），没发现错误。
+46. [dev:suika] 所有用部件球或字球的游戏都要注意两件事。第一，形近部件（口/囗、日/曰、土/士、己/已/巳、未/末、人/入）在小球上分不清，不能同时出现。第二，画在字附近的任何装饰（裂纹、高光点、闪光）都可能和字拼成假字：实测石头裂纹 + 又 看起来像「汉」。suika 已把装饰全部挪到球的外圈，并加了 LOOKALIKE 表。
+47. [play:tug] 引擎的 spec.down 只认第一根手指。两人同时抢，tug 只能直接在 g.c.canvas 上挂 pointerdown，这依赖引擎的内部实现，建议引擎提供多点触控开关。无头 Chrome 里用 CDP Input.dispatchTouchEvent 测过：同一帧两根手指、先后 30ms 两根手指，两边都有响应。iPad Safari 真机还没测。
+48. [play:tug] 核心没有列出全部档案的接口。对战时对面孩子的名字和年级，是 tug 直接读 localStorage 'hw.v1.profiles' 拿到的（只读）。另一个孩子的成绩和错题也没法记进他自己的档案。
+49. [play:tug] “抢跑”的两个时间阈值是按 TTS 延迟估的：开念 0.5 秒内拍卡一律算抢跑，拍错卡的阈值是开念后 0.35+0.18×字数 秒（2 字词约 0.7 秒）。只在无头 Chrome 里验证过，还要在 iPad 真机上听一下出声延迟。
+50. [play:tug] 题库 pick 的错字选项，都是在正确词上改一个字造出来的（景象/景像/境象/景向）。所以正确答案正好是“和其它卡共用字最多”的那张，理论上不懂字也能推出来。赛跑节奏下孩子一般来不及这样推，但这是题库结构上的弱点，balloon 等用 pick 的游戏同样有。
+51. [play:tug] chars.words 里的词没有课本注音。这类题结算横幅不显示拼音；无 TTS 时的字幕由引擎 g.pinyinOf 推断，没人工核对。不过 tug 设了 needs:['tts']，没有中文朗读时地图不让进，这个字幕实际用不到。
+52. [play:tug] tools/shot.js 不支持多点触摸、中途改视口和解锁关卡，本轮用自写的 build/_v3_r_tug/mt.js。另一个坑：全新浏览器里档案要先 HW.start 一次才写进 localStorage，先改 mem 解锁关卡会无效；解锁后选关界面默认选最高关，测第 1 关必须显式点第 1 个圆点。
+53. [play:tug] build.py 对新栏目 recipes/jg/zuci/menu 报 W-COL-UNKNOWN 警告（共 40 条警告），会淹没真正的问题。不是 tug 的问题。
+54. [play:stall] 页面外部依赖不稳定：parts/00_head.html 在运行时从 Google Fonts（fonts.googleapis.com / fonts.gstatic.com）加载字体，另外还从 jsdelivr 加载 hanzi-writer。实测有一局出现 console.error「Failed to load resource: net::ERR_CONNECTION_CLOSED」，重跑两次都是 0 失败，应该是网络抖动。只要断网或网络抖动，任何游戏的「控制台 0 错误」都可能被打破，和游戏代码无关。
+55. [play:stall] build/build.py 没有登记新栏目 menu 和 menuwords，每次构建都报 10 条 W-COL-UNKNOWN（照样并进 HW_DATA）。ext_recipes、ext_jg、ext_zuci 很可能也一样，建议在栏目表里登记，免得真正的警告被淹没。
+56. [play:stall] 10_core.js 的 addWrong：同一道题再次记错时用最新一次的说明覆盖旧说明（e.n = n）。小吃店里同一单连错两次时，错题本只留最后一次的诊断，第一次、最有代表性的读错说明会丢。建议保留第一次，或者两次都存。
+57. [play:stall] 15_arcade.js 的 g.wrong 总会飘一个红 ✗，同时抖屏、闪红屏。小吃店自己已经有托盘弹回、客人生气喊话、气泡标红这些游戏内后果，再叠一个 ✗ 有点像 1.0 的题卡反馈。建议给 g.wrong 加一个 o.mark:false 选项，让已经有游戏内后果的游戏可以关掉 ✗。
+58. [play:stall] g.right 的 hz 字段没有统一口径：小吃店传的是这一单用到的汉字去重后的字符串（含数字一、两、三等和量词）。将来的字宠、图鉴元游戏如果按字累计掌握度，一、两、三这类数字会被每个游戏大量刷高。建议在核心层统一过滤掉数字，或者规定 hz 只放词。
+59. [play:sling] 10_core.js 第 140 行的 COLS 只列了 13 个老栏目，第 1090–1096 行的 gradeData() 只复制这些栏目，所以 ctx.G 里没有 zuci、recipes、jg、menu。游戏只能写 cols:['chars']、运行时直接读 HW_DATA[grade].zuci。availability()（第 1101 行）因此判断不了 zuci 缺没缺：真缺了不会显示'题目准备中'，而是悄悄改用本游戏内置的兜底表。
+60. [play:sling] 错题本的 key 是 keyOf(item)（10_core.js 第 27 行），也就是把整个题目对象 JSON 化后算哈希。数据组以后只要改动一条 zuci（增删一个错字或组词），旧错题的 key 就再也对不上新题，重练时 ctx.review 交回的还是旧题对象。本游戏已绕开：重练按现在的题库判能不能组词，记分用旧对象。但其它游戏同样有这个风险，建议引擎按稳定 id 或中心字建 key。
+61. [play:sling] 引擎结算面板的'正确答案'（15_arcade.js 第 295–297 行的 .arc-end-rev）用的是 var(--arc-f) 圆体。里面的'河水、河马'是题目汉字，按 SPEC 应该用楷体。
+62. [play:sling] rplay 截的'结算动画'图常常截到核心结算页：引擎自己带正确答案的结算面板只停约 3.6 秒（endDelay + 2.1 + 1.5 秒）就交给 ctx.finish。要截带答案的面板，得在出现后 0.5–4 秒内截，可参考 losepanel.js。这不是缺陷，是给以后写测试的人提个醒。
+63. [play:suika] tools/shot.js 用 --size 390x844 测 dist.html 时，因为 dist.html 没有 viewport，isMobile 模拟下页面按 980 CSS 宽排版（canvas 实测 980×2059），不是真手机的样子，之前手机截图都属于这种情况。手机测试要用 build.py --pages-out 产出的 index.html（带 viewport）。建议 SPEC_ARCADE §6 和 shot.js 的说明里写清楚这一点。
+64. [play:suika] tools/shot.js 不稳定：有时打印 [ok] 以后卡在 browser.close 不退出，只能手动 kill；并行 6 个实例时出现过 1 次无头 Chrome 的 rAF 停住（倒计时一直停在 3，没有任何报错），重跑就正常。建议 shot.js 加一个总超时和 close 超时。
+65. [play:suika] parts/10_core.js 的“最多连对”和“连对王”印章用的是 sess.combo，只有 ctx.score.wrong 才会让它归零。像合成大汉字这样按设计从不调 wrong 的游戏（丢错变石头不算华文错题），结算页的“最多连对”就等于全部合成数（实测 13/13，其间有 5 块石头），连对王印章来得太容易。建议核心改用 arcade finish 传来的 result.maxCombo（引擎的 g.combo 在丢错时会断），或者提供 ctx.score.breakCombo()。
+66. [play:suika] parts/15_arcade.js 里 g.lose({reveal}) 结算面板的“正确答案”(.arc-end-rev) 用的是圆体 --arc-f，不是楷体，纟、阝 这类部件显示成非楷体。建议这段改用楷体字族（本游戏已在罐子上先显示一遍楷体配方作为缓解）。
+67. [dev:slash] 核心 10_core.js 的 COLS 里没有 jg：ctx.G 不带 jg，而且 cols:['jg'] 会被判为“题目准备中”。所以本游戏声明 cols:['chars']，jg 直接从 window.HW_DATA[grade].jg 读。build.py 对 jg 栏目报 W-COL-UNKNOWN 警告（不影响打包）。
+68. [dev:slash] 引擎没有“只扣心、不进错题本”的 API。目前只能用 g.wrong(null,'',x,y)：会扣心、断连击，但因为 item 为 null，核心不写错题本；缺点是它仍计入 g.wrongs，会影响星数。建议引擎加 g.hurt(x,y)。本游戏在“顺带碰到炸弹”和“这一刀瞄的是哪个字分不清”两种情况下用了这个写法。
+69. [dev:slash] 引擎的“朗读中”小喇叭：宽屏时画在左侧 (pad, hudTop) 约 32px 的方块里，窄屏时替换关卡号徽章。游戏放在 HUD 左下方的控件会被它盖住。本游戏把倒计时移到了顶部居中，其他游戏也要注意这一块。
+70. [dev:slash] 数据（给数据组的备注）：ext_jg.json 已在 23:59 更新，把 害、塞 改标为上中下。这类字在不同教材里上下/上中下、左右/左中右的归法不一。我在游戏里额外剔除了 亮壳喜高害赛塞量充参鼠鼎假凝抑懈，外加旧表里的 里鱼贝习重面气 等字。两种标法的刀法相同，但结算时会显示结构名，所以宁可不出。旗、旅 按左右处理（常见字典的标法），如家长所用教材算半包围，请加进 skip。
+71. [dev:slash] 测试期间其他 agent 改过 parts/10_core.js、parts/15_arcade.js、parts/00_head.html（不是我改的）。我的构建通过符号链接用的是当前版本，所以测试结果对应当前的引擎和核心。
+72. [dev:slash] 测试工具说明（不是引擎问题）：新建的浏览器档案里，改 localStorage 解锁关卡偶尔不生效，所以有一次“第 3 关”试玩实际打的是第 1 关；第 2、4、6 关另外都跑通了。
+73. [play:slash] （原问题仍在）10_core.js 的 COLS 和 build.py 的 COLUMNS 都没有 jg、zuci、recipes、menu 这些新栏目：构建报 W-COL-UNKNOWN，ctx.G 里也没有 jg，游戏只能直接读 window.HW_DATA[grade].jg。g.items('jg') 在错题重练里能用，只是因为 colOf 对未知栏目默认返回 true。
+74. [play:slash] jg 数据判“左中右 / 左右两说”的标准不统一：蝌、狮、澈、概以“汉典作左右”标了 skip，但结构相同的慨、湖、蝴、渐、惭、懒还按左中右出题（按汉典的一级拆分它们也是左右）。游戏里两类都是竖切，只影响“左中右 ✓”这个标签和错题讲解；我已删掉慨（它和概同构）。建议数据组统一用一个标准：课本的“看成三块”或者汉典的一级拆分。
+75. [play:slash] jg 栏目的 py 标的是单字本调，words 栏目课本词标的是轻声和变调（服→衣服 yī fu、笼→灯笼 dēng long、欢/闹/拾/快/宜，还有一的变调），两边对不上；游戏遇到这种情况会退回用 words 栏目的课本词。建议数据组给这类词加注，或者改用非轻声词。
+76. [play:slash] 引擎的 g.wrong 一定会飘一个大红 ✗、抖屏；SPEC_V3 §1 第4关要求“游戏内后果，不是弹 ✗”。建议 g.wrong 加一个选项（比如 o.mark:false），让已经自己画了后果（刀被弹开、爆炸、绳断）的游戏关掉那个 ✗。
+77. [play:slash] tools/shot.js 的 steps 只有鼠标拖拽（固定 12 步直线），不支持触摸拖拽和任意路径（画圈），划屏类游戏只能各自写机器人；另外 puppeteer 偶尔在 browser.close() 之后 node 进程不退出，脚本末尾需要 process.exit。
+78. [play:slash] 引擎暂停面板会把焦点放到“继续”按钮上，这时按空格或 Enter 就会继续游戏（这是无障碍设计，不是 bug）；写键盘测试时要注意，暂停时别按空格。

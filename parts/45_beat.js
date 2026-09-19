@@ -5,8 +5,10 @@
  *
  * 计分设计（SPEC_ARCADE §4-5）：
  *   · 每个字单独判定：命中 → 连击 +1、加分、粒子、字飞上歌词牌；错过 → 断连击、字掉下去。
- *   · 每一小句（按标点切，超过 8 字再均分）= 1 个回合：本句命中率 ≥ 门槛 → g.right(绕口令)；
- *     否则 g.wrong(绕口令, 该句原文 + 拼音 + 提示) 扣 1 心。心没了 = 失败；唱完 = 通关。
+ *   · 每一小句（按标点切，超过 10 字再按“不拆词”切开）= 1 个回合：本句命中率 ≥ 门槛 → g.right(绕口令)；
+ *     否则 g.wrong(绕口令, 本局没跟上的句子（原句 + 拼音 + 敲中几个）+ 提示) 扣 1 心。心没了 = 失败；唱完 = 通关。
+ *   · 防狂点：字还差一点才进圈就敲 =“太早了”，这个字算错过（连点每 0.1 秒一下必定先落进这一区）。
+ *   · 触屏延迟自适应（lag）；暂停 / 切后台回来先数 3·2·1 再走；两根手指轮流敲也认（自己挂 pointerdown）。
  *   · 关卡 = 速度：BPM 随关卡上升（慢 → 中 → 快 → 超快），判定窗口变窄、过句门槛变高；
  *     短绕口令两首连唱。开局“卷轴”展示全文，有中文朗读时按本关语速示范（点鼓可跳过）。
  * 音乐：引擎背景音乐的 BPM 固定、拿不到节拍相位，没法和音符对齐，所以本游戏自带一个小合成器，
@@ -144,6 +146,7 @@
     };
     S.finale = function (t) {
       if (!S.running()) return;
+      if (t == null) t = S.ac.currentTime + 0.02;
       tone(t, 150, 40, 0.5, 1, 'sine', S.mus);
       noise(t, 1.4, 0.4, 'highpass', 6000, 3200, 0.5, S.mus);
       [72, 76, 79, 84].forEach((m) => tone(t, mtof(m), mtof(m), 0.9, 0.06, 'triangle', S.mus));
@@ -168,6 +171,20 @@
       if (!S.running()) return;
       const t = S.ac.currentTime + 0.005;
       tone(t, 180, 120, 0.16, 0.22, 'square', S.fx, 700);
+    };
+    /* 暂停回来后的预备拍（木鱼“嗒”） */
+    S.tick = function (hi) {
+      if (!S.running()) return false;
+      const t = S.ac.currentTime + 0.005;
+      tone(t, hi ? 2500 : 1900, hi ? 2100 : 1500, 0.06, hi ? 0.42 : 0.3, 'square', S.mus, 6500);
+      noise(t, 0.03, 0.2, 'highpass', 5000, 5000, 0.7, S.mus);
+      return true;
+    };
+    /* 失败：下行“哇哦~”长号 */
+    S.sad = function () {
+      if (!S.running()) return;
+      const t = S.ac.currentTime + 0.05;
+      [[392, 370], [370, 349], [349, 330], [330, 262]].forEach((p, i) => tone(t + i * 0.28, p[0], p[1], i === 3 ? 0.9 : 0.3, 0.13, 'sawtooth', S.fx, 900));
     };
     S.close = function () {
       S.dead = true;
@@ -249,7 +266,10 @@
         return function () {};
       }
       const synth = makeSynth();
-      let unlockRoot = null;
+      /* 触屏延迟自适应：手机从手指碰到屏幕到 JS 收到事件、再加上画面显示延迟，常常整体晚 50–100 ms。
+         记住最近命中的平均早晚（只学命中的，夹在 -30..+90 ms），判定时扣掉，整局 / 换关都沿用 */
+      let lag = 0.02;
+      let unlockRoot = null, cvEl = null, onCvDown = null;
       const unlock = () => { synth.ensure(); };
 
       /* ---------- 布局（按 g.w / g.h 自适应） ---------- */
@@ -310,6 +330,8 @@
         const easy = gn <= 3 ? 1 : 0;
         B.perfW = 0.085 - 0.003 * (lv - 1) + easy * 0.012;
         B.goodW = Math.min(0.45 * B.spb, 0.17 - 0.006 * (lv - 1) + easy * 0.02);
+        // “太早”区：紧挨在好球窗口前面、且不碰到上一个字的窗口（连点 0.1 秒一下一定会先落进这里）
+        B.earlyW = clamp(B.spb - 2 * B.goodW - 0.03, 0.1, 0.2);
         B.thr = Math.min(0.75, 0.45 + 0.03 * lv);
         B.rate = clamp(0.5 + (lv - 1) * 0.08, 0.5, 1.25);
         B.speed = lv <= 2 ? '🐢 慢速' : lv <= 5 ? '🚶 中速' : lv <= 8 ? '🐇 快速' : '🚀 超快';
@@ -358,6 +380,26 @@
           synth.ensure();
         });
       }
+      /* 本关结束的舞台演出（引擎的过关/失败面板 0.5 秒后才盖上来，这之前舞台自己要有反应） */
+      function stageEnd(g, B, win) {
+        if (B.endFx || g.state !== 'over') return;
+        B.endFx = win ? 'win' : 'lose';
+        const L = B.L;
+        if (win) {
+          if (B.finaleAt !== B.si) synth.finale();
+          B.cheer = 1; B.panda.jump = 1;
+          g.burst(L.dx, L.fy, { kind: 'confetti', n: 40 });
+          g.burst(L.dx, L.fy - L.ry, { kind: 'star', n: 16, color: '#FFE45C' });
+          g.ring(L.dx, L.fy, '#FFE45C', L.rx * 1.6);
+        } else {
+          synth.sad();
+          B.panda.sweat = 1; B.panda.shk = 1;
+        }
+      }
+      function holdTick(g, B) {
+        B.cnt = { text: String(B.hold), t: 0 };
+        if (!synth.tick(B.hold === 1)) g.sfx('tick');
+      }
       function songDone(g, B) {
         if (g.state !== 'play' || B.phase !== 'song') return;
         if (B.si + 1 < B.songs.length) {
@@ -367,7 +409,7 @@
           g.after(1.5, () => { if (g.B === B) { B.banner = null; startIntro(g, B, B.si + 1); } });
         } else {
           B.phase = 'done';
-          g.after(0.3, () => { if (g.B === B && g.state === 'play') g.win(); });
+          g.after(0.3, () => { if (g.B === B && g.state === 'play') { g.win(); stageEnd(g, B, true); } });
         }
       }
 
@@ -388,17 +430,18 @@
         const f = { n, t: 0, x0: L.jx, y0: L.noteY, x1: geo.x0 + n.j * geo.cell, y1: L.chY, rot: (Math.random() - 0.5) * 2 };
         B.flyers.push(f);
         g.tween(f, { t: 1 }, 0.32, 'inOutQuad', () => {
-          f.done = true; n.lit = 1;
+          f.done = true; n.lit = 1; n.landed = true;
           g.burst(f.x1, f.y1, { kind: 'spark', n: 6, color: '#FFF3A0' });
         });
       }
-      function judge(g, n, kind, off) {
+      function judge(g, n, kind, off, early) {
         const B = g.B, L = B.L, c = n.chunk;
         n.res = kind; n.rt = B.songT;
         c.judged++;
         if (kind === 'miss') {
           g.combo = 0;
-          addPop(B, '错过', '#B9C3EA', '');
+          if (early) addPop(B, '太早了', '#FF9FB2', '字进圈再敲');
+          else addPop(B, '错过', '#B9C3EA', '');
           B.panda.sweat = 1; B.panda.shk = 1;
           synth.bonk();
           g.shake(3);
@@ -426,6 +469,24 @@
         }
         if (c.judged >= c.notes.length && !c.done) evalChunk(g, c);
       }
+      /* 错题本说明：哪首绕口令 + 本局没跟上的每一句（原句 + 课本拼音 + 敲中几个）+ 发音提示。
+         同一首只记一条（后一次覆盖前一次），所以把本局所有没过的句子都写进去；核心只留 240 字，放不下时保留最近的句子 */
+      function wrongNote(B, tw) {
+        const all = Array.from(String(tw.text || ''));
+        const head = '绕口令“' + all.slice(0, 10).join('') + (all.length > 10 ? '…' : '') + '”没跟上的句子：';
+        const tip = tw.tip ? '提示：' + tw.tip : '';
+        const parts = (B.fails.get(tw) || []).map((c) => {
+          const py = c.notes.map((x) => x.py).filter(Boolean).join(' ');
+          return '“' + c.text + '”（' + (py ? py + '，' : '') + '敲中 ' + c.hits + '/' + c.notes.length + '）';
+        });
+        let body = '';
+        for (let i = parts.length - 1; i >= 0; i--) {
+          const nb = parts[i] + (body ? '；' + body : '');
+          if (body && (head + nb + '。' + tip).length > 240) break;
+          body = nb;
+        }
+        return head + body + '。' + tip;
+      }
       function evalChunk(g, c) {
         const B = g.B, L = B.L, tw = B.song.tw;
         c.done = true;
@@ -447,10 +508,12 @@
           g.right(tw, bx, by, (allP ? '整句完美 +' : '这句过关 +') + 10 * mult);
           g.combo = cb; g.maxCombo = mc;
           B.cheer = 1;
+          stageEnd(g, B, true);
         } else {
-          const py = c.notes.map((x) => x.py).filter(Boolean).join(' ');
-          const note = '“' + c.text + '”' + (py ? '（' + py + '）' : '') + '这一句没跟上节拍，只敲中 ' + c.hits + '/' + c.notes.length + ' 个字。' + (tw.tip ? '提示：' + tw.tip : '');
-          g.wrong(tw, note, bx, by);
+          if (!B.fails.has(tw)) B.fails.set(tw, []);
+          B.fails.get(tw).push(c);
+          g.wrong(tw, wrongNote(B, tw), bx, by);
+          stageEnd(g, B, false);
         }
       }
       function hit(g) {
@@ -460,16 +523,23 @@
         const nx = B.song && B.phase === 'song' ? B.song.notes[B.nextJ] : null;
         drumFx(g, B, !!(nx && nx.big));
         if (B.phase === 'demo') { if (B.scroll.open > 0.5) skipDemo(g, B); return; }
-        if (B.phase !== 'song') return;
-        const T = B.songT + clamp((now() - B.lastUpd) / 1000, 0, 0.034);
+        if (B.phase !== 'song' || B.hold > 0) return;
+        const T = B.songT + clamp((now() - B.lastUpd) / 1000, 0, 0.034) - lag;
         const notes = B.song.notes;
-        let best = null, bd = 1e9;
+        let best = null, bd = 1e9, first = null;
         for (let j = B.nextJ; j < notes.length; j++) {
           const n = notes[j];
-          if (n.beat * B.spb - T > B.goodW) break;
           if (n.res) continue;
+          if (!first) first = n;
+          if (n.beat * B.spb - T > B.goodW) break;
           const d = Math.abs(T - n.beat * B.spb);
           if (d <= B.goodW && d < bd) { best = n; bd = d; }
+        }
+        if (!best && first) {
+          // 字差一点点才进圈就敲 = 太早：这个字直接算错过。
+          // 否则一直狂点（每 0.1 秒一下）也能把每个字“碰”中——不读、不看也能三星过关。
+          const d = first.beat * B.spb - T;
+          if (d > B.goodW && d <= B.goodW + B.earlyW) { judge(g, first, 'miss', -d, true); return; }
         }
         if (!best) {
           B.spam.push(T);
@@ -477,13 +547,15 @@
           if (B.spam.length >= 4) { B.spam.length = 0; g.combo = 0; addPop(B, '别乱敲', '#FF9FB2', '字进圈再敲'); }
           return;
         }
-        judge(g, best, bd <= B.perfW ? 'perfect' : 'good', T - best.beat * B.spb);
+        const off = T - best.beat * B.spb;
+        lag = clamp(lag + off * 0.15, -0.03, 0.09);
+        judge(g, best, bd <= B.perfW ? 'perfect' : 'good', off);
       }
 
       /* ================= 绘制 ================= */
       function circle(c, x, y, r) { c.beginPath(); c.arc(x, y, r, 0, TAU); }
       function drawSpots(c, g, B, L, vb, T) {
-        const lvl = clamp(g.combo / 20, 0, 1);
+        const lvl = B.endFx === 'win' ? 1 : B.endFx === 'lose' ? 0 : clamp(g.combo / 20, 0, 1);
         c.save();
         c.globalCompositeOperation = 'lighter';
         const oy = L.stageTop - 20 * L.u, len = (g.h - oy) * 1.25;
@@ -678,7 +750,7 @@
       }
       function drawCrowd(c, g, B, L, vb) {
         const u = L.u, sp = 36 * u, n = Math.ceil(g.w / sp) + 1, hc = L.crowdH;
-        const lit = g.combo >= 3 ? Math.min(n, 2 + Math.floor(g.combo / 3)) : 0;
+        const lit = B.endFx === 'win' ? n : g.combo >= 3 ? Math.min(n, 2 + Math.floor(g.combo / 3)) : 0;
         const cols = ['#FF4FB3', '#3DE3FF', '#FFE14D', '#7CFF6B', '#B98CFF'];
         for (let i = 0; i < n; i++) {
           const x = (i + 0.3 + (i % 2) * 0.3) * sp - sp * 0.3;
@@ -819,8 +891,9 @@
         for (const n of ch.notes) {
           const x = geo.x0 + n.j * geo.cell, y = L.chY + dy;
           let col = '#FFF4DA';
-          if (n.res === 'perfect' && n.lit) col = '#FFD23F';
-          else if (n.res === 'good' && n.lit) col = '#9BEA8E';
+          // 敲中的字落到牌上后一直亮着（完美 = 金、不错 = 绿），一句唱完整行是亮的
+          if (n.res === 'perfect' && n.landed) col = '#FFD23F';
+          else if (n.res === 'good' && n.landed) col = '#9BEA8E';
           else if (n.res === 'miss') col = '#7E88AE';
           const pop = n.lit ? 1 + 0.35 * n.lit : 1;
           if (n.lit) n.lit = Math.max(0, n.lit - 0.06);
@@ -911,10 +984,10 @@
           if (p.t > 0.7 || i < B.pops.length - 1) continue;
           const k = p.t < 0.14 ? 0.5 + (p.t / 0.14) * 0.75 : p.t < 0.24 ? 1.25 - (p.t - 0.14) / 0.1 * 0.25 : 1;
           const a = p.t > 0.5 ? 1 - (p.t - 0.5) / 0.2 : 1;
-          const px = Math.max(L.jx, 52 * u), py = L.popY - p.t * 12 * u;
+          const px = Math.max(L.jx, 62 * u), py = L.popY + 4 * u - p.t * 12 * u;
           c.save(); c.translate(px, py); c.scale(k, k);
-          g.text(p.text, 0, 0, { size: Math.round(28 * u), font: 'round', color: p.col, stroke: NAVY, strokeW: 5, shadow: true, alpha: clamp(a, 0, 1) });
-          if (p.sub) g.text(p.sub, 0, 24 * u, { size: Math.round(13 * u), font: 'round', color: '#FFFFFF', stroke: NAVY, strokeW: 3, alpha: clamp(a, 0, 1) });
+          g.text(p.text, 0, 0, { size: Math.round(36 * u), font: 'round', color: p.col, stroke: NAVY, strokeW: 6, shadow: true, alpha: clamp(a, 0, 1) });
+          if (p.sub) g.text(p.sub, 0, 30 * u, { size: Math.round(15 * u), font: 'round', color: '#FFFFFF', stroke: NAVY, strokeW: 4, alpha: clamp(a, 0, 1) });
           c.restore();
         }
       }
@@ -927,7 +1000,7 @@
         c.restore();
       }
       function drawHint(c, g, B, L, T) {
-        if (!B.hint || B.phase !== 'song' || !B.song) return;
+        if (!B.hint || B.phase !== 'song' || !B.song || g.state === 'over' || B.hold > 0) return;
         const nx = B.song.notes[B.nextJ];
         if (!nx || nx.beat * B.spb - B.songT > B.spb * 3.2) return;
         const u = L.u;
@@ -1032,7 +1105,7 @@
           const B = g.B = {
             songs: [], song: null, si: 0, phase: 'wait', songT: 0, stepK: -9, nextJ: 0, lastUpd: now(),
             drum: { sq: 0, side: 1, sL: 0, sR: 0 }, panda: { jump: 0, shk: 0, sweat: 0, hy: 0 },
-            ripples: [], pops: [], flyers: [], stamps: [], spam: [], jflash: 0, cheer: 0, audN: 0,
+            ripples: [], pops: [], flyers: [], stamps: [], spam: [], jflash: 0, cheer: 0, audN: 0, hold: 0, holdT: 0, endFx: false, fails: new Map(),
             scroll: null, banner: null, cnt: null, cntI: -99, boardCi: -1, boardIn: 1, boardOut: null, hint: true, hintHits: 0
           };
           levelParams(g, B);
@@ -1055,8 +1128,21 @@
         },
         update(g, dt) {
           const B = g.B; if (!B) return;
-          B.lastUpd = now();
+          const tNow = now(), gap = tNow - B.lastUpd;
+          B.lastUpd = tNow;
           synth.follow();
+          // 暂停 / 切到后台回来（或卡了 1 秒以上）：字停在原地，先数“3、2、1”再接着走（不然一继续就有字撞进圈，白白丢心）
+          const back = B.wasPaused || gap > 1000;
+          B.wasPaused = false;
+          if (back && B.phase === 'song' && !B.hold && B.songT > -1.5 * B.spb && B.nextJ < B.song.notes.length) {
+            const nx = B.song.notes[B.nextJ];
+            if (nx.beat * B.spb - B.songT < 3 * B.spb) { B.hold = 3; B.holdT = 0; holdTick(g, B); }
+          }
+          if (B.hold > 0) {
+            B.holdT += dt;
+            if (B.holdT >= B.spb) { B.holdT -= B.spb; B.hold--; if (B.hold > 0) holdTick(g, B); }
+            if (B.hold > 0) return;
+          }
           if (B.phase === 'wait' && B.songs.length) startIntro(g, B, 0);
           if (B.phase === 'demo') {
             B.demoT += dt;
@@ -1076,7 +1162,7 @@
             const tk = k * half;
             if (tk < B.songT - 0.05) continue;
             const at = synth.time() + Math.max(0, tk - B.songT - synth.lat());
-            if (running) { B.audN++; if (k === endK + 2) synth.finale(at); else if (k <= endK) synth.step(k, at, g.level); }
+            if (running) { B.audN++; if (k === endK + 2) { synth.finale(at); B.finaleAt = B.si; } else if (k <= endK) synth.step(k, at, g.level); }
           }
           const bi = Math.floor(B.songT / spb);
           if (bi !== B.cntI) {
@@ -1089,7 +1175,7 @@
           while (B.nextJ < notes.length) {
             const n = notes[B.nextJ];
             if (n.res) { B.nextJ++; continue; }
-            if (B.songT - n.beat * spb > B.goodW) {
+            if (B.songT - lag - n.beat * spb > B.goodW) {
               judge(g, n, 'miss', 0);
               B.nextJ++;
               if (g.state !== 'play' || g.B !== B) return;
@@ -1099,11 +1185,22 @@
         },
         draw(g, c) {
           const B = g.B; if (!B || !B.L) return;
+          if (g.state === 'pause') B.wasPaused = true;
           const L = B.L, T = now() / 1000;
           const fdt = B.lastDraw ? clamp(T - B.lastDraw, 0, 0.05) : 0;
           B.lastDraw = T;
           tickFx(B, fdt);
-          const vb = B.phase === 'song' ? B.songT / B.spb : T * B.bpm / 60;
+          // 节拍相位：唱歌时跟歌曲时钟；其它时候（卷轴 / 换歌 / 结束演出）按本关速度自己走，舞台不停
+          if (B.phase === 'song' && g.state !== 'over') B.vb = B.songT / B.spb;
+          else B.vb = (B.vb || 0) + fdt * B.bpm / 60;
+          const vb = B.vb;
+          if (B.endFx === 'win') {
+            // 过关：熊猫跟着拍子蹦、两根鼓槌轮流敲、全场荧光棒
+            B.panda.jump = Math.max(B.panda.jump, Math.pow(1 - frac(vb), 3));
+            B.cheer = Math.max(B.cheer, 0.7);
+            const bi = Math.floor(vb);
+            if (bi !== B.danceI) { B.danceI = bi; const d = B.drum; d.sq = 1; d.side = -d.side; if (d.side < 0) d.sL = 1; else d.sR = 1; B.ripples.push({ t: 0 }); if (B.ripples.length > 6) B.ripples.shift(); }
+          } else if (B.endFx === 'lose') B.panda.sweat = Math.max(B.panda.sweat, 0.8);
           drawSpots(c, g, B, L, vb, T);
           drawFloor(c, g, L);
           const sway = Math.sin(Math.PI * vb) * 0.14;
@@ -1124,7 +1221,8 @@
           drawScroll(c, g, B, L, T);
           if (B.phase === 'empty') g.shadowText('题目准备中…', g.w / 2, g.h / 2, { size: 30 });
         },
-        down(g, p) { if (p.y >= g.hudTop) hit(g); },
+        // 敲鼓走自己挂在画布上的 pointerdown（见 dom）：引擎只认第一根手指，两只手轮流敲时第二根手指会被吞掉
+        down(g, p) { if (!cvEl && p.y >= g.hudTop) hit(g); },
         key(g, k) {
           if (k === 'space' || k === 'enter' || k === 'left' || k === 'right' || k === 'up' || k === 'down' || /^[fjdkFJDK]$/.test(k)) hit(g);
         },
@@ -1135,10 +1233,21 @@
             unlockRoot.addEventListener('pointerdown', unlock, true);
             unlockRoot.addEventListener('click', unlock, true);
             unlockRoot.addEventListener('touchend', unlock, true);
+            cvEl = unlockRoot.querySelector('canvas');
+            if (cvEl) {
+              onCvDown = function (e) {
+                if (g.state !== 'play' || (e.pointerType === 'mouse' && e.button > 0)) return;
+                const r = cvEl.getBoundingClientRect();
+                if (e.clientY - r.top < g.hudTop) return;
+                try { hit(g); } catch (err) { try { console.error('[beat] hit', err); } catch (x) { /* ignore */ } }
+              };
+              cvEl.addEventListener('pointerdown', onCvDown);
+            }
           }
           W.addEventListener('keydown', unlock, true);
         },
         end() {
+          if (cvEl && onCvDown) cvEl.removeEventListener('pointerdown', onCvDown);
           if (unlockRoot) {
             unlockRoot.removeEventListener('pointerdown', unlock, true);
             unlockRoot.removeEventListener('click', unlock, true);

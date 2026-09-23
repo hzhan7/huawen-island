@@ -121,11 +121,14 @@
   }
 
   /* ================= localStorage（全部 try/catch） ================= */
+  // frozen：正在从存档点恢复（写完存档马上刷新页面）。这期间谁都不许再写，免得刷新前的 visibilitychange/pagehide 把旧进度写回去
+  var frozen = false;
   var LS = {
     get: function (k, d) {
       try { var v = W.localStorage.getItem('hw.v1.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; }
     },
     set: function (k, v) {
+      if (frozen) return false;
       try { W.localStorage.setItem('hw.v1.' + k, JSON.stringify(v)); return true; } catch (e) { return false; }
     }
   };
@@ -315,9 +318,18 @@
     curId = LS.get('cur', null);
     ensureProfiles();
   }
+  /* 自动存档：每次进度变化（touch）都立刻写进 localStorage。saveStat 记最近一次成功/失败，
+     存不上（存储满了、被浏览器禁用）要让家长知道，不能悄悄丢进度。saveHooks：13_parent.js 的“每日存档点”、“已自动保存”提示 */
+  var saveStat = { ok: 0, fail: 0, warned: false }, saveHooks = [];
   function saveLocal() {
-    LS.set('profiles', profiles);
-    LS.set('cur', curId);
+    if (frozen) return;
+    var ok = LS.set('profiles', profiles) && LS.set('cur', curId);
+    if (ok) { saveStat.ok = now(); saveStat.fail = 0; }
+    else {
+      saveStat.fail = now();
+      if (!saveStat.warned && booted) { saveStat.warned = true; setTimeout(function () { toast('⚠️ 进度没存上（浏览器不让存了）。请爸爸妈妈到「档案 → 存档」导出一份备份。'); }, 0); }
+    }
+    saveHooks.forEach(function (f) { try { f(ok); } catch (e) { /* ignore */ } });
   }
   function touch(p) {
     if (!p) return;
@@ -390,14 +402,14 @@
   // 写入节流：停手 1.5 秒合并成一次写；连续操作时最迟 8 秒也要写一次（纯防抖会被不停的点击一直往后推）
   var dirtySince = 0;
   function scheduleRemote(ms) {
-    if (!db || dbReadOnly || !dbFirstDone) return;
+    if (!db || dbReadOnly || !dbFirstDone || frozen) return;
     if (!dirtySince) dirtySince = now();
     var wait = Math.min(ms == null ? 1500 : ms, Math.max(0, dirtySince + 8000 - now()));
     clearTimeout(remoteTimer);
     remoteTimer = setTimeout(flushRemote, wait);
   }
   function flushRemote() {
-    if (!db || dbReadOnly || !dbFirstDone) return;
+    if (!db || dbReadOnly || !dbFirstDone || frozen) return;
     clearTimeout(remoteTimer);
     dirtySince = 0;
     var ids = Array.from(dirty); dirty.clear();
@@ -575,13 +587,75 @@
     if (fid) { var el = D.getElementById(fid); if (el && el.focus) try { el.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
   }
 
+  /* ================= 声音总线：全页 AudioContext 统一登记、统一唤醒 =================
+     iPad 上“时有声时没声”的几个根源，下面逐条处理：
+     1. 切后台 / 锁屏 / 来电 / Siri 之后，WebKit 把 AudioContext 置为 'interrupted'（不是 'suspended'）。
+        只认 'suspended' 的代码永远不会再 resume，这个游戏之后就一直没声。
+     2. 触摸的 pointerdown / touchstart 不算“用户激活”，在那里 resume() 会被拒；要在 touchend / click / keydown 里做。
+     3. 各游戏各自 new AudioContext，各自解锁、各自恢复，漏一个就那个游戏没声 → 构造函数包一层，全页登记，手势时一起唤醒。
+     4. iPad / iPhone 开着静音时，网页声音默认跟着静音（Web Audio 走 ambient）。Safari 17+ 可以设 navigator.audioSession.type =
+        'playback' 照常出声；用麦克风时先切回 'auto'（录音要 play-and-record，交给系统选），麦克风都关了再切回 'playback'。 */
+  var AUD = (function () {
+    var list = [], streams = [], micN = 0, pollT = 0;
+    ['AudioContext', 'webkitAudioContext'].forEach(function (k) {
+      var C = W[k];
+      if (typeof C !== 'function' || C.__hw) return;
+      var T = function (o) { var c = o === undefined ? new C() : new C(o); list.push(c); return c; };
+      T.prototype = C.prototype; T.__hw = true;
+      try { W[k] = T; } catch (e) { /* ignore */ }
+    });
+    function sess() { try { return (W.navigator && W.navigator.audioSession) || null; } catch (e) { return null; } }
+    function setType(t) { var a = sess(); if (!a) return; try { if (a.type !== t) a.type = t; } catch (e) { /* ignore */ } }
+    function micBusy() {
+      streams = streams.filter(function (st) {
+        try { return st.getTracks().some(function (t) { return t.readyState === 'live'; }); } catch (e) { return false; }
+      });
+      return micN > 0 || streams.length > 0;
+    }
+    function settle() { if (micBusy()) return; setType('playback'); if (pollT) { clearInterval(pollT); pollT = 0; } }
+    // getUserMedia 包一层（街机的 g.mic、火箭的音量推力都走它）：录音前切 'auto'，所有轨道都停了再切回 'playback'
+    try {
+      var md = W.navigator && W.navigator.mediaDevices;
+      if (md && typeof md.getUserMedia === 'function' && !md.__hw) {
+        var gum = md.getUserMedia.bind(md);
+        md.getUserMedia = function (c) {
+          setType('auto');
+          return gum(c).then(function (st) { streams.push(st); if (!pollT) pollT = setInterval(settle, 1500); return st; },
+            function (e) { settle(); throw e; });
+        };
+        md.__hw = true;
+      }
+    } catch (e) { /* ignore */ }
+    function live() { list = list.filter(function (c) { return c && c.state !== 'closed'; }); return list; }
+    /* gesture = true：在激活类手势（touchend / click / keydown）里调用，resume 才会被 iOS 接受；顺手放一个空音，老版本 iOS 要这样才算解锁 */
+    function wake(gesture) {
+      if (gesture) settle();
+      live().forEach(function (c) {
+        if (c.state === 'running') return;
+        try { var r = c.resume(); if (r && r.catch) r.catch(function () {}); } catch (e) { /* ignore */ }
+        if (gesture) {
+          try { var b = c.createBuffer(1, 1, 22050), src = c.createBufferSource(); src.buffer = b; src.connect(c.destination); src.start(0); } catch (e) { /* ignore */ }
+        }
+      });
+    }
+    return {
+      wake: wake,
+      init: settle,
+      micStart: function () { micN++; setType('auto'); },
+      micEnd: function () { micN = Math.max(0, micN - 1); setTimeout(settle, 400); },
+      contexts: function () { return live().slice(); },
+      sessionType: function () { var a = sess(); return a ? String(a.type || '') : ''; }
+    };
+  })();
+
   /* ================= 朗读 TTS ================= */
   var TTS = (function () {
     var synth = null;
     try { synth = W.speechSynthesis || null; } catch (e) { synth = null; }
     var Utter = W.SpeechSynthesisUtterance;
-    var voice = null, noZh = false, gen = 0, pending = null, unlocked = false, listeners = [];
+    var voice = null, noZh = false, gen = 0, pending = null, primed = false, primeU = null, fails = 0, listeners = [];
     var keep = [];
+    function engineBusy() { try { return !!(synth.speaking || synth.pending); } catch (e) { return false; } }
     function scoreVoice(v) {
       var lang = String(v.lang || '').toLowerCase().replace(/_/g, '-');
       var name = String(v.name || '');
@@ -663,19 +737,24 @@
       }
       return a.join('');
     }
+    /* speak → Promise<{started}>：started = 至少有一段真的开口了（onstart 来过）。
+       调用方（街机 g.say）据此在没读出来时改显示字幕；旧调用方不看返回值，照常用。 */
     function speak(text, opts) {
       opts = opts || {};
       var busy = !!pending;
       halt(busy);
       text = fixDe(String(text == null ? '' : text).trim());
       // 没有中文声音（noZh，含只有粤语声音）= 不支持：立即 resolve，不许用英文声音乱读中文（SPEC §3 tts.speak）
-      if (!synth || !Utter || noZh || !text) return Promise.resolve();
+      if (!synth || !Utter || noZh || !text) return Promise.resolve({ started: false, skipped: true });
+      // 引擎说自己还在忙、却不是我们在读（也不是刚放的预热空句）：多半是卡死了（iOS 切后台回来、上一句 onend 一直没来）。
+      // 不清掉的话新句子排在它后面永远轮不到 —— 这是“有时整局都没声”的一个来源
+      if (!busy && !primeU && engineBusy()) { try { synth.cancel(); } catch (e) { /* ignore */ } busy = true; }
       var my = gen;
       var rate = clamp(num(opts.rate, 0.9), 0.5, 1.6);
       var list = splitText(text);
       return new Promise(function (resolve) {
-        var settled = false;
-        var me = { finish: function () { if (settled) return; settled = true; resolve(); } };
+        var settled = false, anyStart = false, retried = false, retryT0 = 0;
+        var me = { finish: function () { if (settled) return; settled = true; resolve({ started: anyStart }); } };
         pending = me;
         var end = function () { if (pending === me) pending = null; me.finish(); };
         var i = 0;
@@ -688,28 +767,48 @@
           if (voice) u.voice = voice;
           u.rate = rate; u.pitch = num(opts.pitch, 1) || 1; u.volume = 1;
           keep.push(u); if (keep.length > 24) keep.shift();
-          var done = false, started = false, wd = 0, sg = 0;
+          var done = false, started = false, wd = 0, sg = 0, t0 = retryT0 || now();   // 重说时从第一次开口算起，4 秒就放弃
+          retryT0 = 0;
           var next = function () { if (done) return; done = true; clearTimeout(wd); clearTimeout(sg); sayNext(); };
-          u.onstart = function () { started = true; };
+          u.onstart = function () { started = true; anyStart = true; fails = 0; };
           u.onend = next; u.onerror = next;
           wd = setTimeout(next, t.length * 450 / rate + 3000);
-          // 4 秒还没开口、引擎也不在忙（iOS 未解锁 / 引擎卡死）：整段放弃并 resolve，别让游戏干等几十秒
-          sg = setTimeout(function () {
-            if (done || started) return;
-            var busyNow = false;
-            try { busyNow = !!(synth.speaking || synth.pending); } catch (e) { busyNow = false; }
-            if (!busyNow) { done = true; clearTimeout(wd); try { synth.cancel(); } catch (e) { /* ignore */ } end(); }
-          }, 4000);
+          /* 开口检查：1.5 秒还没开口、引擎也不忙 = 这句被吞了（Safari 在 cancel 后紧接着 speak 偶尔丢句）→ 原样重说一次；
+             4 秒仍没开口（iOS 没解锁 / 引擎卡死）：放弃这段，告诉调用方没读出来，下次点屏幕时重新预热引擎 */
+          var check = function () {
+            if (done || started || my !== gen) return;
+            if (now() - t0 < 3800) {
+              if (!retried && !engineBusy()) { retried = true; done = true; clearTimeout(wd); i--; retryT0 = t0; setTimeout(sayNext, 60); return; }
+              sg = setTimeout(check, 4000 - (now() - t0));
+              return;
+            }
+            done = true; clearTimeout(wd);
+            primed = false; fails++;
+            try { synth.cancel(); } catch (e) { /* ignore */ }
+            end();
+          };
+          sg = setTimeout(check, 1500);
           try { if (synth.paused) synth.resume(); synth.speak(u); } catch (e) { next(); }
         };
         if (busy) setTimeout(sayNext, 80); else sayNext();
       });
     }
+    /* 预热：在激活类手势（touchend / click / keydown）里放一句音量为 0 的空句，iOS 之后才肯在计时器里开口。
+       不是一次性的：第一次、切回前台之后、上次没读出来之后，下一次点屏幕都会重新预热 */
     function unlock() {
-      if (unlocked || !synth || !Utter) return;
-      unlocked = true;
+      if (!synth || !Utter) return;
+      try { if (synth.paused) synth.resume(); } catch (e) { /* ignore */ }
+      if (primed) return;
+      primed = true;
       if (!pending) {
-        try { var u = new Utter(' '); u.volume = 0; u.lang = 'zh-CN'; synth.speak(u); } catch (e) { /* ignore */ }
+        if (engineBusy() && !primeU) { try { synth.cancel(); } catch (e) { /* ignore */ } }
+        try {
+          var u = new Utter(' '); u.volume = 0; u.lang = 'zh-CN';
+          var clear = function () { if (primeU === u) primeU = null; };
+          u.onend = clear; u.onerror = clear; setTimeout(clear, 1500);
+          primeU = u; keep.push(u);
+          synth.speak(u);
+        } catch (e) { primeU = null; }
       }
       setTimeout(refresh, 300);
     }
@@ -719,6 +818,9 @@
       status: function () { return (!synth || !Utter) ? 'none' : (noZh ? 'nozh' : 'ok'); },
       voiceName: function () { return voice ? voice.name : ''; },
       speak: speak, stop: stop, init: init, unlock: unlock,
+      reset: function () { primed = false; },            // 切回前台：下一次点屏幕时重新预热
+      fails: function () { return fails; },              // 连续没开口的次数（声音检查用）
+      voiceLang: function () { return voice ? String(voice.lang || '') : ''; },
       onChange: function (f) { listeners.push(f); }
     };
   })();
@@ -731,8 +833,10 @@
     function ac() {
       if (!settings.sound) return null;
       try {
+        if (ctx && ctx.state === 'closed') ctx = null;
         if (!ctx) { var C = W.AudioContext || W.webkitAudioContext; if (!C) return null; ctx = new C(); }
-        if (ctx.state === 'suspended' && ctx.resume) ctx.resume().catch(function () {});
+        // 'suspended'（未解锁）和 iOS 的 'interrupted'（切后台 / 锁屏 / 来电之后）都要 resume
+        if (ctx.state !== 'running' && ctx.resume) ctx.resume().catch(function () {});
         return ctx;
       } catch (e) { return null; }
     }
@@ -778,7 +882,8 @@
       stamp: function () { tone(150, 0, 0.18, { vol: 0.35, to: 55 }); noise(0, 0.09, 0.14); },
       star: function (i) { var f = [784, 988, 1175][i] || 1175; tone(f, 0, 0.16, { type: 'triangle', vol: 0.18 }); tone(f * 1.5, 0.08, 0.26, { type: 'sine', vol: 0.1 }); },
       combo: function (n) { var b = 700 + Math.min(n, 12) * 40; tone(b, 0, 0.08, { type: 'triangle', vol: 0.14 }); tone(b * 1.5, 0.07, 0.16, { type: 'triangle', vol: 0.14 }); },
-      unlock: function () { ac(); }
+      unlock: function () { ac(); },
+      state: function () { return ctx ? ctx.state : 'none'; }
     };
   })();
 
@@ -830,12 +935,13 @@
         var rec;
         try { rec = new SR(); } catch (e) { markDenied(); reject(mkErr('unavailable', '这台设备现在不能用麦克风')); return; }
         rec.lang = 'zh-CN'; rec.interimResults = true; rec.continuous = !!opts.continuous; rec.maxAlternatives = 1;
-        var finalText = '', interim = '', settled = false, err = null, t1 = 0, t2 = 0;
+        var finalText = '', interim = '', settled = false, err = null, t1 = 0, t2 = 0, micOn = false;
         var me = {
           rec: rec,
           done: function () {
             if (settled) return; settled = true;
             clearTimeout(t1); clearTimeout(t2);
+            if (micOn) { micOn = false; AUD.micEnd(); }
             if (cur === me) cur = null;
             if (err) reject(err); else resolve((finalText + interim).trim());
           }
@@ -861,6 +967,7 @@
         t1 = setTimeout(function () { try { rec.stop(); } catch (e) { /* ignore */ } }, maxMs);
         t2 = setTimeout(function () { me.done(); }, maxMs + 2000);
         cur = me;
+        micOn = true; AUD.micStart();
         try { rec.start(); } catch (e) { err = mkErr('start', '麦克风启动失败'); me.done(); }
       });
     }
@@ -2207,10 +2314,12 @@
         list.map(function (p) { return editId === p.id ? profileForm(p) : profileCard(p); }),
         adding ? profileForm(null) : null),
       adding ? null : h('div', { class: 'hw-row' }, h('button', { class: 'hw-btn', type: 'button', id: 'hw-add-profile', on: { click: function () { renderProfiles('__new'); } } }, '＋ 新增小朋友')),
-      h('p', { class: 'hw-muted' }, '每个小朋友的小红花、印章、错题本都分开记。')
+      h('p', { class: 'hw-muted' }, '每个小朋友的小红花、印章、错题本都分开记。'),
+      editId ? null : profileExtras.map(function (f) { try { return f(); } catch (e) { try { console.warn('[HW] profiles extra', e); } catch (x) { /* ignore */ } return null; } })
     ]);
     if (editId) { var nm = D.getElementById('hw-pf-name'); if (nm) try { nm.focus(); } catch (e) { /* ignore */ } }
   }
+  var profileExtras = [];
   function profileCard(p) {
     var cur = p.id === curId;
     return h('div', { class: 'hw-card hw-pcard' + (cur ? ' is-cur' : '') },
@@ -2481,17 +2590,20 @@
   function bindGlobal() {
     // iOS/Safari 只认“激活类”事件（touchend / click / keydown / mouse 的 pointerdown）里的首次发声；
     // 触摸的 pointerdown 不算激活，若在那里用掉一次性的 TTS 解锁，之后就再也解不开 → TTS 只挂在激活事件上
-    var unlock = function () { TTS.unlock(); SFX.unlock(); };
+    var unlock = function () { TTS.unlock(); SFX.unlock(); AUD.wake(true); };
     var act = function () { lastAct = now(); };
     D.addEventListener('pointerdown', act, { capture: true, passive: true });
     D.addEventListener('keydown', act, true);
-    D.addEventListener('pointerdown', function (e) { if (e && e.pointerType === 'mouse') unlock(); else SFX.unlock(); }, { capture: true, passive: true });
+    D.addEventListener('pointerdown', function (e) { if (e && e.pointerType === 'mouse') unlock(); else { SFX.unlock(); AUD.wake(false); } }, { capture: true, passive: true });
     D.addEventListener('touchend', unlock, { capture: true, passive: true });
     D.addEventListener('click', unlock, true);
     D.addEventListener('keydown', unlock, true);
     D.addEventListener('keydown', onKey);
-    D.addEventListener('visibilitychange', function () { if (D.hidden) { TTS.stop(); saveLocal(); flushRemote(); } });
-    W.addEventListener('pagehide', function () { flushRemote(); });
+    // 切回前台：朗读引擎下一次点屏幕时重新预热，所有 AudioContext 试着恢复（iOS 上真正恢复要等下一次点屏幕）
+    var back = function () { TTS.reset(); AUD.wake(false); };
+    D.addEventListener('visibilitychange', function () { if (D.hidden) { TTS.stop(); saveLocal(); flushRemote(); } else back(); });
+    W.addEventListener('pagehide', function () { saveLocal(); flushRemote(); });
+    W.addEventListener('pageshow', function (e) { if (e && e.persisted) back(); });
     var lastTts = TTS.status();
     TTS.onChange(function () {
       var st = TTS.status();
@@ -2512,14 +2624,22 @@
     loadLocal();
     ASR.init();
     TTS.init();
+    AUD.init();
     bindGlobal();
+    // 请浏览器别在空间紧张时自动清掉本站数据（Chrome 看使用情况决定给不给；Safari 对加到主屏幕的网页更容易给）
+    try {
+      var sm = W.navigator && W.navigator.storage;
+      if (sm && sm.persisted && sm.persist) sm.persisted().then(function (y) { return y || sm.persist(); }).catch(function () {});
+    } catch (e) { /* ignore */ }
     // 两个以上的档案：每天第一次打开先问“谁来玩？”（第一次打开时尤其要紧：默认停在预置的第一个档案“大宝”）
     renderMap();
     if (sortedProfiles().length >= 2 && LS.get('pickDay', '') !== todayStr()) showPick();
     connectDb();
     useCap('sample');
     setInterval(function () { tickPlay(); graceCheck(); }, TICK * 1000);
+    bootHooks.forEach(function (f) { try { f(); } catch (e) { try { console.warn('[HW] boot hook', e); } catch (x) { /* ignore */ } } });
   }
+  var bootHooks = [];
 
   /* ================= 对外 ================= */
   W.HW = {
@@ -2563,6 +2683,12 @@
     toast: toast, burst: burst, confetti: confetti, sfx: SFX, tts: TTS, hanzi: Hanzi, rateFor: rateFor, curGradeNum: curGradeNum,
     overLimit: overLimit, showRest: showRest, playedMin: playedMin, session: function () { return S; },
     skills: SKILLS, isle: ISLE, parentGate: parentGate,
+    aud: AUD, settings: function () { return settings; }, renderProfiles: renderProfiles,
+    onBoot: function (f) { if (typeof f !== 'function') return; if (booted) setTimeout(f, 0); else bootHooks.push(f); },
+    onSave: function (f) { if (typeof f === 'function') saveHooks.push(f); },
+    saveInfo: function () { return { ok: saveStat.ok, fail: saveStat.fail }; },
+    addProfilesExtra: function (f) { if (typeof f === 'function') profileExtras.push(f); },
+    freeze: function () { frozen = true; },   // 恢复存档：写完存档就刷新，之前一律不许再写 localStorage / 推云端
     debug: DEBUG   // true = URL 带 #hwdebug（12_meta.js 据此决定挂不挂 HW.meta._answer）
   };
   /* 只供测试（URL 带 #hwdebug 才挂出来，见文件开头 DEBUG）：

@@ -1734,11 +1734,14 @@ Legal Terms
   }
 
   /* ================= localStorage（全部 try/catch） ================= */
+  // frozen：正在从存档点恢复（写完存档马上刷新页面）。这期间谁都不许再写，免得刷新前的 visibilitychange/pagehide 把旧进度写回去
+  var frozen = false;
   var LS = {
     get: function (k, d) {
       try { var v = W.localStorage.getItem('hw.v1.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; }
     },
     set: function (k, v) {
+      if (frozen) return false;
       try { W.localStorage.setItem('hw.v1.' + k, JSON.stringify(v)); return true; } catch (e) { return false; }
     }
   };
@@ -1928,9 +1931,18 @@ Legal Terms
     curId = LS.get('cur', null);
     ensureProfiles();
   }
+  /* 自动存档：每次进度变化（touch）都立刻写进 localStorage。saveStat 记最近一次成功/失败，
+     存不上（存储满了、被浏览器禁用）要让家长知道，不能悄悄丢进度。saveHooks：13_parent.js 的“每日存档点”、“已自动保存”提示 */
+  var saveStat = { ok: 0, fail: 0, warned: false }, saveHooks = [];
   function saveLocal() {
-    LS.set('profiles', profiles);
-    LS.set('cur', curId);
+    if (frozen) return;
+    var ok = LS.set('profiles', profiles) && LS.set('cur', curId);
+    if (ok) { saveStat.ok = now(); saveStat.fail = 0; }
+    else {
+      saveStat.fail = now();
+      if (!saveStat.warned && booted) { saveStat.warned = true; setTimeout(function () { toast('⚠️ 进度没存上（浏览器不让存了）。请爸爸妈妈到「档案 → 存档」导出一份备份。'); }, 0); }
+    }
+    saveHooks.forEach(function (f) { try { f(ok); } catch (e) { /* ignore */ } });
   }
   function touch(p) {
     if (!p) return;
@@ -2003,14 +2015,14 @@ Legal Terms
   // 写入节流：停手 1.5 秒合并成一次写；连续操作时最迟 8 秒也要写一次（纯防抖会被不停的点击一直往后推）
   var dirtySince = 0;
   function scheduleRemote(ms) {
-    if (!db || dbReadOnly || !dbFirstDone) return;
+    if (!db || dbReadOnly || !dbFirstDone || frozen) return;
     if (!dirtySince) dirtySince = now();
     var wait = Math.min(ms == null ? 1500 : ms, Math.max(0, dirtySince + 8000 - now()));
     clearTimeout(remoteTimer);
     remoteTimer = setTimeout(flushRemote, wait);
   }
   function flushRemote() {
-    if (!db || dbReadOnly || !dbFirstDone) return;
+    if (!db || dbReadOnly || !dbFirstDone || frozen) return;
     clearTimeout(remoteTimer);
     dirtySince = 0;
     var ids = Array.from(dirty); dirty.clear();
@@ -2188,13 +2200,75 @@ Legal Terms
     if (fid) { var el = D.getElementById(fid); if (el && el.focus) try { el.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
   }
 
+  /* ================= 声音总线：全页 AudioContext 统一登记、统一唤醒 =================
+     iPad 上“时有声时没声”的几个根源，下面逐条处理：
+     1. 切后台 / 锁屏 / 来电 / Siri 之后，WebKit 把 AudioContext 置为 'interrupted'（不是 'suspended'）。
+        只认 'suspended' 的代码永远不会再 resume，这个游戏之后就一直没声。
+     2. 触摸的 pointerdown / touchstart 不算“用户激活”，在那里 resume() 会被拒；要在 touchend / click / keydown 里做。
+     3. 各游戏各自 new AudioContext，各自解锁、各自恢复，漏一个就那个游戏没声 → 构造函数包一层，全页登记，手势时一起唤醒。
+     4. iPad / iPhone 开着静音时，网页声音默认跟着静音（Web Audio 走 ambient）。Safari 17+ 可以设 navigator.audioSession.type =
+        'playback' 照常出声；用麦克风时先切回 'auto'（录音要 play-and-record，交给系统选），麦克风都关了再切回 'playback'。 */
+  var AUD = (function () {
+    var list = [], streams = [], micN = 0, pollT = 0;
+    ['AudioContext', 'webkitAudioContext'].forEach(function (k) {
+      var C = W[k];
+      if (typeof C !== 'function' || C.__hw) return;
+      var T = function (o) { var c = o === undefined ? new C() : new C(o); list.push(c); return c; };
+      T.prototype = C.prototype; T.__hw = true;
+      try { W[k] = T; } catch (e) { /* ignore */ }
+    });
+    function sess() { try { return (W.navigator && W.navigator.audioSession) || null; } catch (e) { return null; } }
+    function setType(t) { var a = sess(); if (!a) return; try { if (a.type !== t) a.type = t; } catch (e) { /* ignore */ } }
+    function micBusy() {
+      streams = streams.filter(function (st) {
+        try { return st.getTracks().some(function (t) { return t.readyState === 'live'; }); } catch (e) { return false; }
+      });
+      return micN > 0 || streams.length > 0;
+    }
+    function settle() { if (micBusy()) return; setType('playback'); if (pollT) { clearInterval(pollT); pollT = 0; } }
+    // getUserMedia 包一层（街机的 g.mic、火箭的音量推力都走它）：录音前切 'auto'，所有轨道都停了再切回 'playback'
+    try {
+      var md = W.navigator && W.navigator.mediaDevices;
+      if (md && typeof md.getUserMedia === 'function' && !md.__hw) {
+        var gum = md.getUserMedia.bind(md);
+        md.getUserMedia = function (c) {
+          setType('auto');
+          return gum(c).then(function (st) { streams.push(st); if (!pollT) pollT = setInterval(settle, 1500); return st; },
+            function (e) { settle(); throw e; });
+        };
+        md.__hw = true;
+      }
+    } catch (e) { /* ignore */ }
+    function live() { list = list.filter(function (c) { return c && c.state !== 'closed'; }); return list; }
+    /* gesture = true：在激活类手势（touchend / click / keydown）里调用，resume 才会被 iOS 接受；顺手放一个空音，老版本 iOS 要这样才算解锁 */
+    function wake(gesture) {
+      if (gesture) settle();
+      live().forEach(function (c) {
+        if (c.state === 'running') return;
+        try { var r = c.resume(); if (r && r.catch) r.catch(function () {}); } catch (e) { /* ignore */ }
+        if (gesture) {
+          try { var b = c.createBuffer(1, 1, 22050), src = c.createBufferSource(); src.buffer = b; src.connect(c.destination); src.start(0); } catch (e) { /* ignore */ }
+        }
+      });
+    }
+    return {
+      wake: wake,
+      init: settle,
+      micStart: function () { micN++; setType('auto'); },
+      micEnd: function () { micN = Math.max(0, micN - 1); setTimeout(settle, 400); },
+      contexts: function () { return live().slice(); },
+      sessionType: function () { var a = sess(); return a ? String(a.type || '') : ''; }
+    };
+  })();
+
   /* ================= 朗读 TTS ================= */
   var TTS = (function () {
     var synth = null;
     try { synth = W.speechSynthesis || null; } catch (e) { synth = null; }
     var Utter = W.SpeechSynthesisUtterance;
-    var voice = null, noZh = false, gen = 0, pending = null, unlocked = false, listeners = [];
+    var voice = null, noZh = false, gen = 0, pending = null, primed = false, primeU = null, fails = 0, listeners = [];
     var keep = [];
+    function engineBusy() { try { return !!(synth.speaking || synth.pending); } catch (e) { return false; } }
     function scoreVoice(v) {
       var lang = String(v.lang || '').toLowerCase().replace(/_/g, '-');
       var name = String(v.name || '');
@@ -2276,19 +2350,24 @@ Legal Terms
       }
       return a.join('');
     }
+    /* speak → Promise<{started}>：started = 至少有一段真的开口了（onstart 来过）。
+       调用方（街机 g.say）据此在没读出来时改显示字幕；旧调用方不看返回值，照常用。 */
     function speak(text, opts) {
       opts = opts || {};
       var busy = !!pending;
       halt(busy);
       text = fixDe(String(text == null ? '' : text).trim());
       // 没有中文声音（noZh，含只有粤语声音）= 不支持：立即 resolve，不许用英文声音乱读中文（SPEC §3 tts.speak）
-      if (!synth || !Utter || noZh || !text) return Promise.resolve();
+      if (!synth || !Utter || noZh || !text) return Promise.resolve({ started: false, skipped: true });
+      // 引擎说自己还在忙、却不是我们在读（也不是刚放的预热空句）：多半是卡死了（iOS 切后台回来、上一句 onend 一直没来）。
+      // 不清掉的话新句子排在它后面永远轮不到 —— 这是“有时整局都没声”的一个来源
+      if (!busy && !primeU && engineBusy()) { try { synth.cancel(); } catch (e) { /* ignore */ } busy = true; }
       var my = gen;
       var rate = clamp(num(opts.rate, 0.9), 0.5, 1.6);
       var list = splitText(text);
       return new Promise(function (resolve) {
-        var settled = false;
-        var me = { finish: function () { if (settled) return; settled = true; resolve(); } };
+        var settled = false, anyStart = false, retried = false, retryT0 = 0;
+        var me = { finish: function () { if (settled) return; settled = true; resolve({ started: anyStart }); } };
         pending = me;
         var end = function () { if (pending === me) pending = null; me.finish(); };
         var i = 0;
@@ -2301,28 +2380,48 @@ Legal Terms
           if (voice) u.voice = voice;
           u.rate = rate; u.pitch = num(opts.pitch, 1) || 1; u.volume = 1;
           keep.push(u); if (keep.length > 24) keep.shift();
-          var done = false, started = false, wd = 0, sg = 0;
+          var done = false, started = false, wd = 0, sg = 0, t0 = retryT0 || now();   // 重说时从第一次开口算起，4 秒就放弃
+          retryT0 = 0;
           var next = function () { if (done) return; done = true; clearTimeout(wd); clearTimeout(sg); sayNext(); };
-          u.onstart = function () { started = true; };
+          u.onstart = function () { started = true; anyStart = true; fails = 0; };
           u.onend = next; u.onerror = next;
           wd = setTimeout(next, t.length * 450 / rate + 3000);
-          // 4 秒还没开口、引擎也不在忙（iOS 未解锁 / 引擎卡死）：整段放弃并 resolve，别让游戏干等几十秒
-          sg = setTimeout(function () {
-            if (done || started) return;
-            var busyNow = false;
-            try { busyNow = !!(synth.speaking || synth.pending); } catch (e) { busyNow = false; }
-            if (!busyNow) { done = true; clearTimeout(wd); try { synth.cancel(); } catch (e) { /* ignore */ } end(); }
-          }, 4000);
+          /* 开口检查：1.5 秒还没开口、引擎也不忙 = 这句被吞了（Safari 在 cancel 后紧接着 speak 偶尔丢句）→ 原样重说一次；
+             4 秒仍没开口（iOS 没解锁 / 引擎卡死）：放弃这段，告诉调用方没读出来，下次点屏幕时重新预热引擎 */
+          var check = function () {
+            if (done || started || my !== gen) return;
+            if (now() - t0 < 3800) {
+              if (!retried && !engineBusy()) { retried = true; done = true; clearTimeout(wd); i--; retryT0 = t0; setTimeout(sayNext, 60); return; }
+              sg = setTimeout(check, 4000 - (now() - t0));
+              return;
+            }
+            done = true; clearTimeout(wd);
+            primed = false; fails++;
+            try { synth.cancel(); } catch (e) { /* ignore */ }
+            end();
+          };
+          sg = setTimeout(check, 1500);
           try { if (synth.paused) synth.resume(); synth.speak(u); } catch (e) { next(); }
         };
         if (busy) setTimeout(sayNext, 80); else sayNext();
       });
     }
+    /* 预热：在激活类手势（touchend / click / keydown）里放一句音量为 0 的空句，iOS 之后才肯在计时器里开口。
+       不是一次性的：第一次、切回前台之后、上次没读出来之后，下一次点屏幕都会重新预热 */
     function unlock() {
-      if (unlocked || !synth || !Utter) return;
-      unlocked = true;
+      if (!synth || !Utter) return;
+      try { if (synth.paused) synth.resume(); } catch (e) { /* ignore */ }
+      if (primed) return;
+      primed = true;
       if (!pending) {
-        try { var u = new Utter(' '); u.volume = 0; u.lang = 'zh-CN'; synth.speak(u); } catch (e) { /* ignore */ }
+        if (engineBusy() && !primeU) { try { synth.cancel(); } catch (e) { /* ignore */ } }
+        try {
+          var u = new Utter(' '); u.volume = 0; u.lang = 'zh-CN';
+          var clear = function () { if (primeU === u) primeU = null; };
+          u.onend = clear; u.onerror = clear; setTimeout(clear, 1500);
+          primeU = u; keep.push(u);
+          synth.speak(u);
+        } catch (e) { primeU = null; }
       }
       setTimeout(refresh, 300);
     }
@@ -2332,6 +2431,9 @@ Legal Terms
       status: function () { return (!synth || !Utter) ? 'none' : (noZh ? 'nozh' : 'ok'); },
       voiceName: function () { return voice ? voice.name : ''; },
       speak: speak, stop: stop, init: init, unlock: unlock,
+      reset: function () { primed = false; },            // 切回前台：下一次点屏幕时重新预热
+      fails: function () { return fails; },              // 连续没开口的次数（声音检查用）
+      voiceLang: function () { return voice ? String(voice.lang || '') : ''; },
       onChange: function (f) { listeners.push(f); }
     };
   })();
@@ -2344,8 +2446,10 @@ Legal Terms
     function ac() {
       if (!settings.sound) return null;
       try {
+        if (ctx && ctx.state === 'closed') ctx = null;
         if (!ctx) { var C = W.AudioContext || W.webkitAudioContext; if (!C) return null; ctx = new C(); }
-        if (ctx.state === 'suspended' && ctx.resume) ctx.resume().catch(function () {});
+        // 'suspended'（未解锁）和 iOS 的 'interrupted'（切后台 / 锁屏 / 来电之后）都要 resume
+        if (ctx.state !== 'running' && ctx.resume) ctx.resume().catch(function () {});
         return ctx;
       } catch (e) { return null; }
     }
@@ -2391,7 +2495,8 @@ Legal Terms
       stamp: function () { tone(150, 0, 0.18, { vol: 0.35, to: 55 }); noise(0, 0.09, 0.14); },
       star: function (i) { var f = [784, 988, 1175][i] || 1175; tone(f, 0, 0.16, { type: 'triangle', vol: 0.18 }); tone(f * 1.5, 0.08, 0.26, { type: 'sine', vol: 0.1 }); },
       combo: function (n) { var b = 700 + Math.min(n, 12) * 40; tone(b, 0, 0.08, { type: 'triangle', vol: 0.14 }); tone(b * 1.5, 0.07, 0.16, { type: 'triangle', vol: 0.14 }); },
-      unlock: function () { ac(); }
+      unlock: function () { ac(); },
+      state: function () { return ctx ? ctx.state : 'none'; }
     };
   })();
 
@@ -2443,12 +2548,13 @@ Legal Terms
         var rec;
         try { rec = new SR(); } catch (e) { markDenied(); reject(mkErr('unavailable', '这台设备现在不能用麦克风')); return; }
         rec.lang = 'zh-CN'; rec.interimResults = true; rec.continuous = !!opts.continuous; rec.maxAlternatives = 1;
-        var finalText = '', interim = '', settled = false, err = null, t1 = 0, t2 = 0;
+        var finalText = '', interim = '', settled = false, err = null, t1 = 0, t2 = 0, micOn = false;
         var me = {
           rec: rec,
           done: function () {
             if (settled) return; settled = true;
             clearTimeout(t1); clearTimeout(t2);
+            if (micOn) { micOn = false; AUD.micEnd(); }
             if (cur === me) cur = null;
             if (err) reject(err); else resolve((finalText + interim).trim());
           }
@@ -2474,6 +2580,7 @@ Legal Terms
         t1 = setTimeout(function () { try { rec.stop(); } catch (e) { /* ignore */ } }, maxMs);
         t2 = setTimeout(function () { me.done(); }, maxMs + 2000);
         cur = me;
+        micOn = true; AUD.micStart();
         try { rec.start(); } catch (e) { err = mkErr('start', '麦克风启动失败'); me.done(); }
       });
     }
@@ -3820,10 +3927,12 @@ Legal Terms
         list.map(function (p) { return editId === p.id ? profileForm(p) : profileCard(p); }),
         adding ? profileForm(null) : null),
       adding ? null : h('div', { class: 'hw-row' }, h('button', { class: 'hw-btn', type: 'button', id: 'hw-add-profile', on: { click: function () { renderProfiles('__new'); } } }, '＋ 新增小朋友')),
-      h('p', { class: 'hw-muted' }, '每个小朋友的小红花、印章、错题本都分开记。')
+      h('p', { class: 'hw-muted' }, '每个小朋友的小红花、印章、错题本都分开记。'),
+      editId ? null : profileExtras.map(function (f) { try { return f(); } catch (e) { try { console.warn('[HW] profiles extra', e); } catch (x) { /* ignore */ } return null; } })
     ]);
     if (editId) { var nm = D.getElementById('hw-pf-name'); if (nm) try { nm.focus(); } catch (e) { /* ignore */ } }
   }
+  var profileExtras = [];
   function profileCard(p) {
     var cur = p.id === curId;
     return h('div', { class: 'hw-card hw-pcard' + (cur ? ' is-cur' : '') },
@@ -4094,17 +4203,20 @@ Legal Terms
   function bindGlobal() {
     // iOS/Safari 只认“激活类”事件（touchend / click / keydown / mouse 的 pointerdown）里的首次发声；
     // 触摸的 pointerdown 不算激活，若在那里用掉一次性的 TTS 解锁，之后就再也解不开 → TTS 只挂在激活事件上
-    var unlock = function () { TTS.unlock(); SFX.unlock(); };
+    var unlock = function () { TTS.unlock(); SFX.unlock(); AUD.wake(true); };
     var act = function () { lastAct = now(); };
     D.addEventListener('pointerdown', act, { capture: true, passive: true });
     D.addEventListener('keydown', act, true);
-    D.addEventListener('pointerdown', function (e) { if (e && e.pointerType === 'mouse') unlock(); else SFX.unlock(); }, { capture: true, passive: true });
+    D.addEventListener('pointerdown', function (e) { if (e && e.pointerType === 'mouse') unlock(); else { SFX.unlock(); AUD.wake(false); } }, { capture: true, passive: true });
     D.addEventListener('touchend', unlock, { capture: true, passive: true });
     D.addEventListener('click', unlock, true);
     D.addEventListener('keydown', unlock, true);
     D.addEventListener('keydown', onKey);
-    D.addEventListener('visibilitychange', function () { if (D.hidden) { TTS.stop(); saveLocal(); flushRemote(); } });
-    W.addEventListener('pagehide', function () { flushRemote(); });
+    // 切回前台：朗读引擎下一次点屏幕时重新预热，所有 AudioContext 试着恢复（iOS 上真正恢复要等下一次点屏幕）
+    var back = function () { TTS.reset(); AUD.wake(false); };
+    D.addEventListener('visibilitychange', function () { if (D.hidden) { TTS.stop(); saveLocal(); flushRemote(); } else back(); });
+    W.addEventListener('pagehide', function () { saveLocal(); flushRemote(); });
+    W.addEventListener('pageshow', function (e) { if (e && e.persisted) back(); });
     var lastTts = TTS.status();
     TTS.onChange(function () {
       var st = TTS.status();
@@ -4125,14 +4237,22 @@ Legal Terms
     loadLocal();
     ASR.init();
     TTS.init();
+    AUD.init();
     bindGlobal();
+    // 请浏览器别在空间紧张时自动清掉本站数据（Chrome 看使用情况决定给不给；Safari 对加到主屏幕的网页更容易给）
+    try {
+      var sm = W.navigator && W.navigator.storage;
+      if (sm && sm.persisted && sm.persist) sm.persisted().then(function (y) { return y || sm.persist(); }).catch(function () {});
+    } catch (e) { /* ignore */ }
     // 两个以上的档案：每天第一次打开先问“谁来玩？”（第一次打开时尤其要紧：默认停在预置的第一个档案“大宝”）
     renderMap();
     if (sortedProfiles().length >= 2 && LS.get('pickDay', '') !== todayStr()) showPick();
     connectDb();
     useCap('sample');
     setInterval(function () { tickPlay(); graceCheck(); }, TICK * 1000);
+    bootHooks.forEach(function (f) { try { f(); } catch (e) { try { console.warn('[HW] boot hook', e); } catch (x) { /* ignore */ } } });
   }
+  var bootHooks = [];
 
   /* ================= 对外 ================= */
   W.HW = {
@@ -4176,6 +4296,12 @@ Legal Terms
     toast: toast, burst: burst, confetti: confetti, sfx: SFX, tts: TTS, hanzi: Hanzi, rateFor: rateFor, curGradeNum: curGradeNum,
     overLimit: overLimit, showRest: showRest, playedMin: playedMin, session: function () { return S; },
     skills: SKILLS, isle: ISLE, parentGate: parentGate,
+    aud: AUD, settings: function () { return settings; }, renderProfiles: renderProfiles,
+    onBoot: function (f) { if (typeof f !== 'function') return; if (booted) setTimeout(f, 0); else bootHooks.push(f); },
+    onSave: function (f) { if (typeof f === 'function') saveHooks.push(f); },
+    saveInfo: function () { return { ok: saveStat.ok, fail: saveStat.fail }; },
+    addProfilesExtra: function (f) { if (typeof f === 'function') profileExtras.push(f); },
+    freeze: function () { frozen = true; },   // 恢复存档：写完存档就刷新，之前一律不许再写 localStorage / 推云端
     debug: DEBUG   // true = URL 带 #hwdebug（12_meta.js 据此决定挂不挂 HW.meta._answer）
   };
   /* 只供测试（URL 带 #hwdebug 才挂出来，见文件开头 DEBUG）：
@@ -4968,7 +5094,7 @@ Legal Terms
       const A = W.AudioContext || W.webkitAudioContext;
       if (!HW.sound || !A) return;
       const ac = chomp.ac || (chomp.ac = new A());
-      if (ac.state === 'suspended' && ac.resume) ac.resume().catch(() => {});
+      if (ac.state !== 'running' && ac.state !== 'closed' && ac.resume) ac.resume().catch(() => {});   // 含 iOS 的 'interrupted'
       [0, 0.12].forEach((at, i) => {
         const o = ac.createOscillator(), gn = ac.createGain(), t0 = ac.currentTime + at;
         o.type = 'triangle'; o.frequency.setValueAtTime(i ? 520 : 380, t0); o.frequency.exponentialRampToValueAtTime(i ? 760 : 220, t0 + 0.09);
@@ -5819,6 +5945,475 @@ Legal Terms
     mapBoard, pinPet, hudCards, cardLine, restPet, renderCards: () => renderCards()
   });
 })();
+</script>
+<script>
+/* 13_parent.js — 家长工具，挂在「档案」页底部（核心 HW._core.addProfilesExtra）
+ *
+ * 1. 💾 存档
+ *    · 自动存档：核心每次进度变化都立刻写 localStorage（10_core saveLocal）；这里显示“最近一次自动保存”，
+ *      玩完一局回到地图时角落闪一下“💾 进度已自动保存”，存不上时核心会提醒家长。
+ *    · 存档点（IndexedDB，打不开时退回 localStorage 只留几个）：
+ *        每日自动 —— 每天第一次打开时存一个（= 当天开始玩之前的样子），留最近 7 天；
+ *        手动 —— 家长/孩子随时存，可起名，留最近 10 个；
+ *        恢复前备份 —— 每次恢复/导入之前自动存一份现在的，留 3 个（恢复错了还能再恢复回来）。
+ *    · 导出 / 导入存档文件：浏览器清数据、Safari 7 天规则、换 iPad、网页版↔单机版之间搬进度，都只能靠文件。
+ *    恢复、导入要过家长验证；恢复 = 写回 localStorage 后刷新页面（各模块重新读，最稳）。
+ *    恢复出来的档案 updatedAt 调成“现在”：claude.ai 版的云端合并、其他设备都把它当最新，不会被旧云端盖回去。
+ *
+ * 2. 🔊 声音检查：当场响一声、读一句，逐项告诉家长哪一环不通、怎么修（iPad 上声音问题没法远程复现，靠它现场诊断）。
+ */
+(function (W, D) {
+  'use strict';
+  const HW = W.HW;
+  if (!HW || !HW._core) return;
+  const C = HW._core, h = C.h;
+
+  /* ================= 存档内容 ================= */
+  const PFX = 'hw.v1.';
+  // 不进存档：设备自己的东西（设备号、麦克风被拒记录）、测试用、今天问没问过“谁来玩”、存档功能自己的记录
+  const SKIP = new Set(['dev', 'asrNo', 'debugDayOffset', 'pickDay', 'snaps', 'snapDay', 'lastExport']);
+  const KEEP = { day: 7, manual: 10, pre: 3 };
+  const KEEP_LS = { day: 2, manual: 2, pre: 1 };   // 退回 localStorage 时（5MB 上限，要给进度本身留地方）
+
+  // fresh = false：调用方刚存过（saveLocal 的钩子里），不要再存一次 —— 否则“存 → 钩子 → 存档点 → 存”会绕成死循环
+  function collect(fresh) {
+    if (fresh !== false) { try { C.saveLocal(); } catch (e) { /* ignore */ } }
+    const data = {};
+    try {
+      const ls = W.localStorage;
+      for (let i = 0; i < ls.length; i++) {
+        const k = ls.key(i);
+        if (!k || k.indexOf(PFX) !== 0) continue;
+        const kk = k.slice(PFX.length);
+        if (!SKIP.has(kk)) data[kk] = ls.getItem(k);
+      }
+    } catch (e) { /* ignore */ }
+    return data;
+  }
+  function summarize(data) {
+    let prof = {};
+    try { prof = JSON.parse(data.profiles || '{}') || {}; } catch (e) { prof = {}; }
+    return Object.keys(prof).map((id) => prof[id]).filter((p) => p && typeof p === 'object')
+      .sort((a, b) => (+a.createdAt || 0) - (+b.createdAt || 0))
+      .map((p) => ({
+        n: String(p.name || '小朋友').slice(0, 12), a: String(p.avatar || '🙂').slice(0, 4), g: String(p.grade || '').toUpperCase(),
+        f: Math.max(0, Math.round(+p.flowers || 0)),
+        c: p.cards && typeof p.cards === 'object' && !Array.isArray(p.cards) ? Object.keys(p.cards).length : 0
+      }));
+  }
+  const hasProgress = (sum) => sum.some((x) => x.f > 0 || x.c > 0);
+  function makeSnap(kind, label, fresh) {
+    const data = collect(fresh);
+    return {
+      app: 'huawen-island', v: 1,
+      id: kind + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      kind, at: Date.now(), day: C.todayStr(), label: String(label || '').slice(0, 20),
+      sum: summarize(data), data
+    };
+  }
+  function parseSave(text) {
+    let o;
+    try { o = JSON.parse(String(text || '').trim()); } catch (e) { return null; }
+    if (!o || o.app !== 'huawen-island' || !o.data || typeof o.data !== 'object' || typeof o.data.profiles !== 'string') return null;
+    try { const p = JSON.parse(o.data.profiles); if (!p || typeof p !== 'object' || Array.isArray(p)) return null; } catch (e) { return null; }
+    o.sum = summarize(o.data);
+    o.at = +o.at || 0;
+    return o;
+  }
+
+  /* ================= 存档点仓库：IndexedDB，打不开就退回 localStorage ================= */
+  const DBN = 'huawen-island-saves', ST = 'snaps';
+  let dbP = null, mode = '';
+  function openDb() {
+    if (dbP) return dbP;
+    dbP = new Promise((res, rej) => {
+      let r;
+      try { r = W.indexedDB.open(DBN, 1); } catch (e) { rej(e); return; }
+      const to = setTimeout(() => rej(new Error('idb timeout')), 4000);
+      r.onupgradeneeded = () => { try { r.result.createObjectStore(ST, { keyPath: 'id' }); } catch (e) { /* ignore */ } };
+      r.onsuccess = () => { clearTimeout(to); mode = 'idb'; res(r.result); };
+      r.onerror = () => { clearTimeout(to); rej(r.error || new Error('idb')); };
+      r.onblocked = () => { clearTimeout(to); rej(new Error('idb blocked')); };
+    }).catch((e) => { mode = 'ls'; throw e; });
+    return dbP;
+  }
+  function req(db, rw, fn) {
+    return new Promise((res, rej) => {
+      const t = db.transaction(ST, rw ? 'readwrite' : 'readonly');
+      const r = fn(t.objectStore(ST));
+      t.oncomplete = () => res(r && 'result' in r ? r.result : undefined);
+      t.onerror = () => rej(t.error || new Error('tx'));
+      t.onabort = () => rej(t.error || new Error('tx abort'));
+    });
+  }
+  const lsList = () => { const a = C.LS.get('snaps', []); return Array.isArray(a) ? a : []; };
+  const Store = {
+    all() {
+      return openDb().then((db) => req(db, false, (s) => s.getAll()), () => lsList())
+        .then((a) => (Array.isArray(a) ? a : []).sort((x, y) => y.at - x.at));
+    },
+    put(snap) {
+      return openDb().then((db) => req(db, true, (s) => s.put(snap)), () => {
+        const a = lsList().filter((x) => x.id !== snap.id); a.push(snap);
+        if (!C.LS.set('snaps', a)) throw new Error('存储空间不够');
+      }).then(() => prune(snap.kind));
+    },
+    del(id) {
+      return openDb().then((db) => req(db, true, (s) => s.delete(id)), () => { C.LS.set('snaps', lsList().filter((x) => x.id !== id)); });
+    }
+  };
+  function prune(kind) {
+    const keep = (mode === 'ls' ? KEEP_LS : KEEP)[kind] || 5;
+    return Store.all().then((a) => {
+      const old = a.filter((x) => x.kind === kind).slice(keep);
+      return old.reduce((p, x) => p.then(() => Store.del(x.id)), Promise.resolve());
+    });
+  }
+
+  /* ================= 每日存档点 ================= */
+  let dayBusy = false, dayTried = 0;
+  function dailyPoint() {
+    const t = C.todayStr();
+    if (dayBusy || C.LS.get('snapDay', '') === t) return;
+    if (Date.now() - dayTried < 30000) return;       // 还没进度时别每存一次就翻一遍 localStorage
+    dayTried = Date.now();
+    const s = makeSnap('day', '', false);
+    if (!hasProgress(s.sum)) return;                 // 还什么都没玩过：不存
+    dayBusy = true;
+    Store.put(s).then(() => { C.LS.set('snapDay', t); }, () => {}).then(() => { dayBusy = false; });
+  }
+
+  /* ================= 导出 / 导入 ================= */
+  const pad = (n) => String(n).padStart(2, '0');
+  function fileName(at) {
+    const d = new Date(at || Date.now());
+    return '华文小岛存档_' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '_' + pad(d.getHours()) + pad(d.getMinutes()) + '.json';
+  }
+  function exportText(snap) {
+    const o = { app: snap.app, v: snap.v, id: snap.id, kind: snap.kind, at: snap.at, day: snap.day, label: snap.label, sum: snap.sum, data: snap.data };
+    return JSON.stringify(o);
+  }
+  /* 触屏设备（iPad）优先走分享面板：能“存储到文件”、AirDrop 给爸妈手机；电脑直接下载。
+     注意：navigator.share 必须在点击的同一拍里调用，所以这里前面不能有 await */
+  function exportSnap(snap) {
+    const text = exportText(snap), name = fileName(snap.at);
+    let blob;
+    try { blob = new Blob([text], { type: 'application/json' }); } catch (e) { return Promise.resolve('fail'); }
+    const coarse = !!(W.matchMedia && W.matchMedia('(pointer: coarse)').matches);
+    const nav = W.navigator;
+    if (coarse && nav.canShare && nav.share && W.File) {
+      try {
+        const f = new File([blob], name, { type: 'application/json' });
+        if (nav.canShare({ files: [f] })) {
+          return nav.share({ files: [f], title: '华文小岛存档' }).then(() => { markExported(); return 'shared'; },
+            (e) => (e && e.name === 'AbortError' ? 'cancel' : download(blob, name)));
+        }
+      } catch (e) { /* 退回下载 */ }
+    }
+    return Promise.resolve(download(blob, name));
+  }
+  function download(blob, name) {
+    try {
+      const url = URL.createObjectURL(blob);
+      const a = h('a', { href: url, download: name, style: 'display:none' });
+      D.body.appendChild(a); a.click();
+      setTimeout(() => { try { URL.revokeObjectURL(url); a.remove(); } catch (e) { /* ignore */ } }, 8000);
+      markExported();
+      return 'download';
+    } catch (e) { return 'fail'; }
+  }
+  function markExported() { C.LS.set('lastExport', Date.now()); }
+
+  /* ================= 恢复 ================= */
+  function snapTitle(s) {
+    const d = new Date(s.at || 0);
+    const when = (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    const what = s.kind === 'day' ? '每日自动存档' : s.kind === 'pre' ? '恢复前的备份' : s.kind === 'file' ? '存档文件' : (s.label || '手动存档点');
+    return when + ' · ' + what;
+  }
+  const sumText = (sum) => (sum && sum.length ? sum.map((x) => x.a + x.n + ' 🌸' + x.f + (x.c ? ' · 字卡 ' + x.c : '')).join('　') : '（没有档案）');
+  function restore(snap) {
+    return C.parentGate('把进度换成「' + snapTitle(snap) + '」：' + sumText(snap.sum) + '。现在的进度会先自动备份成一个存档点，换错了还能换回来。').then((ok) => {
+      if (!ok) return;
+      const pre = makeSnap('pre', '');
+      const backup = hasProgress(pre.sum) ? Store.put(pre).catch(() => {}) : Promise.resolve();
+      return backup.then(() => apply(snap.data, snapTitle(snap)));
+    });
+  }
+  function apply(data, label) {
+    let prof = {};
+    try { prof = JSON.parse(data.profiles || '{}') || {}; } catch (e) { prof = {}; }
+    const t = Date.now() + 1000;
+    Object.keys(prof).forEach((id) => { if (prof[id] && typeof prof[id] === 'object') prof[id].updatedAt = t; });
+    const out = Object.assign({}, data, { profiles: JSON.stringify(prof) });
+    try { C.tts.stop(); } catch (e) { /* ignore */ }
+    C.freeze();
+    try {
+      const ls = W.localStorage;
+      Object.keys(out).forEach((k) => { if (!SKIP.has(k) && typeof out[k] === 'string') ls.setItem(PFX + k, out[k]); });
+      ls.removeItem(PFX + 'pickDay');          // 恢复后重新问“谁来玩？”
+      ls.setItem(PFX + 'snapDay', JSON.stringify(C.todayStr()));   // 今天的每日存档点不要拿恢复出来的进度去覆盖
+    } catch (e) {
+      C.toast('写不进浏览器存储，恢复没成功。');
+      return;
+    }
+    try { W.sessionStorage.setItem('hw.restored', label); } catch (e) { /* ignore */ }
+    W.location.reload();
+    setTimeout(() => C.toast('已写好存档，请手动刷新一下页面。'), 2500);
+  }
+
+  /* ================= 自动保存提示 ================= */
+  let chipWait = false, chipPoll = 0;
+  function flashChip() {
+    const r = C.root(); if (!r) return;
+    let el = D.getElementById('hw-savechip');
+    if (!el) { el = h('div', { class: 'hw-savechip', id: 'hw-savechip', role: 'status', 'aria-live': 'polite' }); r.appendChild(el); }
+    el.textContent = '💾 进度已自动保存';
+    el.classList.remove('is-on'); void el.offsetWidth; el.classList.add('is-on');
+    clearTimeout(flashChip.t); flashChip.t = setTimeout(() => el.classList.remove('is-on'), 2200);
+  }
+  C.onSave((ok) => {
+    if (!ok) return;
+    if (C.LS.get('snapDay', '') !== C.todayStr()) setTimeout(dailyPoint, 0);
+    // 玩的时候不打扰：一局里存过，等回到地图 / 结算页再闪一下
+    if (C.ui.view === 'game') {
+      if (!chipWait) {
+        chipWait = true;
+        clearInterval(chipPoll);
+        chipPoll = setInterval(() => {
+          if (C.ui.view === 'game') return;
+          clearInterval(chipPoll); chipWait = false;
+          if (C.ui.view === 'map' || C.ui.view === 'result') flashChip();
+        }, 800);
+      }
+    }
+  });
+  C.onBoot(() => {
+    setTimeout(dailyPoint, 2500);
+    let msg = '';
+    try { msg = W.sessionStorage.getItem('hw.restored') || ''; W.sessionStorage.removeItem('hw.restored'); } catch (e) { msg = ''; }
+    if (msg) setTimeout(() => C.toast('✓ 已恢复到「' + msg + '」'), 600);
+  });
+
+  /* ================= 档案页：存档卡片 ================= */
+  function agoText(t) {
+    if (!t) return '';
+    const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+    if (s < 60) return '刚刚';
+    if (s < 3600) return Math.floor(s / 60) + ' 分钟前';
+    if (s < 86400) return Math.floor(s / 3600) + ' 小时前';
+    return Math.floor(s / 86400) + ' 天前';
+  }
+  function savesCard() {
+    const info = C.saveInfo();
+    const autoLine = info.fail && info.fail >= info.ok
+      ? h('p', { class: 'hw-save-auto is-bad' }, '⚠️ 最近一次自动保存失败了（浏览器存储满了或不让存）。请马上点「导出存档文件」留一份。')
+      : h('p', { class: 'hw-save-auto' }, '✓ 自动存档开着：每玩一步都会马上存进这台设备的浏览器' + (info.ok ? '（最近一次：' + agoText(info.ok) + '）' : '') + '。');
+    const lastEx = +C.LS.get('lastExport', 0) || 0;
+    const exDays = lastEx ? (Date.now() - lastEx) / 864e5 : Infinity;
+    const exLine = h('p', { class: 'hw-muted hw-save-ex' + (exDays > 7 ? ' is-warn' : '') },
+      lastEx ? '上次导出存档文件：' + agoText(lastEx) + '。' : '还没导出过存档文件。',
+      exDays > 7 ? '建议每周导出一次：浏览器清理数据、换设备的时候，只有导出的文件能把进度找回来。' : '');
+
+    const name = h('input', { class: 'hw-input hw-snapname', id: 'hw-snap-name', type: 'text', maxlength: '20', placeholder: '给存档点起个名（可不填）', autocomplete: 'off' });
+    const list = h('ul', { class: 'hw-snaps', id: 'hw-snaps' }, h('li', { class: 'hw-muted' }, '读取存档点……'));
+    const saveBtn = h('button', { class: 'hw-btn primary', type: 'button', id: 'hw-snap-save' }, '📌 存一个存档点');
+    saveBtn.addEventListener('click', () => {
+      const s = makeSnap('manual', name.value.trim());
+      if (!hasProgress(s.sum)) { C.toast('还没有进度可以存，先去玩一局吧'); return; }
+      saveBtn.disabled = true;
+      Store.put(s).then(() => { C.toast('📌 存好了：' + snapTitle(s)); name.value = ''; fill(); },
+        (e) => C.toast('没存上：' + ((e && e.message) || '存储出错'))).then(() => { saveBtn.disabled = false; });
+    });
+    const exBtn = h('button', { class: 'hw-btn', type: 'button', id: 'hw-snap-export' }, '📤 导出存档文件');
+    exBtn.addEventListener('click', () => {
+      exportSnap(makeSnap('file', '')).then((r) => {
+        if (r === 'download') C.toast('已下载存档文件（在“下载”文件夹里）');
+        else if (r === 'shared') C.toast('✓ 已导出');
+        else if (r === 'fail') { C.toast('这里下载不了，改用下面“用文字复制”'); const dt = D.getElementById('hw-save-text'); if (dt) dt.open = true; }
+        if (r === 'download' || r === 'shared') { const n = D.getElementById('hw-saves'); if (n) n.replaceWith(savesCard()); }
+      });
+    });
+    const file = h('input', { type: 'file', id: 'hw-snap-file', class: 'hw-vh', 'aria-label': '选择存档文件' });
+    const imBtn = h('button', { class: 'hw-btn', type: 'button', id: 'hw-snap-import' }, '📥 用存档文件恢复');
+    imBtn.addEventListener('click', () => { file.value = ''; file.click(); });
+    file.addEventListener('change', () => {
+      const f = file.files && file.files[0];
+      if (!f) return;
+      if (f.size > 20 * 1024 * 1024) { C.toast('这个文件太大了，不像是华文小岛的存档'); return; }
+      f.text().then((t) => importText(t, f.name), () => C.toast('读不了这个文件'));
+    });
+
+    // 下载 / 选文件不方便时（比如嵌在别的页面里）：用文字复制、粘贴
+    const ta = h('textarea', { class: 'hw-input hw-save-ta', id: 'hw-save-ta', rows: '3', placeholder: '把存档文字粘贴到这里', spellcheck: 'false', autocomplete: 'off' });
+    const cpBtn = h('button', { class: 'hw-btn', type: 'button', id: 'hw-save-copy' }, '复制现在的存档文字');
+    cpBtn.addEventListener('click', () => {
+      const text = exportText(makeSnap('file', ''));
+      const done = () => { markExported(); C.toast('已复制，粘贴到备忘录 / 微信收藏里保存'); };
+      const fallback = () => { ta.value = text; ta.select(); try { D.execCommand('copy'); done(); } catch (e) { C.toast('请手动全选复制框里的文字'); } };
+      try { W.navigator.clipboard.writeText(text).then(done, fallback); } catch (e) { fallback(); }
+    });
+    const pasteBtn = h('button', { class: 'hw-btn', type: 'button', id: 'hw-save-paste' }, '用这段文字恢复');
+    pasteBtn.addEventListener('click', () => importText(ta.value, '粘贴的存档'));
+
+    const card = h('section', { class: 'hw-card hw-saves', id: 'hw-saves', 'aria-labelledby': 'hw-saves-h' },
+      h('h2', { class: 'hw-saves-h', id: 'hw-saves-h' }, '💾 存档'),
+      autoLine,
+      h('div', { class: 'hw-row hw-snaprow' }, name, saveBtn),
+      h('div', { class: 'hw-row' }, exBtn, imBtn, file),
+      exLine,
+      h('h3', { class: 'hw-saves-sub' }, '存档点'),
+      list,
+      h('details', { class: 'hw-save-text', id: 'hw-save-text' },
+        h('summary', null, '下载、选文件不方便？用文字复制'),
+        h('div', { class: 'hw-stack' }, h('div', { class: 'hw-row' }, cpBtn), ta, h('div', { class: 'hw-row' }, pasteBtn))),
+      h('div', { class: 'hw-muted hw-save-tip' },
+        h('p', null, '存档点只存在这台设备的这个浏览器里；换设备、清浏览器数据要靠导出的文件。'),
+        h('p', null, 'iPad / iPhone 的 Safari 有个规定：7 天没打开这个网页，会自动清掉它存的进度 —— 隔几天玩一次就没事，放长假前记得导出。'),
+        h('p', null, '网页版、单机版、claude.ai 版的进度互不相通，想搬过去也是先导出、再到那边「用存档文件恢复」。')));
+
+    function fill() {
+      Store.all().then((a) => {
+        if (!list.isConnected && !card.isConnected) return;
+        list.replaceChildren();
+        if (!a.length) { list.appendChild(h('li', { class: 'hw-muted' }, '还没有存档点。每天第一次打开会自动存一个；也可以点上面的「存一个存档点」。')); return; }
+        a.forEach((s) => list.appendChild(snapRow(s)));
+        if (mode === 'ls') list.appendChild(h('li', { class: 'hw-muted' }, '（这个浏览器不支持大容量存储，只保留最近几个存档点）'));
+      }, () => { list.replaceChildren(h('li', { class: 'hw-muted' }, '存档点读不出来（浏览器不让用存储）。')); });
+    }
+    function snapRow(s) {
+      const icon = s.kind === 'day' ? '🌅' : s.kind === 'pre' ? '↩️' : '📌';
+      const rs = h('button', { class: 'hw-btn', type: 'button' }, '恢复');
+      rs.addEventListener('click', () => restore(s));
+      const ex = h('button', { class: 'hw-btn ghost', type: 'button' }, '导出');
+      ex.addEventListener('click', () => { exportSnap(s).then((r) => { if (r === 'download') C.toast('已下载存档文件'); }); });
+      let del = null;
+      if (s.kind === 'manual') {
+        del = h('button', { class: 'hw-btn ghost hw-danger', type: 'button' }, '删除');
+        del.addEventListener('click', () => {
+          if (!del.classList.contains('is-armed')) { del.classList.add('is-armed'); del.textContent = '确定删除？'; setTimeout(() => { if (del.isConnected) { del.classList.remove('is-armed'); del.textContent = '删除'; } }, 4000); return; }
+          Store.del(s.id).then(fill, fill);
+        });
+      }
+      return h('li', { class: 'hw-snap' },
+        h('span', { class: 'hw-snap-ic', 'aria-hidden': 'true' }, icon),
+        h('div', { class: 'hw-snap-t' }, h('div', { class: 'hw-snap-n' }, snapTitle(s)), h('div', { class: 'hw-muted hw-snap-s' }, sumText(s.sum))),
+        h('div', { class: 'hw-row hw-snap-b' }, rs, ex, del));
+    }
+    function importText(text, from) {
+      const o = parseSave(text);
+      if (!o) { C.toast('这不是华文小岛的存档（或者内容不完整）'); return; }
+      o.kind = 'file';
+      if (!o.label) o.label = String(from || '').slice(0, 20);
+      restore(o);
+    }
+    setTimeout(fill, 0);
+    return card;
+  }
+
+  /* ================= 档案页：声音检查 ================= */
+  function soundCard() {
+    const out = h('ul', { class: 'hw-sndres', id: 'hw-sndres', 'aria-live': 'polite' });
+    const btn = h('button', { class: 'hw-btn primary', type: 'button', id: 'hw-snd-check' }, '▶ 开始检查');
+    btn.addEventListener('click', () => runCheck(out, btn));
+    return h('section', { class: 'hw-card hw-sndchk', id: 'hw-sndchk', 'aria-labelledby': 'hw-snd-h' },
+      h('h2', { class: 'hw-saves-h', id: 'hw-snd-h' }, '🔊 声音检查'),
+      h('p', { class: 'hw-muted' }, '听不到声音的时候点一下：会先“叮”一声，再读一句“你好，欢迎来到华文小岛”，然后告诉你哪一步不通。'),
+      h('div', { class: 'hw-row' }, btn), out);
+  }
+  function row(out, ok, title, tip) {
+    out.appendChild(h('li', { class: 'hw-sndrow ' + (ok === true ? 'is-ok' : ok === false ? 'is-bad' : 'is-info') },
+      h('span', { class: 'hw-sndrow-ic', 'aria-hidden': 'true' }, ok === true ? '✅' : ok === false ? '❌' : 'ℹ️'),
+      h('div', null, h('div', { class: 'hw-sndrow-t' }, title), tip ? h('div', { class: 'hw-muted hw-sndrow-d' }, tip) : null)));
+  }
+  // 整个检查都在这次点击里同步开始（iOS 只在点击的同一拍里放行声音）
+  function runCheck(out, btn) {
+    out.replaceChildren();
+    btn.disabled = true;
+    const soundOn = !!C.settings().sound;
+    C.aud.wake(true);
+    try { C.tts.unlock(); } catch (e) { /* ignore */ }
+    try { C.sfx.unlock(); C.sfx.good(); } catch (e) { /* ignore */ }
+    const t0 = Date.now();
+    let tp;
+    try { tp = C.tts.speak('你好，欢迎来到华文小岛。', { rate: 0.9 }); } catch (e) { tp = Promise.resolve({ started: false }); }
+    const ua = String(W.navigator.userAgent || '');
+    const ios = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && (W.navigator.maxTouchPoints || 0) > 1);
+
+    setTimeout(() => {
+      // 1. 音效
+      const st = C.sfx.state();
+      if (!soundOn) row(out, false, '音效：开关是关着的', '点地图右上角的 🔈 把音效打开（朗读不受这个开关影响）。');
+      else if (st === 'running') row(out, true, '音效：正常', '刚才应该听到“叮”的一声。');
+      else row(out, false, '音效：被系统暂停了（' + st + '）', '再点一次「开始检查」；还不行就把浏览器彻底关掉（从后台划掉）再打开。');
+      // 2. 静音模式
+      const ty = C.aud.sessionType();
+      if (ty === 'playback') row(out, true, '静音模式：已处理', ios ? 'iPad / iPhone 开着静音时也照常出声。' : '这台设备开着静音时也照常出声。');
+      else if (ty) row(out, null, '静音模式：正在用麦克风（' + ty + '）', '用完麦克风会自动切回来。');
+      else if (ios) row(out, null, '静音模式：这个系统版本管不了', 'iPad 如果开着静音（控制中心里的 🔔 图标），网页会没声，请关掉静音；或者把 iPad 升级到 iPadOS 17 以上。');
+      // 3. 朗读
+      const ts = C.tts.status();
+      if (ts === 'none') { row(out, false, '朗读：这个浏览器不支持', '请换 Safari（iPad）或 Chrome（电脑）。'); finish(); return; }
+      if (ts === 'nozh') {
+        row(out, false, '朗读：这台设备没有普通话声音', ios ? '设置 → 辅助功能 → 朗读内容 → 声音 → 中文（中国大陆）→ 下载「婷婷」，然后回来刷新页面。'
+          : '系统设置里下载中文（普通话）语音，然后刷新页面。');
+        finish(); return;
+      }
+      Promise.resolve(tp).then((r) => {
+        const ms = Date.now() - t0;
+        const vn = C.tts.voiceName() || '系统默认', vl = C.tts.voiceLang();
+        if (r && r.started) row(out, true, '朗读：正常', '用的是「' + vn + '」' + (vl ? '（' + vl + '）' : '') + '，读了 ' + (ms / 1000).toFixed(1) + ' 秒。');
+        else {
+          row(out, false, '朗读：没读出来', (ios ? '先把浏览器从后台彻底关掉再打开；还不行就到 设置 → 辅助功能 → 朗读内容 → 声音 → 中文，把「' + vn + '」删掉重新下载。'
+            : '换一个浏览器试试（电脑上 Chrome 和 Safari 都行）。') + '游戏里读不出来时会改显示字幕，不会卡住。');
+        }
+        finish();
+      }, () => { row(out, false, '朗读：出错了', '再点一次检查。'); finish(); });
+    }, 700);
+
+    function finish() {
+      const cs = C.aud.contexts();
+      row(out, null, '全都 ✅ 还是听不到？', '看看音量是不是调到最小、是不是连着蓝牙耳机或音箱。' +
+        (cs.length ? '（技术信息：音频通道 ' + cs.length + ' 个，' + cs.map((c) => c.state).join(' / ') + '）' : ''));
+      btn.disabled = false;
+    }
+  }
+
+  C.addProfilesExtra(savesCard);
+  C.addProfilesExtra(soundCard);
+
+  HW.css(`
+.hw-saves,.hw-sndchk{display:flex;flex-direction:column;gap:12px;margin-top:18px}
+.hw-saves-h{font:400 24px/1.2 var(--font-display);letter-spacing:.04em;margin:0}
+.hw-saves-sub{font-size:17px;margin:6px 0 0}
+.hw-save-auto{margin:0;padding:10px 12px;border-radius:12px;background:var(--good-bg);color:var(--good);font-weight:700}
+.hw-save-auto.is-bad{background:var(--bad-bg);color:var(--bad)}
+.hw-save-ex{margin:0}.hw-save-ex.is-warn{color:var(--speak);font-weight:700}
+.hw-snaprow .hw-snapname{flex:1 1 220px;min-width:0}
+.hw-snaps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.hw-snap{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 12px;border:2px solid var(--line);border-radius:12px;background:var(--paper-2)}
+.hw-snap-ic{font-size:22px;line-height:1}
+.hw-snap-t{flex:1 1 200px;min-width:0}
+.hw-snap-n{font-weight:800}
+.hw-snap-s{font-size:14px;overflow-wrap:anywhere}
+.hw-snap-b{gap:6px}.hw-snap-b .hw-btn{min-height:40px;padding:4px 14px}
+.hw-danger.is-armed{color:#fff!important;background:var(--bad);text-decoration:none;border-radius:10px}
+.hw-save-text summary{cursor:pointer;color:var(--ink-soft);font-weight:700;padding:4px 0}
+.hw-save-ta{width:100%;min-height:84px;font:13px/1.4 ui-monospace,Menlo,monospace;resize:vertical}
+.hw-save-tip{font-size:14px;margin:0;display:flex;flex-direction:column;gap:6px}.hw-save-tip p{margin:0}
+.hw-vh{position:absolute!important;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden}
+.hw-sndres{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.hw-sndrow{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:var(--paper-2);border:2px solid var(--line)}
+.hw-sndrow.is-ok{border-color:var(--good)}.hw-sndrow.is-bad{border-color:var(--bad);background:var(--bad-bg)}
+.hw-sndrow-ic{font-size:20px;line-height:1.2}
+.hw-sndrow-t{font-weight:800}.hw-sndrow-d{font-size:14px;overflow-wrap:anywhere}
+.hw-savechip{position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:40;padding:8px 14px;border-radius:999px;
+  background:var(--paper);color:var(--good);border:2.5px solid var(--good);font-weight:800;font-size:15px;box-shadow:var(--shadow);
+  opacity:0;transform:translateY(12px);transition:opacity .25s,transform .25s;pointer-events:none}
+.hw-savechip.is-on{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.hw-savechip{transition:none}}
+`);
+}(window, document));
 </script>
 <script>
 /* =====================================================================
@@ -8910,14 +9505,16 @@ Legal Terms
       const my = ++sayGen, p0 = pauseN, s0 = stopN, t0 = now();
       speaking++; g.speaking = true; musicDuck(true);
       let settled = false;
-      const fin = () => {
+      const fin = (r) => {
         if (settled) return null;
         settled = true;
         speaking = Math.max(0, speaking - 1); if (!speaking) { g.speaking = false; if (!dead) musicDuck(false); }
         const ms = Math.round(now() - t0);
         const interrupted = dead || my !== sayGen || pauseN !== p0 || stopN !== s0;
+        // 核心朗读会告诉我们有没有真的开口（r.started === false：4 秒没开口被放弃）→ 当空播处理，补字幕
+        const noStart = !!(r && typeof r === 'object' && r.started === false && !r.skipped);
         let silent = false;
-        if (!interrupted && hanCount(s) >= 3 && ms < 300) {
+        if (!interrupted && (noStart || (hanCount(s) >= 3 && ms < 300))) {
           silent = true; silentN++;
           if (silentN >= 2) g.ttsBroken = true;
           if (!dead) showCaption(s, o);
@@ -15994,7 +16591,7 @@ Legal Terms
     m.ac = null;
     if (m.state === 'on' || m.state === 'asking') m.state = 'off';
   }
-  function micResume(P) { const m = P.mic; try { if (m && m.ac && m.ac.state === 'suspended' && m.ac.resume) m.ac.resume().catch(() => {}); } catch (e) { /* ignore */ } }
+  function micResume(P) { const m = P.mic; try { if (m && m.ac && m.ac.state !== 'running' && m.ac.state !== 'closed' && m.ac.resume) m.ac.resume().catch(() => {}); } catch (e) { /* ignore */ } }
   function micRead(m, dt, calibrate) {
     if (!m || m.state !== 'on' || !m.an) return 0;
     m.an.getByteTimeDomainData(m.buf);
@@ -17553,7 +18150,7 @@ Legal Terms
     S.ensure = function () {
       if (S.dead) return null;
       if (S.ac) {
-        if (S.ac.state === 'suspended' && S.ac.resume) { try { S.ac.resume().catch(() => {}); } catch (e) { /* ignore */ } }
+        if (S.ac.state !== 'running' && S.ac.state !== 'closed' && S.ac.resume) { try { S.ac.resume().catch(() => {}); } catch (e) { /* ignore */ } }   // 含 iOS 的 'interrupted'
         return S.ac;
       }
       const C = W.AudioContext || W.webkitAudioContext;
@@ -35492,7 +36089,7 @@ Legal Terms
     /* ================= 声调哨音（WebAudio，本文件自带；跟随全局声音开关） ================= */
     function auEnsure() {
       if (AU.dead) return null;
-      if (AU.ac) { if (AU.ac.state === 'suspended' && AU.ac.resume) { try { AU.ac.resume().catch(() => {}); } catch (e) { /* ignore */ } } return AU.ac; }
+      if (AU.ac) { if (AU.ac.state !== 'running' && AU.ac.state !== 'closed' && AU.ac.resume) { try { AU.ac.resume().catch(() => {}); } catch (e) { /* ignore */ } } return AU.ac; }   // 含 iOS 的 'interrupted'
       const C = W.AudioContext || W.webkitAudioContext;
       if (!C) return null;
       try {

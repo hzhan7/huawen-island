@@ -765,7 +765,7 @@
       const A = W.AudioContext || W.webkitAudioContext;
       if (!HW.sound || !A) return;
       const ac = chomp.ac || (chomp.ac = new A());
-      if (ac.state === 'suspended' && ac.resume) ac.resume().catch(() => {});
+      if (ac.state !== 'running' && ac.state !== 'closed' && ac.resume) ac.resume().catch(() => {});   // 含 iOS 的 'interrupted'
       [0, 0.12].forEach((at, i) => {
         const o = ac.createOscillator(), gn = ac.createGain(), t0 = ac.currentTime + at;
         o.type = 'triangle'; o.frequency.setValueAtTime(i ? 520 : 380, t0); o.frequency.exponentialRampToValueAtTime(i ? 760 : 220, t0 + 0.09);

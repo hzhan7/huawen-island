@@ -3087,14 +3087,16 @@
       const my = ++sayGen, p0 = pauseN, s0 = stopN, t0 = now();
       speaking++; g.speaking = true; musicDuck(true);
       let settled = false;
-      const fin = () => {
+      const fin = (r) => {
         if (settled) return null;
         settled = true;
         speaking = Math.max(0, speaking - 1); if (!speaking) { g.speaking = false; if (!dead) musicDuck(false); }
         const ms = Math.round(now() - t0);
         const interrupted = dead || my !== sayGen || pauseN !== p0 || stopN !== s0;
+        // 核心朗读会告诉我们有没有真的开口（r.started === false：4 秒没开口被放弃）→ 当空播处理，补字幕
+        const noStart = !!(r && typeof r === 'object' && r.started === false && !r.skipped);
         let silent = false;
-        if (!interrupted && hanCount(s) >= 3 && ms < 300) {
+        if (!interrupted && (noStart || (hanCount(s) >= 3 && ms < 300))) {
           silent = true; silentN++;
           if (silentN >= 2) g.ttsBroken = true;
           if (!dead) showCaption(s, o);

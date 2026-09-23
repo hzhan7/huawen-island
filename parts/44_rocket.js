@@ -248,7 +248,7 @@
     m.ac = null;
     if (m.state === 'on' || m.state === 'asking') m.state = 'off';
   }
-  function micResume(P) { const m = P.mic; try { if (m && m.ac && m.ac.state === 'suspended' && m.ac.resume) m.ac.resume().catch(() => {}); } catch (e) { /* ignore */ } }
+  function micResume(P) { const m = P.mic; try { if (m && m.ac && m.ac.state !== 'running' && m.ac.state !== 'closed' && m.ac.resume) m.ac.resume().catch(() => {}); } catch (e) { /* ignore */ } }
   function micRead(m, dt, calibrate) {
     if (!m || m.state !== 'on' || !m.an) return 0;
     m.an.getByteTimeDomainData(m.buf);

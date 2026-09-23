@@ -94,7 +94,7 @@
     S.ensure = function () {
       if (S.dead) return null;
       if (S.ac) {
-        if (S.ac.state === 'suspended' && S.ac.resume) { try { S.ac.resume().catch(() => {}); } catch (e) { /* ignore */ } }
+        if (S.ac.state !== 'running' && S.ac.state !== 'closed' && S.ac.resume) { try { S.ac.resume().catch(() => {}); } catch (e) { /* ignore */ } }   // 含 iOS 的 'interrupted'
         return S.ac;
       }
       const C = W.AudioContext || W.webkitAudioContext;

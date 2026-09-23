@@ -146,6 +146,14 @@
   - 修改时长上限、删除档案之前都会弹出。孩子看到的是“请爸爸妈妈来”。
   - 家长要算一道“两位数 × 一位数”，自己输入答案，不是选择题。
   - 答错了换一题；连错 3 次，锁 60 秒。
+- **存档**（档案页底部，`parts/13_parent.js`）：
+  - 自动存档：每一步进度都马上写进浏览器（localStorage）；玩完一局回地图时角落会闪“💾 进度已自动保存”；存不上时会提醒家长。
+  - 存档点（存在 IndexedDB）：每天第一次打开自动存一个（留 7 天）；可以随时手动存、起名字（留 10 个）；每次恢复之前自动备份现在的进度（留 3 个）。
+  - 导出 / 导入存档文件：iPad 上走分享面板（可“存储到文件”、AirDrop），电脑上直接下载。浏览器清数据、Safari 的 7 天清理规则、换设备、网页版和单机版之间搬进度，都靠这个文件。下载不方便时还能用文字复制、粘贴。
+  - 恢复和导入都要过家长验证。
+- **声音检查**（档案页底部）：当场响一声、读一句，逐项说明音效、静音模式、朗读哪一步不通，以及怎么修。
+
+**声音为什么以前会时有时无**（3.1 已修，见 `parts/10_core.js` 的 AUD 和 TTS）：iPad 切后台、锁屏、来电之后，WebKit 把 AudioContext 置为 `interrupted`，只认 `suspended` 的代码不会恢复；朗读引擎卡在“忙”的时候新句子会一直排队；iPad 开着静音时网页声音默认也静音。现在所有 AudioContext 统一登记，点屏幕时一起恢复；朗读 1.5 秒没开口就重说，4 秒没开口就放弃并显示字幕，下次点屏幕重新预热；Safari 17+ 设 `navigator.audioSession.type = 'playback'`，静音模式下照常出声（用麦克风时临时切回 `auto`）。
 
 ---
 
@@ -156,7 +164,7 @@
 |              | GitHub Pages 版（`docs/index.html`） | claude.ai Artifact 版（`dist/index.html`） |
 |--------------|--------------------------------------|--------------------------------------------|
 | 怎么打开     | 公开网址，不用登录                   | 在 claude.ai 里打开，需要 Claude 账号      |
-| 进度存在哪   | 这台设备的浏览器里（localStorage）；换设备、清浏览器数据就没了 | 云端存档，换设备也能接着玩；云端连不上时，进度先存在这台设备上 |
+| 进度存在哪   | 这台设备的浏览器里（localStorage）；换设备、清浏览器数据前要先在「档案 → 存档」导出文件 | 云端存档，换设备也能接着玩；云端连不上时，进度先存在这台设备上 |
 | AI 老师点评  | 没有                                 | 有：小作家（造句、看图写话）和小小主持人（会话）可以请 AI 老师点评，需要大人同意使用 Claude |
 | 游戏内容     | 相同                                 | 相同                                       |
 
@@ -221,6 +229,20 @@ node tools/shot.js --page build/_t_demo/index.html --game suika --grade p4 --siz
 ```
 
 `shot.js` 结束时会打印控制台错误；只要有错误，退出码就是 1。
+
+**单机版（离线单文件）**：把 `docs/index.html` 的三处外链（hanzi-writer、matter.js、Google Fonts）全部内嵌，默认输出到 `~/Desktop/华文小岛单机版/index.html`。
+
+```bash
+.venv/bin/pip install fonttools brotli
+mkdir -p vendor/offline && cd vendor/offline
+curl -LO https://cdn.jsdelivr.net/npm/hanzi-writer@3.7.3/dist/hanzi-writer.min.js
+curl -LO https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.20.0/matter.min.js
+curl -L -o ZCOOLKuaiLe-Regular.ttf https://github.com/google/fonts/raw/main/ofl/zcoolkuaile/ZCOOLKuaiLe-Regular.ttf
+curl -L -o Baloo2.ttf "https://github.com/google/fonts/raw/main/ofl/baloo2/Baloo2%5Bwght%5D.ttf"
+cd ../..
+.venv/bin/python tools/subset_fonts.py    # 按页面用到的字裁字体
+.venv/bin/python tools/make_offline.py    # 可带一个参数指定输出路径
+```
 
 ---
 

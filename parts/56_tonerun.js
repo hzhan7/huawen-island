@@ -717,7 +717,7 @@
     /* ================= 声调哨音（WebAudio，本文件自带；跟随全局声音开关） ================= */
     function auEnsure() {
       if (AU.dead) return null;
-      if (AU.ac) { if (AU.ac.state === 'suspended' && AU.ac.resume) { try { AU.ac.resume().catch(() => {}); } catch (e) { /* ignore */ } } return AU.ac; }
+      if (AU.ac) { if (AU.ac.state !== 'running' && AU.ac.state !== 'closed' && AU.ac.resume) { try { AU.ac.resume().catch(() => {}); } catch (e) { /* ignore */ } } return AU.ac; }   // 含 iOS 的 'interrupted'
       const C = W.AudioContext || W.webkitAudioContext;
       if (!C) return null;
       try {
